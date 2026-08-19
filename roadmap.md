@@ -18,39 +18,81 @@ TOTAL: 44%
 
 ---
 
-## 📦 Fase 2: Recolección de Datos (Semanas 5-8)
+## 📦 Fase 2: Recolección de Datos
 
-### Estado: 🟡 EN PROGRESIO
+### Coletores por Categoría
 
-### Prioridad de Implementación
+#### 🏛️ 2.1 Fuentes Oficiales Nacionales
 
-#### 🔴 Prioridad 1 (Inmediato - 2 semanas)
+| Collector | Fuente | Datos | Método | Prioridad |
+|-----------|--------|-------|--------|-----------|
+| `bcv_collector.py` | BCV | Tasas, IPC, PIB | API comunitaria | 1️⃣ |
+| `ine_collector.py` | INE | Empleo, Pobreza | Scraping | 2️⃣ |
+| `mppef_collector.py` | MPPEF | Presupuesto, Deuda | Scraping | 2️⃣ |
+| `seniat_collector.py` | SENIAT | Recaudación fiscal | Scraping | 3️⃣ |
+| `sunaval_collector.py` | SUNAVAL | Mercado capitales | Scraping | 2️⃣ |
 
-| # | Collector | Fuente | Librería | Estado |
-|---|-----------|--------|----------|--------|
-| 1 | `bcv_collector.py` | BCV | pyDolarVenezuela | ⏳ Pendiente |
-| 2 | `ovf_collector.py` | OVF | BeautifulSoup | ⏳ Pendiente |
-| 3 | `worldbank_collector.py` | Banco Mundial | wbgapi | ⏳ Pendiente |
-| 4 | `bvc_collector.py` | BVC/Yahoo | yfinance | ⏳ Pendiente |
-| 5 | `binance_collector.py` | Binance P2P | API oficial | ⏳ Pendiente |
+#### 💰 2.2 Fuentes Fiscales Gubernamentales (NUEVO)
 
-#### 🟡 Prioridad 2 (Corto plazo - 1 mes)
+| Collector | Fuente | Datos | Método | Prioridad |
+|-----------|--------|-------|--------|-----------|
+| `onapre_collector.py` | ONAPRE | Ejecución presupuestaria | Scraping + PDF | 1️⃣ |
+| `cgr_collector.py` | CGR | Informes de gestión | Scraping + PDF | 1️⃣ |
+| `an_collector.py` | AN | Leyes de presupuesto | Scraping | 2️⃣ |
+| `caracas_collector.py` | Alcaldía | Gestión municipal | Scraping | 3️⃣ |
 
-| # | Collector | Fuente | Librería | Estado |
-|---|-----------|--------|----------|--------|
-| 6 | `ine_collector.py` | INE | Scraping | ⏳ Pendiente |
-| 7 | `opec_collector.py` | OPEP | API/Scraping | ⏳ Pendiente |
-| 8 | `rss_collector.py` | Noticias VE | feedparser | ⏳ Pendiente |
-| 9 | `imf_collector.py` | FMI | API IMF | ⏳ Pendiente |
+**Estructura:**
+```
+src/collectors/fiscal/
+├── __init__.py
+├── onapre_collector.py     # Oficina Nacional de Presupuesto
+├── cgr_collector.py        # Contraloría General
+├── an_collector.py         # Asamblea Nacional
+├── mppef_collector.py      # Ministerio de Economía
+├── caracas_collector.py    # Alcaldía de Caracas
+├── pdf_extractor.py        # Extracción de PDFs
+└── utils.py                # Funciones comunes
+```
 
-#### 🟢 Prioridad 3 (Mediano plazo - 2 meses)
+#### 🌍 2.3 Organismos Internacionales
 
-| # | Collector | Fuente | Librería | Estado |
-|---|-----------|--------|----------|--------|
-| 10 | `cepal_collector.py` | CEPAL | Scraping | ⏳ Pendiente |
-| 11 | `reddit_collector.py` | Reddit | PRAW | ⏳ Pendiente |
-| 12 | `twitter_collector.py` | Twitter/X | Tweepy | ⏳ Pendiente |
-| 13 | `seniat_collector.py` | SENIAT | Scraping | ⏳ Pendiente |
+| Collector | Fuente | Datos | Método | Prioridad |
+|-----------|--------|-------|--------|-----------|
+| `worldbank_collector.py` | Banco Mundial | PIB, Desarrollo | API wbgapi | 1️⃣ |
+| `imf_collector.py` | FMI | Proyecciones | API IMF | 1️⃣ |
+| `cepal_collector.py` | CEPAL | Estadísticas regionales | Scraping | 2️⃣ |
+
+#### 🔬 2.4 Observatorios Independientes
+
+| Collector | Fuente | Datos | Método | Prioridad |
+|-----------|--------|-------|--------|-----------|
+| `ovf_collector.py` | OVF | Inflación independiente | Scraping | 1️⃣ |
+| `ove_collector.py` | OVE | Análisis sectorial | Scraping | 2️⃣ |
+| `ucab_collector.py` | UCAB IIES | Proyecciones | Scraping | 2️⃣ |
+
+#### 🛢️ 2.5 Sector Energético
+
+| Collector | Fuente | Datos | Método | Prioridad |
+|-----------|--------|-------|--------|-----------|
+| `pdvsa_collector.py` | PDVSA | Producción oficial | Scraping | 1️⃣ |
+| `opec_collector.py` | OPEP | Producción secundaria | API/Scraping | 1️⃣ |
+| `eia_collector.py` | EIA | Estimaciones | API/Scraping | 2️⃣ |
+
+#### 💹 2.6 Mercados Financieros
+
+| Collector | Fuente | Datos | Método | Prioridad |
+|-----------|--------|-------|--------|-----------|
+| `bvc_collector.py` | BVC/Yahoo | IBC, Acciones | yfinance | 1️⃣ |
+| `dolar_collector.py` | Monitores | Tasa paralelo | pydolarvenezuela | 1️⃣ |
+| `binance_collector.py` | Binance | Precio USDT/VES | API oficial | 1️⃣ |
+
+#### 📰 2.7 Noticias y Redes Sociales
+
+| Collector | Fuente | Datos | Método | Prioridad |
+|-----------|--------|-------|--------|-----------|
+| `rss_collector.py` | Portales VE | Noticias económicas | RSS | 2️⃣ |
+| `reddit_collector.py` | Reddit | Sentimiento | API OAuth2 | 2️⃣ |
+| `twitter_collector.py` | Twitter/X | Sentimiento | API v2 | 3️⃣ |
 
 ---
 
@@ -71,6 +113,7 @@ TOTAL: 44%
 | Quiebres estructurales | Detección con CUSUM/Chow | Media |
 | Manejo de errores | Retry con tenacity | Alta |
 | Validación de datos | Entradas NaN, series vacías | Alta |
+| **Análisis fiscal** | Efecto gasto público, sostenibilidad | Alta |
 
 ---
 
@@ -86,6 +129,7 @@ TOTAL: 44%
 | Gráfico IBC | Evolución del índice bursátil | ⏳ |
 | Tabla macro | Indicadores clave | ⏳ |
 | Análisis multi-fuente | Dispersión de fuentes | ⏳ |
+| **Panel fiscal** | Ejecución presupuestaria | ⏳ |
 
 ---
 
@@ -95,137 +139,91 @@ TOTAL: 44%
 
 ---
 
-## 🔧 Mejoras Estratégicas (Post-Review)
+## 🔧 Análisis Fiscales Habilitados
 
-### 1. Sistema de Confiabilidad de Fuentes
+### Nuevos Análisis con Datos Fiscales
 
-```python
-# Implementar en src/analyzers/data_validation.py
-source_confidence = {
-    "BCV": 0.7,           # Oficial, puede tener sesgo
-    "OVF": 0.9,           # Independiente, alta credibilidad
-    "FMI": 0.85,          # Internacional
-    "Banco Mundial": 0.85,
-    "UCAB": 0.8           # Académico
-}
-```
+| Análisis | Datos Necesarios | Pregunta |
+|----------|------------------|----------|
+| **Efecto del Gasto Público** | Ejecución + PIB | ¿El gasto impulsa el crecimiento? |
+| **Sostenibilidad Fiscal** | Ingresos vs Gastos | ¿El déficit se financia con emisión? |
+| **Eficiencia del Gasto** | Inversión social vs indicadores | ¿Se correlaciona con mejoras? |
+| **Nowcasting Económico** | Ejecución del gasto | ¿Se puede estimar PIB en curso? |
 
-### 2. Detección de Quiebres Estructurales
+### Modelo de Datos Fiscal
 
 ```python
-# Crear src/analyzers/econometric/breaks.py
-- Prueba de Chow
-- Test de CUSUM
-- Detección de cambios de régimen
-```
+# src/models/fiscal.py
+from pydantic import BaseModel
+from datetime import date
+from typing import Optional
 
-### 3. Informe Ejecutivo con IA
+class BudgetExecution(BaseModel):
+    fiscal_year: int
+    source: str  # "ONAPRE", "CGR", "MPPEF", "AN"
+    document_url: str
+    publication_date: date
+    
+    total_budget_approved: float
+    total_budget_executed: float
+    execution_percentage: float
+    
+    current_expenditure: float
+    capital_expenditure: float
+    social_investment: float
+    
+    notes: Optional[str] = None
 
-```python
-# Usar DeepSeek V4-Pro para generar resúmenes
-- Resumen semanal automatizado
-- Lenguaje natural
-- Recomendaciones
-```
-
-### 4. Manejo de Errores Robusto
-
-```python
-# Implementar en todos los collectors
-from tenacity import retry, stop_after_attempt
-
-@retry(stop=stop_after_attempt(3))
-def fetch_data():
-    # Lógica de recolección
-    pass
+class FiscalIndicators(BaseModel):
+    fiscal_year: int
+    deficit: float
+    deficit_gdp_ratio: float
+    debt_gdp_ratio: float
+    primary_balance: float
+    monetization: float
 ```
 
 ---
 
-## 📊 Dependencias Actualizadas
+## 📊 Dependencias Adicionales
 
 ```txt
-# Core
-fastapi==0.109.0
-uvicorn==0.25.0
-pydantic==2.5.3
-pydantic-settings==2.1.0
+# Para procesamiento de PDFs
+pdfplumber==0.10.3
+PyPDF2==3.0.1
 
-# Venezuela
-pydolarvenezuela==0.2.0
-pyvenezuela==0.1.0
-bcv-exchange==0.1.0
-
-# Internacional
-wbgapi==1.0.1
-yfinance==0.2.31
-pandas-datareader==0.10.0
-
-# Scraping
-requests==2.31.0
-beautifulsoup4==4.12.2
-playwright==1.41.0
-selenium==4.17.0
-feedparser==6.0.11
-
-# Social
-tweepy==4.14.0
-praw==7.7.1
-
-# Datos
-pandas==2.1.4
-numpy==1.26.2
-openpyxl==3.1.2
-
-# Econometría
-statsmodels==0.14.1
-arch==6.3.0
-linearmodels==5.3
-scipy==1.12.0
-
-# Resiliencia
-tenacity==8.2.3
+# Para extracción con IA
+openai==1.10.0  # DeepSeek API
 ```
 
 ---
 
 ## 📋 Próximos Pasos Inmediatos
 
-### Semana 5 (Actual)
+### Semana 5 (Actual) - Prioridades
 
 1. **Implementar `bcv_collector.py`**
-   ```python
-   from pyDolarVenezuela import Bcv
-   
-   class BCVCollector:
-       def get_rates(self):
-           bcv = Bcv()
-           return bcv.get_rates()
-   ```
+2. **Implementar `onapre_collector.py`** (NUEVO)
+3. **Implementar `ovf_collector.py`**
+4. **Implementar `worldbank_collector.py`**
 
-2. **Implementar `ovf_collector.py`**
-   ```python
-   # Scraping de observatoriodefinanzas.org
-   # Extraer series de inflación y tipo de cambio
-   ```
+### Semana 6
 
-3. **Implementar `worldbank_collector.py`**
-   ```python
-   import wbgapi as wb
-   
-   class WorldBankCollector:
-       def get_gdp(self):
-           return wb.data.DataFrame('NY.GDP.MKTP.CD', countries='VEN')
-   ```
+5. **Implementar `cgr_collector.py`** (NUEVO)
+6. **Implementar `bvc_collector.py`**
+7. **Implementar `binance_collector.py`**
 
-4. **Implementar tests básicos**
-   ```python
-   def test_bcv_collector():
-       collector = BCVCollector()
-       rates = collector.get_rates()
-       assert 'USD' in rates
-       assert rates['USD'] > 0
-   ```
+### Semana 7
+
+8. **Implementar `ine_collector.py`**
+9. **Implementar `opec_collector.py`**
+10. **Tests para colectores principales**
+
+### Semana 8
+
+11. **Implementar `rss_collector.py`**
+12. **Implementar `reddit_collector.py`**
+13. **Integración con modelos econométricos**
 
 ---
 
@@ -233,10 +231,10 @@ tenacity==8.2.3
 
 | KPI | Meta | Actual | Estado |
 |-----|------|--------|--------|
-| Collectors implementados | 13 | 0 | ⏳ |
+| Collectors implementados | 20 | 0 | ⏳ |
+| Collectors fiscales | 4 | 0 | ⏳ |
 | Tests unitarios | > 80% | ~20% | 🟡 |
-| Cobertura de fuentes | 10+ | 0 | ⏳ |
-| Documentación | 100% | 95% | ✅ |
+| Cobertura de fuentes | 15+ | 0 | ⏳ |
 
 ---
 
@@ -249,17 +247,18 @@ tenacity==8.2.3
 - [ ] Manejo de errores robusto
 
 ### Éxito de Datos
-- [ ] 10+ fuentes de datos activas
+- [ ] 15+ fuentes de datos activas
+- [ ] 4+ fuentes fiscales integradas
 - [ ] Validación multi-fuente funcionando
-- [ ] Datos actualizados diariamente
+- [ ] Datos actualizados diariamente/semanalmente
 
-### Éxito de Usuario
-- [ ] Dashboard intuitivo
-- [ ] Informes claros y accionables
-- [ ] Alertas relevantes
+### Éxito de Análisis
+- [ ] Análisis fiscal completo
+- [ ] Efecto del gasto público cuantificado
+- [ ] Sostenibilidad fiscal evaluada
 
 ---
 
 **Roadmap actualizado: Agosto 2025**
-**Versión: 4.0**
-**Incluye: Mejoras sugeridas en review**
+**Versión: 5.0**
+**Incluye: Fuentes fiscales gubernamentales**
