@@ -64,6 +64,12 @@ class Settings(BaseSettings):
     INE_BASE_URL: str = "https://www.ine.gob.ve"
     OPEC_BASE_URL: str = "https://www.opec.org"
     BINANCE_P2P_URL: str = "https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search"
+    # Feeds RSS de noticias (separados por coma)
+    RSS_FEEDS: str = (
+        "https://elpitazo.net/feed,"
+        "https://www.bancaynegocios.com/feed/,"
+        "https://efectococuyo.com/feed/"
+    )
     
     # Dashboard
     DASHBOARD_PORT: int = 8501
