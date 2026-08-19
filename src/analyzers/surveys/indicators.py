@@ -121,14 +121,24 @@ class SurveyIndicators:
         self.question_map = question_map or QUESTION_MAP
 
     def _find_answer(self, raw_answers: Dict[str, Any], terms: List[str]) -> Optional[str]:
-        """Localiza la respuesta de una pregunta por coincidencia de subcadena."""
+        """Localiza la respuesta de una pregunta por coincidencia de subcadena.
+
+        Busca de forma case-insensitive y prioriza el término más específico
+        (más largo) para evitar que un término genérico (p.ej. "tus ventas")
+        capture una pregunta distinta que contenga esa frase.
+        """
+        scored: List[tuple] = []
         for question, value in raw_answers.items():
             if not str(value).strip():
                 continue
+            q = str(question).lower()
             for term in terms:
-                if term in str(question):
-                    return str(value)
-        return None
+                if term in q:
+                    scored.append((len(term), term, str(value)))
+        if not scored:
+            return None
+        scored.sort(key=lambda item: item[0], reverse=True)
+        return scored[0][2]
 
     def _extract_score(
         self, spec: Dict[str, Any], raw_answers: Dict[str, Any]

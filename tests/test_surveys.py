@@ -319,6 +319,30 @@ class TestIndicators:
         )
         assert indicators.extract_all(resp) == {}
 
+    def test_extraccion_case_insensitive_y_term_min_specific(self):
+        # La pregunta real usa mayúscula inicial ("Ajustaste tus precios") y
+        # "tus ventas" aparece tanto en la pregunta de dolarización como en la
+        # de clima de negocios. El término más específico debe ganar.
+        indicators = SurveyIndicators()
+        resp = _resp(
+            "comerciante", datetime(2026, 8, 19),
+            {
+                "¿Cómo está tu demanda actualmente?": "Normal",
+                "¿Ajustaste tus precios durante el mes?": "Sí",
+                "¿Tienes acceso a crédito para tu negocio?": "Sí",
+                "¿Cómo cambió tu margen en el último mes?": "Peor",
+                "¿Qué porcentaje de tus ventas cobras en dólares?": "41% - 60%",
+                "¿Cómo evolucionaron tus ventas este mes vs el anterior?": "Igual",
+            },
+        )
+        kpis = indicators.extract_all(resp)
+        assert kpis["ajuste_precios"] == 100        # "Sí" → SIN_NO_MAP
+        assert kpis["clima_negocios"] == 50         # "Igual" → MEJOR_PEOR_MAP
+        assert kpis["demanda"] == 50
+        assert kpis["margen"] == 0
+        assert kpis["acceso_credito"] == 100
+        assert kpis["dolarizacion_ventas"] == pytest.approx(50.5)
+
     def test_compute_all_agrega(self):
         indicators = SurveyIndicators()
         responses = [
