@@ -26,6 +26,11 @@ selenium==4.17.0
 tweepy==4.14.0
 praw==7.7.1
 
+# Encuestas Google (Fase B)
+gspread==6.1.0            # Google Sheets API
+google-auth==2.27.0       # Autenticación service account
+google-auth-oauthlib==1.2.0
+
 # Processing
 pandas==2.1.4
 numpy==1.26.2

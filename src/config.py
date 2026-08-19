@@ -44,6 +44,16 @@ class Settings(BaseSettings):
     WEEKLY_REPORT_DAY: str = "sunday"
     WEEKLY_REPORT_HOUR: int = 8
     
+    # Google (Encuestas - Fase B)
+    GOOGLE_CREDENTIALS_PATH: Optional[str] = None
+    SURVEY_COLLECT_INTERVAL_MINUTES: int = 60
+    SURVEY_QUALITY_THRESHOLD: float = 0.5
+    # IDs de formularios y hojas vinculadas (por segmento)
+    SURVEY_PERSONA_COMUN_FORM_ID: Optional[str] = None
+    SURVEY_PERSONA_COMUN_SHEET_ID: Optional[str] = None
+    SURVEY_COMERCIANTE_FORM_ID: Optional[str] = None
+    SURVEY_COMERCIANTE_SHEET_ID: Optional[str] = None
+    
     # Dashboard
     DASHBOARD_PORT: int = 8501
     API_PORT: int = 8000
@@ -60,6 +70,8 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = True
+        # Ignorar variables de entorno ajenas al sistema (p.ej. CONTEXT7_API_KEY)
+        extra = "ignore"
 
 
 @lru_cache()
