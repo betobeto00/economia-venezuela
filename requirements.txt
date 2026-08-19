@@ -60,6 +60,7 @@ plotly==5.18.0
 # Database
 sqlalchemy==2.0.23
 asyncpg==0.29.0
+psycopg2-binary==2.9.9      # Driver PostgreSQL (SQLAlchemy síncrono)
 redis==5.0.1
 
 # Scheduler
