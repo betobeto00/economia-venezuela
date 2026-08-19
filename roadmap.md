@@ -4,7 +4,7 @@
 
 ---
 
-## 📅 Vista General del Timeline
+## 📅 Estado Actual
 
 ```
 FASE 1: Fundamentos    ████████████████████ 100% ✅
@@ -20,153 +20,145 @@ TOTAL: 44%
 
 ## 📦 Fase 2: Recolección de Datos (Semanas 5-8)
 
-### Coletores por Categoría
+### Estado: 🟡 EN PROGRESIO
 
-#### 🏛️ 2.1 Fuentes Oficiales Nacionales
+### Prioridad de Implementación
 
-| Collector | Fuente | Datos | Método | Prioridad |
-|-----------|--------|-------|--------|-----------|
-| `bcv_collector.py` | BCV | Tasas, IPC, PIB, Reservas | API comunitaria + Scraping | 1️⃣ |
-| `ine_collector.py` | INE | Empleo, Pobreza | Descarga Excel | 2️⃣ |
-| `mppef_collector.py` | MPPEF | Presupuesto, Deuda | Scraping | 3️⃣ |
-| `seniat_collector.py` | SENIAT | Recaudación fiscal | Scraping | 3️⃣ |
-| `sunaval_collector.py` | SUNAVAL | Mercado de capitales | Scraping | 2️⃣ |
+#### 🔴 Prioridad 1 (Inmediato - 2 semanas)
 
-#### 🌍 2.2 Organismos Internacionales
+| # | Collector | Fuente | Librería | Estado |
+|---|-----------|--------|----------|--------|
+| 1 | `bcv_collector.py` | BCV | pyDolarVenezuela | ⏳ Pendiente |
+| 2 | `ovf_collector.py` | OVF | BeautifulSoup | ⏳ Pendiente |
+| 3 | `worldbank_collector.py` | Banco Mundial | wbgapi | ⏳ Pendiente |
+| 4 | `bvc_collector.py` | BVC/Yahoo | yfinance | ⏳ Pendiente |
+| 5 | `binance_collector.py` | Binance P2P | API oficial | ⏳ Pendiente |
 
-| Collector | Fuente | Datos | Método | Prioridad |
-|-----------|--------|-------|--------|-----------|
-| `worldbank_collector.py` | Banco Mundial | PIB, Desarrollo | API wbgapi | 1️⃣ |
-| `imf_collector.py` | FMI | Proyecciones | API IMF | 1️⃣ |
-| `cepal_collector.py` | CEPAL | Estadísticas regionales | Scraping | 2️⃣ |
+#### 🟡 Prioridad 2 (Corto plazo - 1 mes)
 
-#### 🔬 2.3 Observatorios Independientes
+| # | Collector | Fuente | Librería | Estado |
+|---|-----------|--------|----------|--------|
+| 6 | `ine_collector.py` | INE | Scraping | ⏳ Pendiente |
+| 7 | `opec_collector.py` | OPEP | API/Scraping | ⏳ Pendiente |
+| 8 | `rss_collector.py` | Noticias VE | feedparser | ⏳ Pendiente |
+| 9 | `imf_collector.py` | FMI | API IMF | ⏳ Pendiente |
 
-| Collector | Fuente | Datos | Método | Prioridad |
-|-----------|--------|-------|--------|-----------|
-| `ovf_collector.py` | OVF | Inflación independiente | Scraping | 1️⃣ |
-| `ove_collector.py` | OVE | Análisis sectorial | Scraping | 2️⃣ |
-| `ucab_collector.py` | UCAB IIES | Proyecciones | Scraping | 2️⃣ |
+#### 🟢 Prioridad 3 (Mediano plazo - 2 meses)
 
-#### 🛢️ 2.4 Sector Energético
-
-| Collector | Fuente | Datos | Método | Prioridad |
-|-----------|--------|-------|--------|-----------|
-| `pdvsa_collector.py` | PDVSA | Producción oficial | Scraping | 1️⃣ |
-| `opec_collector.py` | OPEP | Producción (secundaria) | API/Scraping | 1️⃣ |
-| `eia_collector.py` | EIA | Estimaciones | API/Scraping | 2️⃣ |
-
-#### 💰 2.5 Mercados Financieros
-
-| Collector | Fuente | Datos | Método | Prioridad |
-|-----------|--------|-------|--------|-----------|
-| `bvc_collector.py` | BVC/Yahoo | IBC, Acciones | yfinance | 1️⃣ |
-| `dolar_collector.py` | Monitores | Tasa paralelo | pydolarvenezuela | 1️⃣ |
-| `binance_collector.py` | Binance | Precio USDT/VES | API oficial | 1️⃣ |
-
-#### 📰 2.6 Noticias y Redes Sociales
-
-| Collector | Fuente | Datos | Método | Prioridad |
-|-----------|--------|-------|--------|-----------|
-| `rss_collector.py` | Portales VE | Noticias económicas | RSS | 2️⃣ |
-| `reddit_collector.py` | Reddit | Sentimiento | API OAuth2 | 2️⃣ |
-| `twitter_collector.py` | Twitter/X | Sentimiento | API v2 | 3️⃣ |
+| # | Collector | Fuente | Librería | Estado |
+|---|-----------|--------|----------|--------|
+| 10 | `cepal_collector.py` | CEPAL | Scraping | ⏳ Pendiente |
+| 11 | `reddit_collector.py` | Reddit | PRAW | ⏳ Pendiente |
+| 12 | `twitter_collector.py` | Twitter/X | Tweepy | ⏳ Pendiente |
+| 13 | `seniat_collector.py` | SENIAT | Scraping | ⏳ Pendiente |
 
 ---
 
-### Estructura Completa de Collectors
+## 📦 Fase 3: Análisis (Semanas 9-12)
 
-```
-src/collectors/
-├── __init__.py
-├── oficial/
-│   ├── __init__.py
-│   ├── bcv_collector.py        # Banco Central de Venezuela
-│   ├── ine_collector.py        # Instituto Nacional de Estadística
-│   ├── mppef_collector.py      # Ministerio de Economía
-│   ├── seniat_collector.py     # SENIAT (fiscal)
-│   └── sunaval_collector.py    # Superintendencia de Valores
-├── internacional/
-│   ├── __init__.py
-│   ├── worldbank_collector.py  # Banco Mundial
-│   ├── imf_collector.py        # FMI
-│   └── cepal_collector.py      # CEPAL
-├── independiente/
-│   ├── __init__.py
-│   ├── ovf_collector.py        # Observatorio de Finanzas
-│   ├── ove_collector.py        # Observatorio Venezolano
-│   └── ucab_collector.py       # UCAB IIES
-├── energetico/
-│   ├── __init__.py
-│   ├── pdvsa_collector.py      # PDVSA
-│   ├── opec_collector.py       # OPEP
-│   └── eia_collector.py        # EIA (EE.UU.)
-├── mercado/
-│   ├── __init__.py
-│   ├── bvc_collector.py        # Bolsa de Valores
-│   ├── dolar_collector.py      # Monitores de dólar
-│   └── binance_collector.py    # Binance P2P
-├── noticias/
-│   ├── __init__.py
-│   └── rss_collector.py        # RSS feeds
-└── social/
-    ├── __init__.py
-    ├── reddit_collector.py     # Reddit
-    └── twitter_collector.py    # Twitter/X
+### Estado: ✅ COMPLETADA
+
+- [x] Módulo econométrico (SARIMA, VECM, GARCH)
+- [x] Pruebas de estacionariedad
+- [x] Diagnósticos de residuos
+- [x] Regresión Newey-West
+
+### Mejoras Sugeridas (Post-Review)
+
+| Mejora | Descripción | Prioridad |
+|--------|-------------|-----------|
+| Sistema de confiabilidad | Pesos por fuente de datos | Alta |
+| Quiebres estructurales | Detección con CUSUM/Chow | Media |
+| Manejo de errores | Retry con tenacity | Alta |
+| Validación de datos | Entradas NaN, series vacías | Alta |
+
+---
+
+## 📦 Fase 4: Visualización (Semanas 13-16)
+
+### Estado: ⏳ PENDIENTE
+
+#### Dashboard Mínimo Viable
+
+| Componente | Descripción | Estado |
+|------------|-------------|--------|
+| Tasas de cambio | Oficial y paralelo en tiempo real | ⏳ |
+| Gráfico IBC | Evolución del índice bursátil | ⏳ |
+| Tabla macro | Indicadores clave | ⏳ |
+| Análisis multi-fuente | Dispersión de fuentes | ⏳ |
+
+---
+
+## 📦 Fase 5: Automatización (Semanas 17-20)
+
+### Estado: ⏳ PENDIENTE
+
+---
+
+## 🔧 Mejoras Estratégicas (Post-Review)
+
+### 1. Sistema de Confiabilidad de Fuentes
+
+```python
+# Implementar en src/analyzers/data_validation.py
+source_confidence = {
+    "BCV": 0.7,           # Oficial, puede tener sesgo
+    "OVF": 0.9,           # Independiente, alta credibilidad
+    "FMI": 0.85,          # Internacional
+    "Banco Mundial": 0.85,
+    "UCAB": 0.8           # Académico
+}
 ```
 
----
+### 2. Detección de Quiebres Estructurales
 
-### Hitos Fase 2
+```python
+# Crear src/analyzers/econometric/breaks.py
+- Prueba de Chow
+- Test de CUSUM
+- Detección de cambios de régimen
+```
 
-#### Semana 5: Fuentes Oficiales
-- [ ] Implementar `bcv_collector.py`
-- [ ] Implementar `ine_collector.py`
-- [ ] Tests y documentación
+### 3. Informe Ejecutivo con IA
 
-#### Semana 6: Organismos Internacionales
-- [ ] Implementar `worldbank_collector.py`
-- [ ] Implementar `imf_collector.py`
-- [ ] Tests y documentación
+```python
+# Usar DeepSeek V4-Pro para generar resúmenes
+- Resumen semanal automatizado
+- Lenguaje natural
+- Recomendaciones
+```
 
-#### Semana 7: Observatorios y Mercados
-- [ ] Implementar `ovf_collector.py`
-- [ ] Implementar `bvc_collector.py`
-- [ ] Implementar `dolar_collector.py`
+### 4. Manejo de Errores Robusto
 
-#### Semana 8: Energía, Noticias y Social
-- [ ] Implementar `opec_collector.py`
-- [ ] Implementar `rss_collector.py`
-- [ ] Implementar `reddit_collector.py`
+```python
+# Implementar en todos los collectors
+from tenacity import retry, stop_after_attempt
 
----
-
-### Tabla de Fuentes por Indicador
-
-| Indicador | BCV | OVF | FMI | BM | CEPAL | OPEP |
-|-----------|-----|-----|-----|----|-------|------|
-| Inflación (IPC) | ✅ | ✅ | ✅ | ✅ | ✅ | - |
-| Tipo de Cambio | ✅ | ✅ | - | - | - | - |
-| PIB | ✅ | ✅ | ✅ | ✅ | ✅ | - |
-| Reservas | ✅ | - | ✅ | ✅ | - | - |
-| Producción Petrolera | ✅ | - | - | ✅ | - | ✅ |
-| Deuda Pública | ✅ | - | ✅ | ✅ | - | - |
-| Empleo | ✅ | ✅ | - | ✅ | ✅ | - |
-| Balanza Comercial | ✅ | - | ✅ | ✅ | ✅ | - |
+@retry(stop=stop_after_attempt(3))
+def fetch_data():
+    # Lógica de recolección
+    pass
+```
 
 ---
 
-### Dependencias Fase 2
+## 📊 Dependencias Actualizadas
 
 ```txt
+# Core
+fastapi==0.109.0
+uvicorn==0.25.0
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
 # Venezuela
 pydolarvenezuela==0.2.0
 pyvenezuela==0.1.0
 bcv-exchange==0.1.0
 
 # Internacional
-wbgapi==1.0.1          # Banco Mundial
-yfinance==0.2.31       # Yahoo Finance
+wbgapi==1.0.1
+yfinance==0.2.31
 pandas-datareader==0.10.0
 
 # Scraping
@@ -182,100 +174,92 @@ praw==7.7.1
 
 # Datos
 pandas==2.1.4
-openpyxl==3.1.2        # Archivos Excel
+numpy==1.26.2
+openpyxl==3.1.2
+
+# Econometría
+statsmodels==0.14.1
+arch==6.3.0
+linearmodels==5.3
+scipy==1.12.0
+
+# Resiliencia
+tenacity==8.2.3
 ```
 
 ---
 
-## 📦 Fase 3: Análisis (Semanas 9-12)
+## 📋 Próximos Pasos Inmediatos
 
-### Estado: ✅ COMPLETADA
+### Semana 5 (Actual)
 
-- [x] Módulo econométrico (SARIMA, VECM, GARCH)
-- [x] Pruebas de estacionariedad
-- [x] Diagnósticos de residuos
-- [x] Regresión Newey-West
+1. **Implementar `bcv_collector.py`**
+   ```python
+   from pyDolarVenezuela import Bcv
+   
+   class BCVCollector:
+       def get_rates(self):
+           bcv = Bcv()
+           return bcv.get_rates()
+   ```
 
----
+2. **Implementar `ovf_collector.py`**
+   ```python
+   # Scraping de observatoriodefinanzas.org
+   # Extraer series de inflación y tipo de cambio
+   ```
 
-## 📦 Fase 4: Visualización (Semanas 13-16)
+3. **Implementar `worldbank_collector.py`**
+   ```python
+   import wbgapi as wb
+   
+   class WorldBankCollector:
+       def get_gdp(self):
+           return wb.data.DataFrame('NY.GDP.MKTP.CD', countries='VEN')
+   ```
 
-### Estado: ⏳ PENDIENTE
-
-#### Dashboard con Multi-Fuentes
-
-```python
-# Ejemplo de visualización multi-fuente
-st.subheader("📊 Inflación: Análisis Multi-Fuente")
-
-# Gráfico de dispersión de fuentes
-fig = go.Figure()
-
-for source, value in inflation_data.items():
-    fig.add_trace(go.Bar(
-        name=source,
-        x=[source],
-        y=[value]
-    ))
-
-fig.update_layout(
-    title="Inflación por Fuente",
-    yaxis_title="% Anual"
-)
-
-st.plotly_chart(fig)
-
-# Mostrar análisis de dispersión
-st.info(f"""
-**Análisis de Dispersión:**
-- Rango: {min_value:.1f}% - {max_value:.1f}%
-- Media: {mean_value:.1f}%
-- Dispersión: {dispersion:.1f}%
-- Confianza: {confidence}
-""")
-```
+4. **Implementar tests básicos**
+   ```python
+   def test_bcv_collector():
+       collector = BCVCollector()
+       rates = collector.get_rates()
+       assert 'USD' in rates
+       assert rates['USD'] > 0
+   ```
 
 ---
 
-## 📦 Fase 5: Automatización (Semanas 17-20)
+## 📈 Métricas de Progreso
 
-### Estado: ⏳ PENDIENTE
-
----
-
-## 📊 Presupuesto Estimado
-
-| Fase | Costo | Notas |
-|------|-------|-------|
-| Fase 1: Fundamentos | $0 | Completada |
-| Fase 2: Recolección | $0-20 | APIs gratuitas |
-| Fase 3: Análisis | $50-100 | API DeepSeek |
-| Fase 4: Visualización | $0 | Local |
-| Fase 5: Despliegue | $30-65 | Servidor |
-| **Total** | **$80-185** | |
+| KPI | Meta | Actual | Estado |
+|-----|------|--------|--------|
+| Collectors implementados | 13 | 0 | ⏳ |
+| Tests unitarios | > 80% | ~20% | 🟡 |
+| Cobertura de fuentes | 10+ | 0 | ⏳ |
+| Documentación | 100% | 95% | ✅ |
 
 ---
 
-## 📋 Próximos Pasos
+## 🏆 Criterios de Éxito
 
-### Prioridad Alta
-1. **Collector BCV** con pyDolarVenezuela
-2. **Collector Banco Mundial** con wbgapi
-3. **Collector OVF** (scraping)
-4. **Collector BVC** con yfinance
+### Éxito Técnico
+- [ ] Sistema ejecutándose 99% del tiempo
+- [ ] Latencia de datos < 5 minutos
+- [ ] Cobertura de tests > 80%
+- [ ] Manejo de errores robusto
 
-### Prioridad Media
-5. Collector OPEP
-6. Collector Dólar Paralelo
-7. Collector Noticias (RSS)
+### Éxito de Datos
+- [ ] 10+ fuentes de datos activas
+- [ ] Validación multi-fuente funcionando
+- [ ] Datos actualizados diariamente
 
-### Prioridad Baja
-8. Collector Redes Sociales
-9. Collector INE
-10. Collector SENIAT
+### Éxito de Usuario
+- [ ] Dashboard intuitivo
+- [ ] Informes claros y accionables
+- [ ] Alertas relevantes
 
 ---
 
 **Roadmap actualizado: Agosto 2025**
-**Versión: 3.0**
-**Incluye: Todas las fuentes institucionales**
+**Versión: 4.0**
+**Incluye: Mejoras sugeridas en review**
