@@ -8,12 +8,12 @@
 
 ```
 FASE 1: Fundamentos    ████████████████████ 100% ✅
-FASE 2: Recolección    ████░░░░░░░░░░░░░░░░  20% 🟡
+FASE 2: Recolección    ██████████████████░░  90% ✅
 FASE 3: Análisis       ████████████████████ 100% ✅
-FASE 4: Visualización  ░░░░░░░░░░░░░░░░░░░░   0% ⏳
-FASE 5: Automatización ░░░░░░░░░░░░░░░░░░░░   0% ⏳
+FASE 4: Visualización  ███████░░░░░░░░░░░░░  35% 🟡
+FASE 5: Automatización ████████░░░░░░░░░░░░  40% 🟡
 
-TOTAL: 44%
+TOTAL: 73%
 ```
 
 ---
@@ -24,22 +24,22 @@ TOTAL: 44%
 
 #### 🏛️ 2.1 Fuentes Oficiales Nacionales
 
-| Collector | Fuente | Datos | Método | Prioridad |
-|-----------|--------|-------|--------|-----------|
-| `bcv_collector.py` | BCV | Tasas, IPC, PIB | API comunitaria | 1️⃣ |
-| `ine_collector.py` | INE | Empleo, Pobreza | Scraping | 2️⃣ |
-| `mppef_collector.py` | MPPEF | Presupuesto, Deuda | Scraping | 2️⃣ |
-| `seniat_collector.py` | SENIAT | Recaudación fiscal | Scraping | 3️⃣ |
-| `sunaval_collector.py` | SUNAVAL | Mercado capitales | Scraping | 2️⃣ |
+| Collector | Fuente | Datos | Método | Prioridad | Estado |
+|-----------|--------|-------|--------|-----------|--------|
+| `bcv_collector.py` | BCV | Tasas, IPC, PIB | API comunitaria | 1️⃣ | ✅ |
+| `ine_collector.py` | INE | Empleo, Pobreza | Scraping | 2️⃣ | ✅ |
+| `mppef_collector.py` | MPPEF | Presupuesto, Deuda | Scraping | 2️⃣ | ⏳ |
+| `seniat_collector.py` | SENIAT | Recaudación fiscal | Scraping | 3️⃣ | ⏳ |
+| `sunaval_collector.py` | SUNAVAL | Mercado capitales | Scraping | 2️⃣ | ⏳ |
 
 #### 💰 2.2 Fuentes Fiscales Gubernamentales (NUEVO)
 
-| Collector | Fuente | Datos | Método | Prioridad |
-|-----------|--------|-------|--------|-----------|
-| `onapre_collector.py` | ONAPRE | Ejecución presupuestaria | Scraping + PDF | 1️⃣ |
-| `cgr_collector.py` | CGR | Informes de gestión | Scraping + PDF | 1️⃣ |
-| `an_collector.py` | AN | Leyes de presupuesto | Scraping | 2️⃣ |
-| `caracas_collector.py` | Alcaldía | Gestión municipal | Scraping | 3️⃣ |
+| Collector | Fuente | Datos | Método | Prioridad | Estado |
+|-----------|--------|-------|--------|-----------|--------|
+| `onapre_collector.py` | ONAPRE | Ejecución presupuestaria | Scraping + PDF | 1️⃣ | ✅ |
+| `cgr_collector.py` | CGR | Informes de gestión | Scraping + PDF | 1️⃣ | ✅ |
+| `an_collector.py` | AN | Leyes de presupuesto | Scraping | 2️⃣ | ⏳ |
+| `caracas_collector.py` | Alcaldía | Gestión municipal | Scraping | 3️⃣ | ⏳ |
 
 **Estructura:**
 ```
@@ -56,59 +56,59 @@ src/collectors/fiscal/
 
 #### 🌍 2.3 Organismos Internacionales
 
-| Collector | Fuente | Datos | Método | Prioridad |
-|-----------|--------|-------|--------|-----------|
-| `worldbank_collector.py` | Banco Mundial | PIB, Desarrollo | API wbgapi | 1️⃣ |
-| `imf_collector.py` | FMI | Proyecciones | API IMF | 1️⃣ |
-| `cepal_collector.py` | CEPAL | Estadísticas regionales | Scraping | 2️⃣ |
+| Collector | Fuente | Datos | Método | Prioridad | Estado |
+|-----------|--------|-------|--------|-----------|--------|
+| `worldbank_collector.py` | Banco Mundial | PIB, Desarrollo | API REST | 1️⃣ | ✅ |
+| `imf_collector.py` | FMI | Proyecciones | API IMF | 1️⃣ | ⏳ |
+| `cepal_collector.py` | CEPAL | Estadísticas regionales | Scraping | 2️⃣ | ⏳ |
 
 #### 🔬 2.4 Observatorios Independientes
 
-| Collector | Fuente | Datos | Método | Prioridad |
-|-----------|--------|-------|--------|-----------|
-| `ovf_collector.py` | OVF | Inflación independiente | Scraping | 1️⃣ |
-| `ove_collector.py` | OVE | Análisis sectorial | Scraping | 2️⃣ |
-| `ucab_collector.py` | UCAB IIES | Proyecciones | Scraping | 2️⃣ |
+| Collector | Fuente | Datos | Método | Prioridad | Estado |
+|-----------|--------|-------|--------|-----------|--------|
+| `ovf_collector.py` | OVF | Inflación independiente | Scraping | 1️⃣ | ✅ |
+| `ove_collector.py` | OVE | Análisis sectorial | Scraping | 2️⃣ | ⏳ |
+| `ucab_collector.py` | UCAB IIES | Proyecciones | Scraping | 2️⃣ | ⏳ |
 
 #### 🛢️ 2.5 Sector Energético
 
-| Collector | Fuente | Datos | Método | Prioridad |
-|-----------|--------|-------|--------|-----------|
-| `pdvsa_collector.py` | PDVSA | Producción oficial | Scraping | 1️⃣ |
-| `opec_collector.py` | OPEP | Producción secundaria | API/Scraping | 1️⃣ |
-| `eia_collector.py` | EIA | Estimaciones | API/Scraping | 2️⃣ |
+| Collector | Fuente | Datos | Método | Prioridad | Estado |
+|-----------|--------|-------|--------|-----------|--------|
+| `pdvsa_collector.py` | PDVSA | Producción oficial | Scraping | 1️⃣ | ⏳ |
+| `opec_collector.py` | OPEP | Producción secundaria | API/Scraping | 1️⃣ | ✅ |
+| `eia_collector.py` | EIA | Estimaciones | API/Scraping | 2️⃣ | ⏳ |
 
 #### 💹 2.6 Mercados Financieros
 
-| Collector | Fuente | Datos | Método | Prioridad |
-|-----------|--------|-------|--------|-----------|
-| `bvc_collector.py` | BVC/Yahoo | IBC, Acciones | yfinance | 1️⃣ |
-| `dolar_collector.py` | Monitores | Tasa paralelo | pydolarvenezuela | 1️⃣ |
-| `binance_collector.py` | Binance | Precio USDT/VES | API oficial | 1️⃣ |
+| Collector | Fuente | Datos | Método | Prioridad | Estado |
+|-----------|--------|-------|--------|-----------|--------|
+| `bvc_collector.py` | BVC/Yahoo | IBC, Acciones | yfinance | 1️⃣ | ✅ |
+| `binance_collector.py` | Binance | Precio USDT/VES | API P2P | 1️⃣ | ✅ |
+| `dolar_collector.py` | Monitores | Tasa paralelo | pydolarvenezuela | 1️⃣ | ⏳ |
 
 #### 📰 2.7 Noticias y Redes Sociales
 
-| Collector | Fuente | Datos | Método | Prioridad |
-|-----------|--------|-------|--------|-----------|
-| `rss_collector.py` | Portales VE | Noticias económicas | RSS | 2️⃣ |
-| `reddit_collector.py` | Reddit | Sentimiento | API OAuth2 | 2️⃣ |
-| `twitter_collector.py` | Twitter/X | Sentimiento | API v2 | 3️⃣ |
+| Collector | Fuente | Datos | Método | Prioridad | Estado |
+|-----------|--------|-------|--------|-----------|--------|
+| `rss_collector.py` | Portales VE | Noticias económicas | RSS | 2️⃣ | ✅ |
+| `reddit_collector.py` | Reddit | Sentimiento | API OAuth2 | 2️⃣ | ✅ |
+| `twitter_collector.py` | Twitter/X | Sentimiento | API v2 | 3️⃣ | ⏳ |
 
 #### 📋 2.8 Encuestas Ciudadanas y Comerciantes (NUEVO)
 
 Recolección de datos primarios vía **Google Forms** para fortalecer el análisis microeconómico
 y contrastar la percepción pública con los datos oficiales.
 
-| Collector | Fuente | Datos | Método | Prioridad |
-|-----------|--------|-------|--------|-----------|
-| `survey_collector.py` | Google Forms → Sheets | Respuestas de encuestas | gspread + Google Sheets API | 1️⃣ |
+| Collector | Fuente | Datos | Método | Prioridad | Estado |
+|-----------|--------|-------|--------|-----------|--------|
+| `survey_collector.py` | Google Forms → Sheets | Respuestas de encuestas | gspread + Google Sheets API | 1️⃣ | ✅ |
 
 **Tipos de encuesta (segmentos):**
 
 | Tipo | Segmento | Datos Clave | Estado |
 |------|----------|-------------|--------|
-| `persona_comun` | Ciudadano promedio | Ingreso, gasto, percepción de inflación, canasta, ahorro, empleo | 🟡 Diseño |
-| `comerciante` | Comerciantes/negocios | Ventas, precios, inventario, demanda, métodos de pago, costos, crédito, empleo | 🟡 Diseño |
+| `persona_comun` | Ciudadano promedio | Ingreso, gasto, percepción de inflación, canasta, ahorro, empleo | ✅ Implementado |
+| `comerciante` | Comerciantes/negocios | Ventas, precios, inventario, demanda, métodos de pago, costos, crédito, empleo | ✅ Implementado |
 | *(futuro)* `empresa` | Empresas/sector productivo | Inversión, producción, financiamiento | ⏳ |
 | *(futuro)* `remesas` | Receptores de remesas | Flujo, uso, impacto | ⏳ |
 
@@ -291,41 +291,49 @@ google-auth-oauthlib==1.2.0
 
 ## 📋 Próximos Pasos Inmediatos
 
-### Semana 5 (Actual) - Prioridades
+### Semana 5 ✅
 
-1. **Implementar `bcv_collector.py`**
-2. **Implementar `onapre_collector.py`** (NUEVO)
-3. **Implementar `ovf_collector.py`**
-4. **Implementar `worldbank_collector.py`**
+1. ✅ **Implementar `bcv_collector.py`**
+2. ✅ **Implementar `onapre_collector.py`** (NUEVO)
+3. ✅ **Implementar `ovf_collector.py`**
+4. ✅ **Implementar `worldbank_collector.py`**
 
-### Semana 6
+### Semana 6 ✅
 
-5. **Implementar `cgr_collector.py`** (NUEVO)
-6. **Implementar `bvc_collector.py`**
-7. **Implementar `binance_collector.py`**
+5. ✅ **Implementar `cgr_collector.py`** (NUEVO)
+6. ✅ **Implementar `bvc_collector.py`**
+7. ✅ **Implementar `binance_collector.py`**
 
-### Semana 7
+### Semana 7 ✅
 
-8. **Implementar `ine_collector.py`**
-9. **Implementar `opec_collector.py`**
-10. **Tests para colectores principales**
+8. ✅ **Implementar `ine_collector.py`**
+9. ✅ **Implementar `opec_collector.py`**
+10. ✅ **Tests para colectores principales**
 
-### Semana 8
+### Semana 8 ✅
 
-11. **Implementar `rss_collector.py`**
-12. **Implementar `reddit_collector.py`**
-13. **Integración con modelos econométricos**
+11. ✅ **Implementar `rss_collector.py`**
+12. ✅ **Implementar `reddit_collector.py`**
+13. ✅ **Integración con modelos econométricos**
 
-### Fase B: Encuestas Google (NUEVO)
+### Fase B: Encuestas Google (Código ✅ / Manual ⏳)
 
-14. **Diseñar y publicar Formulario Persona Común** (Google Forms)
-15. **Diseñar y publicar Formulario Comerciante** (Google Forms)
-16. **Crear service account de Google + vincular Forms → Sheets**
-17. **Implementar `survey_collector.py`** (gspread, idempotente)
-18. **Modelo de datos `surveys` / `survey_responses`** (PostgreSQL)
-19. **Implementar `analyzers/surveys/`** (KPIs + contraste con datos oficiales)
-20. **Sección de encuestas en el dashboard** + informe ejecutivo con IA
-21. **Tests del pipeline de encuestas**
+14. 🟡 **Diseñar y publicar Formulario Persona Común** (Google Forms) — *manual, pendiente*
+15. 🟡 **Diseñar y publicar Formulario Comerciante** (Google Forms) — *manual, pendiente*
+16. 🟡 **Crear service account de Google + vincular Forms → Sheets** — *manual, pendiente*
+17. ✅ **Implementar `survey_collector.py`** (gspread, idempotente)
+18. ✅ **Modelo de datos `surveys` / `survey_responses`** (PostgreSQL)
+19. ✅ **Implementar `analyzers/surveys/`** (KPIs + contraste con datos oficiales)
+20. ✅ **Sección de encuestas en el dashboard** + informe ejecutivo con IA
+21. ✅ **Tests del pipeline de encuestas**
+
+### Siguientes pasos (Semanas 9+)
+
+22. ⏳ **Formularios + service account** (pasos 14-16 manuales de Google)
+23. ⏳ **Persistencia del loop de mercado** — *implementada, verificar con Postgres real*
+24. ⏳ **Ingesta de noticias/RSS + análisis de sentimiento**
+25. ⏳ **Informes semanales automatizados con IA**
+26. ⏳ **Collectors restantes**: `mppef`, `seniat`, `sunaval`, `an`, `caracas`, `imf`, `cepal`, `pdvsa`, `twitter`
 
 ---
 
@@ -333,12 +341,18 @@ google-auth-oauthlib==1.2.0
 
 | KPI | Meta | Actual | Estado |
 |-----|------|--------|--------|
-| Collectors implementados | 20 | 0 | ⏳ |
-| Collectors fiscales | 4 | 0 | ⏳ |
+| Collectors implementados | 20 | 12 | 🟡 |
+| Collectors fiscales | 4 | 2 | 🟡 |
 | Formularios de encuesta activos | 2+ | 0 | ⏳ |
 | Respuestas de encuesta procesadas | 500+ | 0 | ⏳ |
-| Tests unitarios | > 80% | ~20% | 🟡 |
-| Cobertura de fuentes | 15+ | 0 | ⏳ |
+| Tests unitarios | > 80% | ~158 tests ✅ | 🟡 |
+| Cobertura de fuentes | 15+ | 12 | 🟡 |
+| Dashboard con métricas en vivo | — | ✅ Inicio + Encuestas | ✅ |
+| Scheduler automático | — | ✅ 2 jobs (encuestas + mercado) | ✅ |
+
+**Código implementado**: Fases 2 (recolección), 3 (análisis), dashboard Fase 4 y scheduler
+Fase 5. Pendiente: pasos manuales de Google (formularios + service account) y collectors
+de menor prioridad.
 
 ---
 
@@ -366,6 +380,6 @@ google-auth-oauthlib==1.2.0
 
 ---
 
-**Roadmap actualizado: Agosto 2025**
-**Versión: 6.0**
-**Incluye: Fuentes fiscales gubernamentales + Encuestas Google (Fase B)**
+**Roadmap actualizado: Agosto 2026**
+**Versión: 7.0**
+**Incluye: Fuentes fiscales gubernamentales + Encuestas Google (Fase B) + Loop de mercado persistido**

@@ -1,6 +1,6 @@
 # Economía Venezuela - Herramienta de Monitoreo y Análisis
 
-![Venezuela Economy Tracker](https://img.shields.io/badge/Status-En%20Desarrollo-yellow) ![Python](https://img.shields.io/badge/Language-Python-blue) ![AI Powered](https://img.shields.io/badge/AI-DeepSeek%20V4--Pro-purple) ![Econometrics](https://img.shields.io/badge/Econometrics-Statsmodels-green)
+![Venezuela Economy Tracker](https://img.shields.io/badge/Status-En%20Desarrollo-yellow) ![Python](https://img.shields.io/badge/Language-Python-blue) ![AI Powered](https://img.shields.io/badge/AI-DeepSeek%20V4--Pro-purple) ![Econometrics](https://img.shields.io/badge/Econometrics-Statsmodels-green) ![Tests](https://img.shields.io/badge/Tests-158%20passing-brightgreen)
 
 ## 📋 Visión General
 
@@ -86,29 +86,38 @@ vecm_result = vecm.fit_vecm(official_rate, parallel_rate)
 ### 📈 Datos Financieros y de Cambio
 | Fuente | Tipo | Frecuencia | Datos |
 |--------|------|------------|-------|
-| BCV (Banco Central de Venezuela) | API/Web Scraping | Diaria | Tasa de cambio oficial, inflación, reservas |
-| pydolarvenezuela | Python Library | Tiempo real | Múltiples monitores de dólar |
-| Cotizave | API REST | Tiempo real | Tasas BCV + exchanges P2P |
+| BCV (Banco Central de Venezuela) | API comunitaria | Diaria | Tasa de cambio oficial, IPC |
+| OVF (Observatorio Venezolano de Finanzas) | Web | Mensual | Inflación independiente |
 | Binance P2P | API | Tiempo real | Precio del dólar en mercado paralelo |
-| Mercado Libre | Web Scraping | Semanal | Precios de productos de referencia |
+| BVC (Bolsa de Caracas) | yfinance | Diaria | Índice IBC |
+| OPEP | API | Mensual | Producción petrolera |
+
+### 🏛️ Fuentes Fiscales y Oficiales
+| Fuente | Tipo | Frecuencia | Datos |
+|--------|------|------------|-------|
+| ONAPRE | Web + PDF | Mensual | Ejecución presupuestaria |
+| CGR (Contraloría General) | Web | Trimestral | Informes de gestión |
+| INE | Web | Periódica | Empleo, demografía |
+| Banco Mundial | API REST | Anual | PIB, indicadores de desarrollo |
 
 ### 📰 Noticias y Sentimiento
 | Fuente | Tipo | Frecuencia | Datos |
 |--------|------|------------|-------|
-| Reddit r/vzla | Web Scraping | Diaria | Sentimiento ciudadano |
-| Twitter/X | API/Sentiment | Tiempo real | Análisis de sentimiento |
-| Portales de noticias | RSS/Scraping | Diaria | Noticias económicas |
-| Facebook Groups | Web Scraping | Semanal | Opinión pública |
+| Reddit r/vzla | API | Diaria | Sentimiento ciudadano |
+| Portales de noticias | RSS | Diaria | Noticias económicas |
 
 ### 📋 Encuestas Ciudadanas y Comerciantes (NUEVO)
 
 Datos primarios de percepción económica vía **Google Forms** que fortalecen el análisis
 microeconómico y se contrastan con los datos oficiales.
 
-| Fuente | Tipo | Frecuencia | Datos |
-|--------|------|------------|-------|
-| Formulario Persona Común | Google Forms → Sheets | Continua (ingesta horaria) | Percepción de inflación, poder adquisitivo, gasto, ahorro, empleo |
-| Formulario Comerciante | Google Forms → Sheets | Continua (ingesta horaria) | Clima de negocios, precios, demanda, métodos de pago, costos |
+| Fuente | Tipo | Frecuencia | Datos | Estado |
+|--------|------|------------|-------|--------|
+| Formulario Persona Común | Google Forms → Sheets | Continua (ingesta horaria) | Percepción de inflación, poder adquisitivo, gasto, ahorro, empleo | 🟡 Formulario pendiente de crear |
+| Formulario Comerciante | Google Forms → Sheets | Continua (ingesta horaria) | Clima de negocios, precios, demanda, métodos de pago, costos | 🟡 Formulario pendiente de crear |
+
+*Código de ingesta completo. Solo faltan los pasos manuales: crear los 2 formularios
+Google Forms y el service account, y configurar los IDs en `.env`.*
 
 *Más tipos de encuesta planificados: empresa, remesas.*
 
@@ -160,8 +169,15 @@ pip install -r requirements.txt
 cp .env.example .env
 # Editar .env con tus API keys
 
-# Ejecutar
+# Ejecutar (scheduler + dashboard)
 python main.py
+
+# O solo el dashboard
+streamlit run src/dashboard/app.py
+
+# Ingestas manuales
+python -m src.scripts.collect_surveys   # Encuestas Google
+python -m src.scripts.collect_market    # Tasa de cambio / inflación → DB
 ```
 
 ## 📁 Estructura del Proyecto
@@ -175,20 +191,37 @@ economia-venezuela/
 ├── requirements.txt             # Dependencias Python
 ├── docker-compose.yml           # Contenedores Docker
 ├── .env.example                 # Variables de entorno ejemplo
+├── main.py                      # Bootstrap: init DB + scheduler
 ├── src/
 │   ├── __init__.py
-│   ├── config.py               # Configuración
+│   ├── config.py               # Configuración (pydantic, .env)
 │   ├── collectors/             # Módulos de recolección
-│   │   └── surveys/            #   Encuestas Google (Forms→Sheets) (NUEVO)
-│   ├── processors/             # Procesamiento
+│   │   ├── http.py             #   Cliente HTTP compartido (GET/POST, retries)
+│   │   ├── errors.py           #   Excepciones del dominio
+│   │   ├── market/             #   bcv, ovf, bvc, binance
+│   │   ├── fiscal/             #   onapre, cgr
+│   │   ├── official/           #   ine
+│   │   ├── international/      #   worldbank, opec
+│   │   ├── news/               #   rss
+│   │   ├── social/             #   reddit
+│   │   └── surveys/            #   Encuestas Google (Forms→Sheets)
+│   ├── models/                 # Modelos Pydantic
+│   │   ├── market.py           #   ExchangeRate, InflationPoint, GDPPoint, BudgetExecution
+│   │   ├── survey.py           #   Survey, SurveyResponse
+│   │   └── news.py             #   NewsArticle, SocialPost
+│   ├── db/                     # Persistencia
+│   │   ├── session.py          #   Conexión (psycopg2)
+│   │   ├── models.py           #   ORMs: SurveyORM, SurveyResponseORM, ExchangeRateORM...
+│   │   ├── repositories.py     #   SurveyRepository, MarketRepository
+│   │   └── migrations/         #   SQL de esquema
 │   ├── analyzers/              # Análisis e IA
 │   │   ├── macro.py            # Análisis macroeconómico
 │   │   ├── micro.py            # Análisis microeconómico
 │   │   ├── sentiment.py        # Análisis de sentimiento
 │   │   ├── trends.py           # Detección de tendencias
-│   │   ├── surveys/            # Encuestas: KPIs y contraste (NUEVO)
+│   │   ├── market_integration.py # Collectors → ARIMA/SARIMA
+│   │   ├── surveys/            # Encuestas: KPIs y contraste
 │   │   └── econometric/        # Módulo econométrico (NUEVO)
-│   │       ├── __init__.py
 │   │       ├── stationarity.py # ADF, KPSS
 │   │       ├── forecasting.py  # ARIMA, SARIMA
 │   │       ├── causality.py    # Granger, VECM
@@ -196,43 +229,53 @@ economia-venezuela/
 │   │       ├── diagnostics.py  # Residuos
 │   │       └── regression.py   # Newey-West OLS
 │   ├── reports/                # Generación de informes
-│   ├── dashboard/              # Visualización
-│   │   └── app.py              # Streamlit app
+│   ├── dashboard/              # Visualización (Streamlit)
+│   │   ├── app.py              #   Dashboard principal (tabs Inicio/Encuestas)
+│   │   ├── theme.py            #   Tema visual
+│   │   ├── market_data.py      #   Métricas de mercado desde DB
+│   │   ├── surveys_data.py     #   Métricas de encuestas desde DB
+│   │   └── components/         #   Componentes (survey_section)
+│   ├── scripts/                # CLIs
+│   │   ├── collect_surveys.py  #   Ingesta de encuestas
+│   │   └── collect_market.py   #   Recolección de mercado → DB
+│   ├── scheduler/              # Programación
+│   │   └── jobs.py             #   Jobs APScheduler (encuestas, mercado)
 │   ├── alerts/                 # Sistema de alertas
 │   ├── metrics/                # Métricas del sistema
-│   ├── security/               # Seguridad
-│   └── scheduler/              # Programación
+│   └── security/               # Seguridad
 ├── data/
 │   ├── raw/                    # Datos crudos
 │   ├── processed/              # Datos procesados
 │   └── reports/                # Informes generados
-├── tests/
-│   └── test_econometric.py     # Tests econométricos
+├── tests/                      # 158 tests (pytest)
 └── docs/                       # Documentación
 ```
 
 ## 📅 Frecuencia de Actualización
 
-| Componente | Frecuencia | Horario |
-|------------|------------|---------|
-| Tasa de cambio | Tiempo real | 24/7 |
-| Noticias | Cada 6 horas | 06:00, 12:00, 18:00, 00:00 |
-| Análisis de sentimiento | Diaria | 22:00 |
-| Análisis GARCH (volatilidad) | Diaria | 23:00 |
-| Informe semanal | Semanal | Domingos 08:00 |
-| Datos macroeconómicos | Mensual | Primer día del mes |
+| Componente | Frecuencia | Config |
+|------------|------------|--------|
+| Tasa de cambio (BCV + Binance P2P) | Cada 30 min | `MARKET_COLLECT_INTERVAL_MINUTES` |
+| Encuestas (Google Forms → Sheets) | Cada 60 min | `SURVEY_COLLECT_INTERVAL_MINUTES` |
+| Noticias RSS | Pendiente de ingesta | — |
+| Análisis de sentimiento | Pendiente | — |
+| Análisis GARCH (volatilidad) | Pendiente | — |
+| Informe semanal | Pendiente | — |
+
+> El scheduler (APScheduler en `main.py`) ya registra los jobs de mercado y encuestas.
 
 ## 📈 Métricas del Dashboard
 
-| Métrica | Descripción | Fuente |
-|---------|-------------|--------|
-| **Dólar Oficial** | Tasa BCV | BCV API |
-| **Dólar Paralelo** | Tasa mercado | DólarToday |
-| **Inflación Mensual** | IPC | BCV |
-| **Spread Cambiario** | Diferencia oficial-paralelo | Cálculo |
-| **Índice de Nerviosismo** | Volatilidad GARCH | Binance P2P |
-| **Sentimiento** | Análisis NLP | Reddit/Twitter |
-| **Pronóstico Inflación** | SARIMA | Modelo econométrico |
+| Métrica | Descripción | Fuente | Estado |
+|---------|-------------|--------|--------|
+| **Dólar Oficial** | Tasa BCV | BCV API | ✅ En vivo |
+| **Dólar Paralelo** | Precio USDT/VES Binance P2P | Binance | ✅ En vivo |
+| **Inflación Mensual** | IPC | BCV | ✅ En vivo |
+| **Encuestas** | Percepción por segmento | Google Forms | 🟡 Sin datos |
+| **Spread Cambiario** | Diferencia oficial-paralelo | Cálculo | ⏳ |
+| **Índice de Nerviosismo** | Volatilidad GARCH | Binance P2P | ⏳ |
+| **Sentimiento** | Análisis NLP | Reddit/RSS | ⏳ |
+| **Pronóstico Inflación** | SARIMA | Modelo econométrico | ⏳ |
 
 ## 🤝 Contribuciones
 

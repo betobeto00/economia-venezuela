@@ -4,6 +4,22 @@
 
 Este documento describe la arquitectura técnica del sistema de monitoreo económico de Venezuela. El diseño sigue un enfoque modular, escalable y orientado a microservicios para garantizar flexibilidad y mantenibilidad.
 
+## ✅ Estado de Implementación
+
+> Secciones de este documento con `**DISEÑO**` describen el estado objetivo. Lo que sigue
+> ya está **implementado y testeado** (158 tests):
+
+| Componente | Estado |
+|------------|--------|
+| Collectors Fase A | ✅ BCV, OVF, BVC, Binance, INE, OPEP, ONAPRE, CGR, World Bank, RSS, Reddit |
+| Integración econométrica | ✅ `analyzers/market_integration.py` (ARIMA/SARIMA sobre collectors) |
+| Encuestas (código) | ✅ Collector gspread idempotente, modelos, KPIs, contraste, dashboard |
+| Encuestas (manual) | 🟡 Formularios Google + service account pendientes |
+| Persistencia | ✅ `db/` con ORMs, repositorios y migraciones SQL (encuestas + mercado) |
+| Dashboard Streamlit | ✅ Tabs Inicio/Encuestas, métricas de mercado desde DB |
+| Scheduler | ✅ APScheduler: jobs de encuestas (60 min) y mercado (30 min) |
+| CLIs | ✅ `src/scripts/collect_surveys.py` y `collect_market.py` |
+
 ---
 
 ## 🏛️ Principios de Diseño
