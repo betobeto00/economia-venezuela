@@ -59,6 +59,10 @@ def run_survey_pipeline(
     summary: dict = {}
     indicators = SurveyIndicators()
 
+    # Persiste los formularios primero: survey_responses.survey_id es FK a
+    # surveys.id, y PostgreSQL exige que el padre exista (SQLite no lo valida).
+    repo.upsert_surveys(surveys)
+
     for survey in surveys:
         collected = collector.fetch_new_responses(survey)
         saved = repo.save_responses(collected)

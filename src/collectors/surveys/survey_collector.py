@@ -25,8 +25,24 @@ from src.collectors.surveys.utils import compute_quality_score
 
 logger = logging.getLogger(__name__)
 
-# Columna de marca de tiempo que añade Google Forms a la hoja de respuestas
-TIMESTAMP_HEADER = "Marca de tiempo"
+# Google Forms añade la columna de marca de tiempo con encabezado variable
+# según el idioma/versión ("Marca de tiempo" / "Marca temporal" / "Timestamp").
+TIMESTAMP_HEADERS = (
+    "marca de tiempo",
+    "marca temporal",
+    "marca de fecha y hora",
+    "fecha y hora",
+    "timestamp",
+    "time stamp",
+)
+
+
+def _find_timestamp_header(header: List[str]) -> Optional[str]:
+    """Localiza el encabezado de marca de tiempo (case-insensitive, parcial)."""
+    for column in header:
+        if any(token in str(column).strip().lower() for token in TIMESTAMP_HEADERS):
+            return column
+    return None
 
 # Formatos de fecha típicos de la hoja de respuestas (dd/mm/yyyy por defecto)
 _TIMESTAMP_FORMATS = (
@@ -186,9 +202,10 @@ class SurveyCollector:
         if not raw_row or not any(str(c).strip() for c in raw_row):
             return None
 
+        timestamp_header = _find_timestamp_header(header)
         submitted_at = parse_timestamp(
-            raw_row[header.index(TIMESTAMP_HEADER)]
-            if TIMESTAMP_HEADER in header else ""
+            raw_row[header.index(timestamp_header)]
+            if timestamp_header is not None else ""
         )
         if submitted_at is None:
             return None
@@ -197,7 +214,7 @@ class SurveyCollector:
             header[i]: (raw_row[i] if i < len(raw_row) else "")
             for i in range(len(header))
         }
-        answers.pop(TIMESTAMP_HEADER, None)
+        answers.pop(timestamp_header, None)
 
         return SurveyResponse(
             survey_id=survey.id,

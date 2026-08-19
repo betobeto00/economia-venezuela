@@ -173,6 +173,26 @@ class TestCollector:
         survey = _make_survey()
         assert collector.process_response(["fecha inválida", "Mucho", "Sí"], HEADER, survey) is None
 
+    def test_process_response_marca_temporal_variable(self, tmp_path):
+        # Google usa encabezados distintos según idioma/versión
+        # ("Marca temporal", "Timestamp", etc.). El parseo debe ser tolerante.
+        collector, _ = self._collector(tmp_path, [])
+        survey = _make_survey()
+        for header in [
+            ["Marca temporal", "¿Los precios subieron?", "¿Puedes ahorrar?"],
+            ["Timestamp", "¿Los precios subieron?", "¿Puedes ahorrar?"],
+            ["Fecha y hora", "¿Los precios subieron?", "¿Puedes ahorrar?"],
+        ]:
+            resp = collector.process_response(
+                ["19/08/2026 14:30:00", "Mucho", "Sí"], header, survey
+            )
+            assert resp is not None
+            assert resp.submitted_at == datetime(2026, 8, 19, 14, 30, 0)
+            assert resp.raw_answers == {
+                "¿Los precios subieron?": "Mucho",
+                "¿Puedes ahorrar?": "Sí",
+            }
+
     def test_fetch_new_responses_idempotente(self, tmp_path):
         values = [
             HEADER,
@@ -388,5 +408,19 @@ class TestReport:
 # ---------------------------------------------------------------------------
 
 def test_gspread_no_necesario_para_imports():
+    # Corre en subproceso: otros tests (p.ej. el job del scheduler) ya pueden
+    # haber importado gspread en este proceso, lo que rompería la aserción.
+    import subprocess
     import sys
-    assert "gspread" not in sys.modules
+
+    code = (
+        "import sys; "
+        "import src.collectors.surveys.survey_collector as m; "
+        "sys.exit(1 if 'gspread' in sys.modules else 0)"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        cwd=sys.path[0] or None,
+    )
+    assert result.returncode == 0, result.stderr.decode()
