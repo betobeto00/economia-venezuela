@@ -1,23 +1,24 @@
 # Economía Venezuela - Herramienta de Monitoreo y Análisis
 
-![Venezuela Economy Tracker](https://img.shields.io/badge/Status-En%20Desarrollo-yellow) ![Python](https://img.shields.io/badge/Language-Python-blue) ![AI Powered](https://img.shields.io/badge/AI-DeepSeek%20V4--Pro-purple)
+![Venezuela Economy Tracker](https://img.shields.io/badge/Status-En%20Desarrollo-yellow) ![Python](https://img.shields.io/badge/Language-Python-blue) ![AI Powered](https://img.shields.io/badge/AI-DeepSeek%20V4--Pro-purple) ![Econometrics](https://img.shields.io/badge/Econometrics-Statsmodels-green)
 
 ## 📋 Visión General
 
-Herramienta inteligente de monitoreo y análisis de la economía venezolana que integra múltiples fuentes de datos para proporcionar una visión integral del panorama económico del país.
+Herramienta inteligente de monitoreo y análisis de la economía venezolana que integra múltiples fuentes de datos, análisis econométrico avanzado e inteligencia artificial para proporcionar una visión integral del panorama económico del país.
 
 ### 🎯 Objetivo
 
 Crear un sistema automatizado que:
 - Recopile datos económicos en tiempo real de múltiples fuentes
-- Analice tendencias macro y microeconómicas
-- Genere informes semanales automatizados
+- Analice tendencias macro y microeconómicas con modelos econométricos
+- Genere pronósticos con SARIMA, VECM y GARCH
+- Evalúe el sentimiento público sobre la economía
 - Proporcione dashboards interactivos para la visualización de datos
-- Evalué el sentimiento público sobre la economía
+- Genere informes semanales automatizados con IA
 
 ## 🏗️ Arquitectura del Sistema
 
-El sistema se compone de 4 capas principales:
+El sistema se compone de 5 capas principales:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -27,8 +28,8 @@ El sistema se compone de 4 capas principales:
                               ▲
                               │
 ┌─────────────────────────────────────────────────────────────┐
-│                   CAPA DE ANÁLISIS (IA)                      │
-│            DeepSeek V4-Pro + NLP + ML                        │
+│              CAPA DE ANÁLISIS (IA + ECONOMETRÍA)            │
+│   DeepSeek V4-Pro + NLP + ML + SARIMA + VECM + GARCH       │
 └─────────────────────────────────────────────────────────────┘
                               ▲
                               │
@@ -42,6 +43,42 @@ El sistema se compone de 4 capas principales:
 │                   CAPA DE RECOLECCIÓN                        │
 │       APIs / Web Scraping / RSS / Redes Sociales            │
 └─────────────────────────────────────────────────────────────┘
+```
+
+## 📊 Módulo Econométrico (NUEVO)
+
+Análisis econométrico formal para pronóstico y alerta temprana:
+
+| Modelo | Uso | Módulo |
+|--------|-----|--------|
+| **ADF/KPSS** | Pruebas de estacionariedad | `stationarity.py` |
+| **SARIMA** | Pronóstico de inflación con estacionalidad | `forecasting.py` |
+| **VECM** | Relación dólar oficial vs paralelo | `causality.py` |
+| **Granger** | Causalidad entre series | `causality.py` |
+| **GARCH** | Volatilidad y riesgo cambiario | `volatility.py` |
+| **Newey-West** | Regresión con errores robustos | `regression.py` |
+| **Diagnósticos** | Validación de modelos | `diagnostics.py` |
+
+### Ejemplo de Uso
+
+```python
+from src.analyzers.econometric import (
+    InflationForecaster,
+    GARCHVolatilityAnalyzer,
+    VECMAnalyzer
+)
+
+# Pronóstico de inflación con SARIMA
+forecaster = InflationForecaster()
+result = forecaster.forecast_inflation(inflation_series, periods=6)
+
+# Índice de Nerviosismo Monetario
+analyzer = GARCHVolatilityAnalyzer()
+risk = analyzer.analyze_dollar_volatility(dollar_parallel)
+
+# Relación oficial-paralelo con VECM
+vecm = VECMAnalyzer()
+vecm_result = vecm.fit_vecm(official_rate, parallel_rate)
 ```
 
 ## 📊 Fuentes de Datos
@@ -60,31 +97,22 @@ El sistema se compone de 4 capas principales:
 |--------|------|------------|-------|
 | Reddit r/vzla | Web Scraping | Diaria | Sentimiento ciudadano |
 | Twitter/X | API/Sentiment | Tiempo real | Análisis de sentimiento |
-| Portales de noticias (El Nacional, TalCual, etc.) | RSS/Scraping | Diaria | Noticias económicas |
+| Portales de noticias | RSS/Scraping | Diaria | Noticias económicas |
 | Facebook Groups | Web Scraping | Semanal | Opinión pública |
-
-### 📊 Datos Económicos Oficiales
-| Fuente | Tipo | Frecuencia | Datos |
-|--------|------|------------|-------|
-| INE (Instituto Nacional de Estadística) | Web | Mensual | IPC, PIB, empleo |
-| OPEV | API | Mensual | Producción petrolera |
-| FMI / Banco Mundial | API | Trimestral | Proyecciones macroeconómicas |
 
 ## 🔧 Stack Tecnológico
 
 ### Core
 - **Lenguaje Principal**: Python 3.10+
 - **Motor de Análisis IA**: DeepSeek V4-Pro (1M tokens contexto)
-- **Orquestación**: OpenCode CLI o Apache Airflow
 - **Base de Datos**: PostgreSQL + TimescaleDB (series temporales)
 - **Cache**: Redis
 
-### Data Collection
-- `pyvenezuela` - Consultas BCV
-- `pydolarvenezuela` - Precios del dólar
-- `requests` / `httpx` - APIs REST
-- `BeautifulSoup` / `Playwright` - Web Scraping
-- `tweepy` / `snscrape` - Redes sociales
+### Econometrics (NUEVO)
+- `statsmodels` - Modelos econométricos (ARIMA, SARIMA, VECM)
+- `arch` - Modelos de volatilidad (GARCH, EGARCH)
+- `scipy` - Estadística avanzada
+- `linearmodels` - Modelos de panel y regresión robusta
 
 ### Análisis
 - `pandas` / `numpy` - Procesamiento de datos
@@ -100,20 +128,18 @@ El sistema se compone de 4 capas principales:
 ### Automatización
 - `GitHub Actions` - CI/CD y scheduling
 - `Docker` - Contenedores
-- `cron` / `APScheduler` - Tareas programadas
+- `APScheduler` - Tareas programadas
 
 ## 🚀 Instalación Rápida
 
 ```bash
 # Clonar el repositorio
-git clone https://github.com/tu-usuario/economia-venezuela.git
+git clone https://github.com/betobeto00/economia-venezuela.git
 cd economia-venezuela
 
 # Crear entorno virtual
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
-# o
-venv\Scripts\activate  # Windows
 
 # Instalar dependencias
 pip install -r requirements.txt
@@ -139,35 +165,36 @@ economia-venezuela/
 ├── .env.example                 # Variables de entorno ejemplo
 ├── src/
 │   ├── __init__.py
-│   ├── collectors/              # Módulos de recolección de datos
-│   │   ├── bcv.py              # Colector BCV
-│   │   ├── dolar.py            # Monitores de dólar
-│   │   ├── news.py             # Noticias y RSS
-│   │   ├── social.py           # Redes sociales
-│   │   └── mercado_libre.py    # Mercado Libre
-│   ├── processors/              # Procesamiento y limpieza
-│   │   ├── cleaner.py          # Limpieza de datos
-│   │   ├── normalizer.py       # Normalización
-│   │   └── storage.py          # Almacenamiento
-│   ├── analyzers/               # Análisis e IA
+│   ├── config.py               # Configuración
+│   ├── collectors/             # Módulos de recolección
+│   ├── processors/             # Procesamiento
+│   ├── analyzers/              # Análisis e IA
 │   │   ├── macro.py            # Análisis macroeconómico
 │   │   ├── micro.py            # Análisis microeconómico
 │   │   ├── sentiment.py        # Análisis de sentimiento
-│   │   └── trends.py           # Detección de tendencias
-│   ├── reports/                 # Generación de informes
-│   │   ├── weekly.py           # Informe semanal
-│   │   └── templates/          # Plantillas
-│   ├── dashboard/               # Visualización
-│   │   ├── app.py              # Streamlit app
-│   │   └── components/         # Componentes UI
-│   └── config.py               # Configuración
+│   │   ├── trends.py           # Detección de tendencias
+│   │   └── econometric/        # Módulo econométrico (NUEVO)
+│   │       ├── __init__.py
+│   │       ├── stationarity.py # ADF, KPSS
+│   │       ├── forecasting.py  # ARIMA, SARIMA
+│   │       ├── causality.py    # Granger, VECM
+│   │       ├── volatility.py   # GARCH
+│   │       ├── diagnostics.py  # Residuos
+│   │       └── regression.py   # Newey-West OLS
+│   ├── reports/                # Generación de informes
+│   ├── dashboard/              # Visualización
+│   │   └── app.py              # Streamlit app
+│   ├── alerts/                 # Sistema de alertas
+│   ├── metrics/                # Métricas del sistema
+│   ├── security/               # Seguridad
+│   └── scheduler/              # Programación
 ├── data/
 │   ├── raw/                    # Datos crudos
 │   ├── processed/              # Datos procesados
 │   └── reports/                # Informes generados
-├── tests/                       # Pruebas unitarias
-├── scripts/                     # Scripts auxiliares
-└── docs/                        # Documentación adicional
+├── tests/
+│   └── test_econometric.py     # Tests econométricos
+└── docs/                       # Documentación
 ```
 
 ## 📅 Frecuencia de Actualización
@@ -177,8 +204,21 @@ economia-venezuela/
 | Tasa de cambio | Tiempo real | 24/7 |
 | Noticias | Cada 6 horas | 06:00, 12:00, 18:00, 00:00 |
 | Análisis de sentimiento | Diaria | 22:00 |
+| Análisis GARCH (volatilidad) | Diaria | 23:00 |
 | Informe semanal | Semanal | Domingos 08:00 |
 | Datos macroeconómicos | Mensual | Primer día del mes |
+
+## 📈 Métricas del Dashboard
+
+| Métrica | Descripción | Fuente |
+|---------|-------------|--------|
+| **Dólar Oficial** | Tasa BCV | BCV API |
+| **Dólar Paralelo** | Tasa mercado | DólarToday |
+| **Inflación Mensual** | IPC | BCV |
+| **Spread Cambiario** | Diferencia oficial-paralelo | Cálculo |
+| **Índice de Nerviosismo** | Volatilidad GARCH | Binance P2P |
+| **Sentimiento** | Análisis NLP | Reddit/Twitter |
+| **Pronóstico Inflación** | SARIMA | Modelo econométrico |
 
 ## 🤝 Contribuciones
 
@@ -194,9 +234,8 @@ Esta herramienta es solo para fines informativos y educativos. Los datos y anál
 
 ## 📞 Contacto
 
-- **Email**: tu-email@ejemplo.com
-- **GitHub**: [@tu-usuario](https://github.com/tu-usuario)
-- **Twitter**: @tu-handle
+- **GitHub**: [@betobeto00](https://github.com/betobeto00)
+- **Repositorio**: [economia-venezuela](https://github.com/betobeto00/economia-venezuela)
 
 ---
 
