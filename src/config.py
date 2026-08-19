@@ -68,10 +68,12 @@ class Settings(BaseSettings):
     OPEC_BASE_URL: str = "https://www.opec.org"
     BINANCE_P2P_URL: str = "https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search"
     # Feeds RSS de noticias (separados por coma)
+    # Nota: elpitazo.net, bancaynegocios.com y efectococuyo.com no respondieron
+    # desde la red local (geo-block/flaky); se sustituyeron por los feeds de
+    # Diario Las Américas que sí están vivos.
     RSS_FEEDS: str = (
-        "https://elpitazo.net/feed,"
-        "https://www.bancaynegocios.com/feed/,"
-        "https://efectococuyo.com/feed/"
+        "https://www.diariolasamericas.com/rss/pages/venezuela.xml,"
+        "https://www.diariolasamericas.com/rss/pages/mundo.xml"
     )
     
     # Dashboard
