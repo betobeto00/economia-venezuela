@@ -68,12 +68,14 @@ class Settings(BaseSettings):
     OPEC_BASE_URL: str = "https://www.opec.org"
     BINANCE_P2P_URL: str = "https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search"
     # Feeds RSS de noticias (separados por coma)
-    # Nota: elpitazo.net, bancaynegocios.com y efectococuyo.com no respondieron
-    # desde la red local (geo-block/flaky); se sustituyeron por los feeds de
-    # Diario Las Américas que sí están vivos.
+    # Nota: elpitazo.net y bancaynegocios.com no responden desde la red local
+    # (geo-block/WAF); guia.com.ve es un directorio feedburner descontinuado.
+    # Vivos: Diario Las Américas y el staging de Efecto Cocuyo (feed de
+    # economía, el más relevante para sentimiento económico).
     RSS_FEEDS: str = (
         "https://www.diariolasamericas.com/rss/pages/venezuela.xml,"
-        "https://www.diariolasamericas.com/rss/pages/mundo.xml"
+        "https://www.diariolasamericas.com/rss/pages/mundo.xml,"
+        "https://efectococuyo-np.newspackstaging.com/economia/feed/"
     )
     
     # Dashboard
