@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  # Application
+  app:
+    build: .
+    container_name: economia-ve-app
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/economia_ve
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ./src:/app/src
+      - ./data:/app/data
+    depends_on:
+      - db
+      - redis
+    networks:
+      - economia-network
+
+  # Dashboard Streamlit
+  dashboard:
+    build: .
+    container_name: economia-ve-dashboard
+    command: streamlit run src/dashboard/app.py --server.port=8501
+    ports:
+      - "8501:8501"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/economia_ve
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ./src:/app/src
+      - ./data:/app/data
+    depends_on:
+      - db
+      - redis
+    networks:
+      - economia-network
+
+  # PostgreSQL + TimescaleDB
+  db:
+    image: timescale/timescaledb:latest-pg14
+    container_name: economia-ve-db
+    environment:
+      POSTGRES_DB: economia_ve
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - economia-network
+
+  # Redis Cache
+  redis:
+    image: redis:alpine
+    container_name: economia-ve-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - economia-network
+
+  # Prometheus (Monitoring)
+  prometheus:
+    image: prom/prometheus
+    container_name: economia-ve-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - economia-network
+
+  # Grafana (Metrics Visualization)
+  grafana:
+    image: grafana/grafana
+    container_name: economia-ve-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - economia-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  economia-network:
+    driver: bridge
