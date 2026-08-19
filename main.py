@@ -3,6 +3,7 @@ Economía Venezuela - Punto de Entrada Principal
 """
 
 import sys
+import time
 import logging
 from pathlib import Path
 
@@ -26,6 +27,27 @@ def setup_logging():
     return logging.getLogger(__name__)
 
 
+def init_database():
+    """Crea el esquema de base de datos si no existe."""
+    from src.db.session import init_db
+    init_db()
+
+
+def start_scheduler():
+    """Arranca el scheduler de tareas periódicas (encuestas)."""
+    from apscheduler.schedulers.background import BackgroundScheduler
+    from src.scheduler.jobs import register_survey_job
+
+    scheduler = BackgroundScheduler()
+    register_survey_job(scheduler)
+    scheduler.start()
+    logging.getLogger(__name__).info(
+        "Scheduler iniciado (encuestas cada %d min)",
+        settings.SURVEY_COLLECT_INTERVAL_MINUTES,
+    )
+    return scheduler
+
+
 def main():
     """Función principal de la aplicación"""
     logger = setup_logging()
@@ -34,11 +56,15 @@ def main():
     logger.info(f"Entorno: {settings.ENVIRONMENT}")
     logger.info(f"Modo debug: {settings.DEBUG}")
     
-    # TODO: Implementar lógica principal aquí
     # 1. Conectar a base de datos
-    # 2. Iniciar collectors
-    # 3. Iniciar scheduler
-    # 4. Iniciar dashboard (opcional)
+    try:
+        init_database()
+        logger.info("Base de datos lista")
+    except Exception as exc:
+        logger.warning("No se pudo inicializar la base de datos: %s", exc)
+
+    # 2. Iniciar scheduler de recolección periódica
+    scheduler = start_scheduler() if settings.ENVIRONMENT != "test" else None
     
     logger.info("Sistema inicializado correctamente")
     logger.info("Presiona Ctrl+C para detener")
@@ -46,10 +72,11 @@ def main():
     try:
         # Mantener el sistema ejecutándose
         while True:
-            import time
             time.sleep(1)
     except KeyboardInterrupt:
         logger.info("Deteniendo sistema...")
+        if scheduler is not None:
+            scheduler.shutdown()
 
 
 if __name__ == "__main__":

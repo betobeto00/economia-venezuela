@@ -22,8 +22,10 @@ import streamlit as st
 from src.dashboard import theme
 from src.dashboard.surveys_data import (
     build_contrast,
+    build_report,
     compare_periods,
     kpi_cards,
+    load_responses_from_db,
     segment_label,
     series_df,
     split_periods,
@@ -66,7 +68,6 @@ def _survey_snapshot(segment: str, days: int, freq: str, current_days: int) -> d
 @st.cache_data(ttl=300, show_spinner=False)
 def _report_snapshot(segment: str, days: int, period: str, contrast: dict) -> str:
     """Informe ejecutivo cacheadable (Markdown) para un segmento."""
-    from src.dashboard.surveys_data import load_responses_from_db
     responses = load_responses_from_db(segment, days)
     return build_report(segment, responses, contrast=contrast, period=period)
 
