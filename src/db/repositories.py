@@ -1,16 +1,13 @@
 """
-Repositorio de Encuestas (persistencia)
-=======================================
+Repositorios de persistencia
+============================
 
-Capa de acceso a datos para las entidades del dominio de encuestas
-(``Survey`` / ``SurveyResponse``). Mapea entre los modelos Pydantic y los
-ORM de SQLAlchemy y garantiza ingesta idempotente a nivel de fila.
+Capa de acceso a datos:
+- ``SurveyRepository``: encuestas (surveys / survey_responses).
+- ``MarketRepository``: datos de mercado (exchange_rates / inflation_points).
 
-Diseño:
-- El ``SurveyRepository`` recibe una sesión (inyección de dependencias),
-  lo que permite usarlo con FastAPI, scripts o tests (SQLite).
-- ``save_responses`` respeta la constraint única de la base: las respuestas
-  duplicadas (misma survey, marca de tiempo y respuestas crudas) se omiten.
+Ambos reciben una sesión (inyección de dependencias) para usarse con
+FastAPI, scripts o tests (SQLite), y garantizan ingesta idempotente.
 """
 
 import logging
@@ -21,7 +18,13 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from src.db.models import SurveyORM, SurveyResponseORM
+from src.db.models import (
+    ExchangeRateORM,
+    InflationPointORM,
+    SurveyORM,
+    SurveyResponseORM,
+)
+from src.models.market import ExchangeRate, InflationPoint
 from src.models.survey import Survey, SurveyResponse
 
 logger = logging.getLogger(__name__)
@@ -192,3 +195,143 @@ class SurveyRepository:
         result = self.session.query(SurveyResponseORM).delete()
         self.session.commit()
         return int(result)
+
+
+def _rate_to_orm(rate: ExchangeRate) -> ExchangeRateORM:
+    return ExchangeRateORM(
+        source=rate.source,
+        currency=rate.currency,
+        rate=rate.rate,
+        date=rate.date,
+        variation_pct=rate.variation_pct,
+    )
+
+
+def _rate_orm_to_model(orm: ExchangeRateORM) -> ExchangeRate:
+    return ExchangeRate(
+        source=orm.source,
+        currency=orm.currency,
+        rate=float(orm.rate),
+        date=orm.date,
+        variation_pct=float(orm.variation_pct) if orm.variation_pct is not None else None,
+    )
+
+
+def _inflation_to_orm(point: InflationPoint) -> InflationPointORM:
+    return InflationPointORM(
+        source=point.source,
+        period=point.period,
+        monthly_rate=point.monthly_rate,
+        annual_rate=point.annual_rate,
+        index=point.index,
+    )
+
+
+def _inflation_orm_to_model(orm: InflationPointORM) -> InflationPoint:
+    return InflationPoint(
+        source=orm.source,
+        period=orm.period,
+        monthly_rate=float(orm.monthly_rate) if orm.monthly_rate is not None else None,
+        annual_rate=float(orm.annual_rate) if orm.annual_rate is not None else None,
+        index=float(orm.index) if orm.index is not None else None,
+    )
+
+
+class MarketRepository:
+    """Persistencia de tasas de cambio y puntos de inflación (Fase A)."""
+
+    def __init__(self, session: Session):
+        self.session = session
+
+    # --- Exchange rates ---
+
+    def save_rates(self, rates: List[ExchangeRate]) -> int:
+        """Inserta tasas de forma idempotente (única por source/currency/date).
+
+        Returns:
+            Número de tasas nuevas insertadas.
+        """
+        saved = 0
+        for rate in rates:
+            self.session.add(_rate_to_orm(rate))
+            try:
+                self.session.commit()
+                saved += 1
+            except IntegrityError:
+                self.session.rollback()
+                logger.info(
+                    "Tasa duplicada omitida (%s/%s/%s)",
+                    rate.source, rate.currency, rate.date,
+                )
+        return saved
+
+    def list_rates(
+        self,
+        source: Optional[str] = None,
+        currency: Optional[str] = None,
+        since: Optional[datetime] = None,
+        until: Optional[datetime] = None,
+        limit: Optional[int] = None,
+    ) -> List[ExchangeRate]:
+        stmt = select(ExchangeRateORM).order_by(ExchangeRateORM.date)
+        if source is not None:
+            stmt = stmt.where(ExchangeRateORM.source == source)
+        if currency is not None:
+            stmt = stmt.where(ExchangeRateORM.currency == currency)
+        if since is not None:
+            stmt = stmt.where(ExchangeRateORM.date >= since)
+        if until is not None:
+            stmt = stmt.where(ExchangeRateORM.date <= until)
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        return [_rate_orm_to_model(orm) for orm in self.session.scalars(stmt)]
+
+    def latest_rate(self, source: str, currency: str = "usd") -> Optional[ExchangeRate]:
+        stmt = (
+            select(ExchangeRateORM)
+            .where(ExchangeRateORM.source == source, ExchangeRateORM.currency == currency)
+            .order_by(ExchangeRateORM.date.desc())
+            .limit(1)
+        )
+        orm = self.session.scalar(stmt)
+        return _rate_orm_to_model(orm) if orm is not None else None
+
+    # --- Inflation ---
+
+    def save_inflation(self, points: List[InflationPoint]) -> int:
+        """Inserta puntos de inflación de forma idempotente (única por source/period)."""
+        saved = 0
+        for point in points:
+            self.session.add(_inflation_to_orm(point))
+            try:
+                self.session.commit()
+                saved += 1
+            except IntegrityError:
+                self.session.rollback()
+                logger.info(
+                    "Punto de inflación duplicado omitido (%s/%s)",
+                    point.source, point.period,
+                )
+        return saved
+
+    def list_inflation(
+        self,
+        source: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> List[InflationPoint]:
+        stmt = select(InflationPointORM).order_by(InflationPointORM.period)
+        if source is not None:
+            stmt = stmt.where(InflationPointORM.source == source)
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        return [_inflation_orm_to_model(orm) for orm in self.session.scalars(stmt)]
+
+    def latest_inflation(self, source: str) -> Optional[InflationPoint]:
+        stmt = (
+            select(InflationPointORM)
+            .where(InflationPointORM.source == source)
+            .order_by(InflationPointORM.period.desc())
+            .limit(1)
+        )
+        orm = self.session.scalar(stmt)
+        return _inflation_orm_to_model(orm) if orm is not None else None

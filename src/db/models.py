@@ -84,3 +84,35 @@ class SurveyResponseORM(Base):
     source: Mapped[str] = mapped_column(String(20), default="google_forms")
 
     survey: Mapped["SurveyORM"] = relationship(back_populates="responses")
+
+
+class ExchangeRateORM(Base):
+    """Tasa de cambio de un mercado/emisor en una fecha (Fase A)."""
+
+    __tablename__ = "exchange_rates"
+    __table_args__ = (
+        UniqueConstraint("source", "currency", "date", name="uq_exchange_rate"),
+    )
+
+    id: Mapped[int] = mapped_column(BIGINT_ID, primary_key=True)
+    source: Mapped[str] = mapped_column(String(20), nullable=False)  # bcv, ovf, binance...
+    currency: Mapped[str] = mapped_column(String(10), nullable=False)  # usd, usdt...
+    rate: Mapped[float] = mapped_column(Numeric(18, 6), nullable=False)
+    date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    variation_pct: Mapped[Optional[float]] = mapped_column(Numeric(10, 4))
+
+
+class InflationPointORM(Base):
+    """Punto de inflación mensual por emisor y período (Fase A)."""
+
+    __tablename__ = "inflation_points"
+    __table_args__ = (
+        UniqueConstraint("source", "period", name="uq_inflation_point"),
+    )
+
+    id: Mapped[int] = mapped_column(BIGINT_ID, primary_key=True)
+    source: Mapped[str] = mapped_column(String(20), nullable=False)  # bcv, ovf, world_bank
+    period: Mapped[str] = mapped_column(String(7), nullable=False)  # YYYY-MM
+    monthly_rate: Mapped[Optional[float]] = mapped_column(Numeric(10, 4))
+    annual_rate: Mapped[Optional[float]] = mapped_column(Numeric(10, 4))
+    index: Mapped[Optional[float]] = mapped_column(Numeric(18, 6))

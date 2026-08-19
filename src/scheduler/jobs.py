@@ -40,6 +40,38 @@ def collect_surveys_job() -> dict:
         return {}
 
 
+def collect_market_job() -> dict:
+    """Ejecuta el pipeline de recolección de datos de mercado (una vez por intervalo)."""
+    from src.db.session import session_scope
+    from src.scripts.collect_market import run_market_pipeline
+
+    try:
+        with session_scope() as session:
+            summary = run_market_pipeline(session)
+            return summary
+    except Exception as exc:  # noqa: BLE001 - el scheduler no debe caerse
+        logger.exception("Job de recolección de mercado falló: %s", exc)
+        return {}
+
+
+def register_market_job(scheduler) -> None:
+    """Registra la recolección periódica de datos de mercado en el scheduler."""
+    existing = scheduler.get_job("collect_market")
+    if existing is not None:
+        scheduler.remove_job("collect_market")
+
+    scheduler.add_job(
+        collect_market_job,
+        trigger="interval",
+        minutes=settings.MARKET_COLLECT_INTERVAL_MINUTES,
+        id="collect_market",
+        name="Recolección periódica de datos de mercado (Fase A)",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+
+
 def register_survey_job(scheduler) -> None:
     """Registra la recolección periódica de encuestas en el scheduler.
 

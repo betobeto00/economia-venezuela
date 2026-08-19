@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 
 from src.dashboard import theme
 from src.dashboard.components.survey_section import render_survey_section
+from src.dashboard.market_data import dashboard_metrics, format_metric
 
 # Page config
 st.set_page_config(
@@ -67,32 +68,43 @@ with st.sidebar:
 tab_inicio, tab_encuestas = st.tabs(["🏠 Inicio", "📋 Encuestas"])
 
 with tab_inicio:
-    # Métricas generales (pendientes de Fase A: collectors)
+    # Métricas generales (Fase A: datos persistidos por los collectors)
+    metrics = dashboard_metrics()
+
     col1, col2, col3 = st.columns(3)
 
     with col1:
         st.metric(
-            label="💵 Dólar Oficial",
-            value="—",
-            help="Dato pendiente: colector BCV (Fase A)",
+            label="💵 Dólar Oficial (BCV)",
+            value=format_metric(metrics["oficial"].rate if metrics["oficial"] else None, " Bs"),
+            delta=(
+                f"{metrics['oficial'].variation_pct:+.2f}%"
+                if metrics["oficial"] and metrics["oficial"].variation_pct is not None
+                else None
+            ),
+            help="Última tasa oficial persistida por el colector BCV",
         )
     with col2:
         st.metric(
-            label="💵 Dólar Paralelo",
-            value="—",
-            help="Dato pendiente: colector OVF/Binance (Fase A)",
+            label="💵 Dólar Paralelo (P2P)",
+            value=format_metric(metrics["paralelo"].rate if metrics["paralelo"] else None, " Bs"),
+            help="Última tasa USDT/VES del mercado P2P (Binance)",
         )
     with col3:
         st.metric(
-            label="📈 Inflación Mensual",
-            value="—",
-            help="Dato pendiente: colector BCV IPC (Fase A)",
+            label="📈 Inflación Mensual (BCV)",
+            value=format_metric(
+                metrics["inflacion"].monthly_rate if metrics["inflacion"] else None, " %"
+            ),
+            help="Último IPC mensual oficial persistido por el colector BCV",
         )
 
-    st.info(
-        "Las métricas generales se mostrarán cuando estén conectados los "
-        "colectores de Fase A (BCV, OVF, BVC, Binance)."
-    )
+    if not metrics["oficial"] and not metrics["paralelo"] and not metrics["inflacion"]:
+        st.info(
+            "Aún no hay datos de mercado en la base. Ejecuta "
+            "`python -m src.scripts.collect_market` (o espera el job del scheduler) "
+            "para poblar las tarjetas."
+        )
 
 with tab_encuestas:
     render_survey_section(survey_segment)

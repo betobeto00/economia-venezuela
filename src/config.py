@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     SURVEY_COMERCIANTE_FORM_ID: Optional[str] = None
     SURVEY_COMERCIANTE_SHEET_ID: Optional[str] = None
 
+    # Fase A - Recolección de mercado
+    MARKET_COLLECT_INTERVAL_MINUTES: int = 30
+
     # Fase A - Fuentes de datos (URLs configurables para tests/fallback)
     BCV_RATE_API_URL: str = "https://ve.dolarapi.com/v1/dolares/oficial"
     BCV_IPC_API_URL: str = "https://api.bcv.org.ve/ipc"
