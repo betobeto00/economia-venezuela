@@ -102,7 +102,7 @@ class SurveyReport:
 
     def __init__(self, ai_enabled: Optional[bool] = None):
         self.ai_enabled = (
-            settings.DEEPSEEK_API_KEY is not None
+            bool(settings.llm_providers())
             if ai_enabled is None
             else ai_enabled
         )
@@ -128,33 +128,38 @@ class SurveyReport:
 
         try:
             summary = self._summarize_with_ai(base, survey_type)
+            if not summary:
+                return base
             return base + "\n\n## Resumen IA\n\n" + summary
         except Exception as exc:  # noqa: BLE001 - el informe no debe fallar
             logger.warning("Resumen IA no disponible: %s", exc)
             return base
 
     def _summarize_with_ai(self, report: str, survey_type: str) -> str:
-        """Resumen narrativo vía DeepSeek (API compatible con OpenAI)."""
-        import openai
+        """Resumen narrativo vía la cadena de LLMs con fallback.
 
-        client = openai.OpenAI(
-            api_key=settings.DEEPSEEK_API_KEY,
-            base_url="https://api.deepseek.com",
-        )
-        response = client.chat.completions.create(
-            model="deepseek-chat",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "Eres un economista especializado en Venezuela. Resume en "
-                        "3-4 frases los hallazgos clave del informe de encuestas "
-                        "para un lector no técnico."
-                    ),
-                },
-                {"role": "user", "content": report},
-            ],
-            temperature=0.3,
-            max_tokens=250,
-        )
-        return response.choices[0].message.content.strip()
+        Usa el primer proveedor de ``settings.llm_providers()`` que responda
+        (LLM1..LLM8, con DEEPSEEK como fallback de último recurso).
+        """
+        from src.analyzers.llm import chat_completion, LLMError
+
+        try:
+            content = chat_completion(
+                [
+                    {
+                        "role": "system",
+                        "content": (
+                            "Eres un economista especializado en Venezuela. Resume en "
+                            "3-4 frases los hallazgos clave del informe de encuestas "
+                            "para un lector no técnico."
+                        ),
+                    },
+                    {"role": "user", "content": report},
+                ],
+                temperature=0.3,
+                max_tokens=250,
+            )
+        except LLMError as exc:
+            logger.warning("Cadena de LLMs no disponible: %s", exc)
+            return ""
+        return content.strip()

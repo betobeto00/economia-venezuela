@@ -93,7 +93,8 @@ Thumbs.db
 docker-compose.override.yml
 
 # Reports
-reports/
+/reports/
+/data/reports/
 *.pdf
 *.html
 !*.html

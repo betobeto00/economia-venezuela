@@ -332,7 +332,7 @@ google-auth-oauthlib==1.2.0
 22. ✅ **Formularios + service account** (pasos 14-16 manuales de Google)
 23. ✅ **Persistencia del loop de mercado** — *verificado con Postgres real (Railway)*
 24. ✅ **Ingesta de noticias/RSS + análisis de sentimiento**
-25. ⏳ **Informes semanales automatizados con IA**
+25. ✅ **Informes semanales automatizados con IA** — cadena de 4 LLMs con fallback
 26. ⏳ **Collectors restantes**: `mppef`, `seniat`, `sunaval`, `an`, `caracas`, `imf`, `cepal`, `pdvsa`, `twitter`
 
 ---
@@ -348,7 +348,7 @@ google-auth-oauthlib==1.2.0
 | Tests unitarios | > 80% | ~184 tests ✅ | 🟡 |
 | Cobertura de fuentes | 15+ | 12 | 🟡 |
 | Dashboard con métricas en vivo | — | ✅ Inicio + Encuestas + Noticias | ✅ |
-| Scheduler automático | — | ✅ 3 jobs (encuestas, mercado, noticias) | ✅ |
+| Scheduler automático | — | ✅ 4 jobs (encuestas, mercado, noticias, informe semanal) | ✅ |
 
 **Código implementado**: Fases 2 (recolección), 3 (análisis), dashboard Fase 4 y scheduler
 Fase 5. Pendiente: collectors de menor prioridad y pasos de despliegue (Railway).

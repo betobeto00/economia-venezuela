@@ -218,9 +218,12 @@ economia-venezuela/
 │   │   ├── macro.py            # Análisis macroeconómico
 │   │   ├── micro.py            # Análisis microeconómico
 │   │   ├── sentiment.py        # Análisis de sentimiento
+│   │   ├── relevance.py        # Filtro de relevancia económica
+│   │   ├── llm.py              # Cadena de LLMs con fallback (LLM1..LLM8)
 │   │   ├── trends.py           # Detección de tendencias
 │   │   ├── market_integration.py # Collectors → ARIMA/SARIMA
 │   │   ├── surveys/            # Encuestas: KPIs y contraste
+│   │   ├── reports/            # Informe semanal automatizado (con IA)
 │   │   └── econometric/        # Módulo econométrico (NUEVO)
 │   │       ├── stationarity.py # ADF, KPSS
 │   │       ├── forecasting.py  # ARIMA, SARIMA
@@ -228,7 +231,6 @@ economia-venezuela/
 │   │       ├── volatility.py   # GARCH
 │   │       ├── diagnostics.py  # Residuos
 │   │       └── regression.py   # Newey-West OLS
-│   ├── reports/                # Generación de informes
 │   ├── dashboard/              # Visualización (Streamlit)
 │   │   ├── app.py              #   Dashboard principal (tabs Inicio/Encuestas)
 │   │   ├── theme.py            #   Tema visual
@@ -259,9 +261,9 @@ economia-venezuela/
 | Encuestas (Google Forms → Sheets) | Cada 60 min | `SURVEY_COLLECT_INTERVAL_MINUTES` |
 | Noticias RSS + sentimiento | Cada 6 h | `NEWS_COLLECT_INTERVAL_HOURS` |
 | Análisis GARCH (volatilidad) | Pendiente | — |
-| Informe semanal | Pendiente | — |
+| Informe semanal (con IA) | Cada domingo 08:00 | `WEEKLY_REPORT_DAY`/`WEEKLY_REPORT_HOUR` |
 
-> El scheduler (APScheduler en `main.py`) ya registra los jobs de mercado, encuestas y noticias.
+> El scheduler (APScheduler en `main.py`) ya registra los jobs de mercado, encuestas, noticias e informe semanal.
 
 ## 📈 Métricas del Dashboard
 
@@ -274,6 +276,7 @@ economia-venezuela/
 | **Spread Cambiario** | Diferencia oficial-paralelo | Cálculo | ⏳ |
 | **Índice de Nerviosismo** | Volatilidad GARCH | Binance P2P | ⏳ |
 | **Sentimiento** | Análisis léxico español + filtro relevancia económica | RSS/Reddit | ✅ En vivo |
+| **Informe Semanal** | Markdown + resumen IA (cadena de 4 LLMs) | Todo el sistema | ✅ Semanal |
 | **Pronóstico Inflación** | SARIMA | Modelo econométrico | ⏳ |
 
 ## 🤝 Contribuciones

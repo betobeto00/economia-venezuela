@@ -610,6 +610,11 @@ Pipeline:
 - [ ] Dashboard con dispersión de fuentes
 - [ ] Sistema de alertas
 
+### Fase 5: Automatización (Informe semanal)
+- [x] **Cadena de LLMs con fallback** — `analyzers/llm.py` (LLM1..LLM8, estilo `dev/ds`)
+- [x] **Informe semanal automatizado** — `analyzers/reports/weekly.py` → `data/reports/`
+- [x] **Job semanal** (cron `WEEKLY_REPORT_DAY`/`WEEKLY_REPORT_HOUR`) → 4 jobs totales
+
 ---
 
 ## ☁️ Notas de Despliegue

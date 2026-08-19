@@ -28,6 +28,34 @@ class Settings(BaseSettings):
     BINANCE_API_SECRET: Optional[str] = None
     DEEPSEEK_API_KEY: Optional[str] = None
     NEWS_API_KEY: Optional[str] = None
+
+    # Cadena de LLMs con fallback (LLM1..LLM8, en orden de prioridad).
+    # Se prueban en secuencia; el primero que responda se usa (mismo patrón
+    # que dev/ds: OpenRouter → OmniRoute → Z.AI → Gemini).
+    LLM1_API_KEY: Optional[str] = None
+    LLM1_BASE_URL: Optional[str] = None
+    LLM1_MODEL: Optional[str] = None
+    LLM2_API_KEY: Optional[str] = None
+    LLM2_BASE_URL: Optional[str] = None
+    LLM2_MODEL: Optional[str] = None
+    LLM3_API_KEY: Optional[str] = None
+    LLM3_BASE_URL: Optional[str] = None
+    LLM3_MODEL: Optional[str] = None
+    LLM4_API_KEY: Optional[str] = None
+    LLM4_BASE_URL: Optional[str] = None
+    LLM4_MODEL: Optional[str] = None
+    LLM5_API_KEY: Optional[str] = None
+    LLM5_BASE_URL: Optional[str] = None
+    LLM5_MODEL: Optional[str] = None
+    LLM6_API_KEY: Optional[str] = None
+    LLM6_BASE_URL: Optional[str] = None
+    LLM6_MODEL: Optional[str] = None
+    LLM7_API_KEY: Optional[str] = None
+    LLM7_BASE_URL: Optional[str] = None
+    LLM7_MODEL: Optional[str] = None
+    LLM8_API_KEY: Optional[str] = None
+    LLM8_BASE_URL: Optional[str] = None
+    LLM8_MODEL: Optional[str] = None
     
     # Reddit API
     REDDIT_CLIENT_ID: Optional[str] = None
@@ -98,6 +126,31 @@ class Settings(BaseSettings):
         case_sensitive = True
         # Ignorar variables de entorno ajenas al sistema (p.ej. CONTEXT7_API_KEY)
         extra = "ignore"
+
+    def llm_providers(self) -> list[dict]:
+        """Proveedores LLM en orden de prioridad (LLM1..LLM8).
+
+        Cada proveedor que tenga las 3 variables (api_key, base_url, model) se
+        incluye. Si no hay ningún LLM_N configurado, cae a ``DEEPSEEK_API_KEY``
+        como único proveedor (compatibilidad con versiones anteriores).
+
+        Returns:
+            Lista de dicts ``{"api_key", "base_url", "model"}`` en orden.
+        """
+        providers: list[dict] = []
+        for i in range(1, 9):
+            api_key = getattr(self, f"LLM{i}_API_KEY", None)
+            base_url = getattr(self, f"LLM{i}_BASE_URL", None)
+            model = getattr(self, f"LLM{i}_MODEL", None)
+            if api_key and base_url and model:
+                providers.append({"api_key": api_key, "base_url": base_url, "model": model})
+        if not providers and self.DEEPSEEK_API_KEY:
+            providers.append({
+                "api_key": self.DEEPSEEK_API_KEY,
+                "base_url": "https://api.deepseek.com",
+                "model": "deepseek-chat",
+            })
+        return providers
 
 
 @lru_cache()

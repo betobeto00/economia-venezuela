@@ -73,6 +73,23 @@ def collect_news_job() -> dict:
         return {}
 
 
+def weekly_report_job() -> dict:
+    """Genera el informe semanal automatizado (con resumen IA si hay LLMs).
+
+    Returns:
+        Dict con la ruta del informe, o {} si falló.
+    """
+    from src.analyzers.reports.weekly import generate_weekly_report
+
+    try:
+        path = generate_weekly_report()
+        logger.info("Informe semanal generado: %s", path)
+        return {"report": path}
+    except Exception as exc:  # noqa: BLE001 - el scheduler no debe caerse
+        logger.exception("Job de informe semanal falló: %s", exc)
+        return {}
+
+
 def register_market_job(scheduler) -> None:
     """Registra la recolección periódica de datos de mercado en el scheduler."""
     existing = scheduler.get_job("collect_market")
@@ -129,6 +146,35 @@ def register_news_job(scheduler) -> None:
         minutes=settings.NEWS_COLLECT_INTERVAL_HOURS * 60,
         id="collect_news",
         name="Recolección periódica de noticias y sentimiento (Fase A)",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+
+
+def register_weekly_report_job(scheduler) -> None:
+    """Registra el informe semanal automatizado.
+
+    Se dispara el día/hora configurados (``WEEKLY_REPORT_DAY``/``WEEKLY_REPORT_HOUR``)
+    con trigger ``cron``. Un fallo del informe no afecta al scheduler.
+    """
+    day = settings.WEEKLY_REPORT_DAY.strip().lower()
+    day_abbr = {
+        "monday": "mon", "tuesday": "tue", "wednesday": "wed",
+        "thursday": "thu", "friday": "fri", "saturday": "sat", "sunday": "sun",
+    }.get(day, day)
+
+    existing = scheduler.get_job("weekly_report")
+    if existing is not None:
+        scheduler.remove_job("weekly_report")
+
+    scheduler.add_job(
+        weekly_report_job,
+        trigger="cron",
+        day_of_week=day_abbr,
+        hour=settings.WEEKLY_REPORT_HOUR,
+        id="weekly_report",
+        name="Informe semanal automatizado con IA (punto 25)",
         replace_existing=True,
         max_instances=1,
         coalesce=True,
