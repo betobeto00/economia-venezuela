@@ -245,14 +245,16 @@ class ResidualDiagnostics:
             else:
                 # Simplificación: usar prueba de Breusch-Pagan con residuos al cuadrado
                 from statsmodels.stats.diagnostic import het_breuschpagan
-                x = np.arange(len(clean_resid)).reshape(-1, 1)
+                n = len(clean_resid)
+                x = np.column_stack([np.ones(n), np.arange(n)])
                 statistic, p_value, f_stat, f_pvalue = het_breuschpagan(clean_resid, x)
             
             test_name = "White"
             
         elif test == 'breusch_pagan':
             if exog is None:
-                x = np.arange(len(clean_resid)).reshape(-1, 1)
+                n = len(clean_resid)
+                x = np.column_stack([np.ones(n), np.arange(n)])
             else:
                 x = exog.loc[clean_resid.index].dropna()
             
@@ -463,7 +465,7 @@ Resultado: {'✅ PASA' if diagnostics.normality.assumptions_met else '❌ FALLA'
 --- Prueba de Autocorrelación ---
 Prueba: {diagnostics.autocorrelation.test_name}
 Estadístico: {diagnostics.autocorrelation.statistic:.4f}
-p-value: {diagnostics.autocorrelation.p_value:.4f if diagnostics.autocorrelation.p_value else 'N/A'}
+p-value: {f'{diagnostics.autocorrelation.p_value:.4f}' if diagnostics.autocorrelation.p_value is not None else 'N/A'}
 Resultado: {'✅ PASA' if diagnostics.autocorrelation.assumptions_met else '❌ FALLA'}
 {diagnostics.autocorrelation.interpretation}
 

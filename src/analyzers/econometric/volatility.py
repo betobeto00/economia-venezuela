@@ -16,7 +16,6 @@ import numpy as np
 from typing import Dict, Optional, Tuple
 from dataclasses import dataclass
 from arch import arch_model
-from arch.univariate import GARCH, EGARCH, ARCH
 import warnings
 
 warnings.filterwarnings('ignore')
@@ -91,20 +90,22 @@ class GARCHVolatilityAnalyzer:
         # Limpiar datos
         clean_returns = returns.dropna()
         
-        # Seleccionar modelo de volatilidad
+        # Seleccionar modelo de volatilidad (arch >= 8: vol es un string)
         if vol_model == 'GARCH':
-            vol = GARCH(p, q)
+            vol, vol_p, vol_q = 'GARCH', p, q
         elif vol_model == 'EGARCH':
-            vol = EGARCH(p, q)
+            vol, vol_p, vol_q = 'EGARCH', p, q
         elif vol_model == 'ARCH':
-            vol = ARCH(p)
+            vol, vol_p, vol_q = 'ARCH', 0, p  # ARCH(p) → q=p en notación GARCH
         else:
-            vol = GARCH(p, q)
+            vol, vol_p, vol_q = 'GARCH', p, q
         
         # Ajustar modelo
         model = arch_model(
             clean_returns,
             vol=vol,
+            p=vol_p,
+            q=vol_q,
             mean=mean_model,
             dist=dist
         )
@@ -138,7 +139,7 @@ class GARCHVolatilityAnalyzer:
             model_params=results.params.to_dict(),
             last_volatility=last_vol_annualized,
             volatility_forecast=vol_forecast,
-            conditional_variance(results.conditional_volatility ** 2),
+            conditional_variance=results.conditional_volatility ** 2,
             p_value_arch_test=p_value_arch,
             is_volatility_clustering=is_vol_clustering,
             interpretation=interpretation

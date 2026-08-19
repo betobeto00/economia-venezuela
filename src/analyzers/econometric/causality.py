@@ -17,7 +17,7 @@ import pandas as pd
 import numpy as np
 from typing import Dict, Optional, Tuple, List
 from dataclasses import dataclass
-from statsmodels.tsa.vector_ar.vecm import VECM, coint_johansen, vecm_select_order
+from statsmodels.tsa.vector_ar.vecm import VECM, coint_johansen, select_order
 from statsmodels.tsa.stattools import grangercausalitytests, coint
 from statsmodels.tsa.api import VAR
 import warnings
@@ -447,7 +447,7 @@ class VECMAnalyzer:
         
         # Seleccionar orden de rezagos automáticamente si no se especifica
         if lag_order is None:
-            select_result = vecm_select_order(data, maxlags=10)
+            select_result = select_order(data, maxlags=10)
             lag_order = select_result.aic
         
         # Seleccionar rango de cointegración automáticamente si no se especifica

@@ -98,7 +98,7 @@ class NeweyWestRegressor:
             RegressionResult
         """
         if maxlags is None:
-            maxlags = self.maxlights
+            maxlags = self.maxlags
         
         # Alinear datos
         data = pd.concat([y, X], axis=1).dropna()
@@ -151,7 +151,7 @@ class NeweyWestRegressor:
             f_pvalue=results.f_pvalue,
             dw_statistic=dw,
             n_observations=len(y_clean),
-            residuals(results.resid),
+            residuals=results.resid,
             predictions=results.fittedvalues,
             confidence_intervals=ci_df,
             summary=results.summary().as_text()

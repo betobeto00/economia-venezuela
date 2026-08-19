@@ -122,7 +122,7 @@ class InflationForecaster:
             bic=results.bic,
             order=order,
             seasonal_order=seasonal_order,
-            residuals(results.resid),
+            residuals=results.resid,
             diagnostics=diagnostics
         )
     
@@ -179,7 +179,7 @@ class InflationForecaster:
                     aic=results.aic,
                     bic=results.bic,
                     order=(p, d, q),
-                    residuals(results.resid)
+                    residuals=results.resid
                 ))
             except:
                 continue
@@ -210,7 +210,7 @@ class InflationForecaster:
                             bic=results.bic,
                             order=(p, d, q),
                             seasonal_order=seasonal_order,
-                            residuals(results.resid)
+                            residuals=results.resid
                         ))
                     except:
                         continue
@@ -360,7 +360,7 @@ class DollarRateForecaster:
             aic=results.aic,
             bic=results.bic,
             order=order,
-            residuals(results.resid)
+            residuals=results.resid
         )
     
     def forecast_both_rates(
