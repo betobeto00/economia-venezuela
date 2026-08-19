@@ -53,6 +53,13 @@ class Settings(BaseSettings):
     SURVEY_PERSONA_COMUN_SHEET_ID: Optional[str] = None
     SURVEY_COMERCIANTE_FORM_ID: Optional[str] = None
     SURVEY_COMERCIANTE_SHEET_ID: Optional[str] = None
+
+    # Fase A - Fuentes de datos (URLs configurables para tests/fallback)
+    BCV_RATE_API_URL: str = "https://ve.dolarapi.com/v1/dolares/oficial"
+    BCV_IPC_API_URL: str = "https://api.bcv.org.ve/ipc"
+    OVF_BASE_URL: str = "https://observatoriodefinanzas.com"
+    WORLD_BANK_API_URL: str = "https://api.worldbank.org/v2"
+    ONAPRE_BASE_URL: str = "https://www.onapre.gob.ve"
     
     # Dashboard
     DASHBOARD_PORT: int = 8501
