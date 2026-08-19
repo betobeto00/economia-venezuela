@@ -70,12 +70,14 @@ class Settings(BaseSettings):
     # Feeds RSS de noticias (separados por coma)
     # Nota: elpitazo.net y bancaynegocios.com no responden desde la red local
     # (geo-block/WAF); guia.com.ve es un directorio feedburner descontinuado.
-    # Vivos: Diario Las Américas y el staging de Efecto Cocuyo (feed de
-    # economía, el más relevante para sentimiento económico).
+    # Vivos: Diario Las Américas, El Tiempo (economía) y el staging de Efecto
+    # Cocuyo (economía) y Primicia (general).
     RSS_FEEDS: str = (
         "https://www.diariolasamericas.com/rss/pages/venezuela.xml,"
         "https://www.diariolasamericas.com/rss/pages/mundo.xml,"
-        "https://efectococuyo-np.newspackstaging.com/economia/feed/"
+        "https://efectococuyo-np.newspackstaging.com/economia/feed/,"
+        "https://www.eltiempo.com/rss/economia.xml,"
+        "https://primicia.com.ve/feed/"
     )
     
     # Dashboard
