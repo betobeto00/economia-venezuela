@@ -575,31 +575,61 @@ Pipeline:
 - [x] Módulo econométrico
 
 ### Fase 2: Recolección
-- [ ] Collector BCV (pyDolarVenezuela)
-- [ ] Collector BVC (yfinance)
-- [ ] Collector OVF (scraping)
-- [ ] Collector Banco Mundial (wbgapi)
-- [ ] Collector OPEP
-- [ ] Collector Dólar Paralelo
-- [ ] Collector Noticias
-- [ ] Collector Redes Sociales
-- [ ] **Formulario Persona Común (Google Forms)** (NUEVO)
-- [ ] **Formulario Comerciante (Google Forms)** (NUEVO)
-- [ ] **Collector de Encuestas (gspread)** (NUEVO)
+- [x] Collector BCV (DolarAPI oficial + IPC)
+- [x] Collector BVC (yfinance)
+- [x] Collector OVF (scraping)
+- [x] Collector Banco Mundial (API REST)
+- [x] Collector OPEP
+- [x] Collector Binance P2P (paralelo digital)
+- [x] Collector ONAPRE (ejecución presupuestaria)
+- [x] Collector CGR (contraloría)
+- [x] Collector INE
+- [x] Collector RSS (noticias)
+- [x] Collector Reddit (sentimiento)
+- [ ] Collector Dólar Paralelo (pydolarvenezuela)
+- [x] **Formulario Persona Común (Google Forms)** ✅ activo
+- [x] **Formulario Comerciante (Google Forms)** ✅ activo
+- [x] **Collector de Encuestas (gspread)** ✅ pipeline end-to-end
 
 ### Fase 3: Análisis
 - [x] Módulo econométrico
+- [x] Integración collectors → econometría (market_integration)
 - [ ] Lógica de contraste multi-fuente
 - [ ] Generación de escenarios
-- [ ] **Análisis de encuestas (percepción vs datos oficiales)** (NUEVO)
-- [ ] **Clima de negocios** (NUEVO)
+- [x] **Análisis de encuestas (percepción vs datos oficiales)**
+- [x] **Clima de negocios**
 
 ### Fase 4: Visualización
+- [x] Dashboard con métricas en vivo (dólar oficial/paralelo, inflación)
+- [x] **Sección de encuestas en el dashboard**
 - [ ] Dashboard con dispersión de fuentes
 - [ ] Sistema de alertas
-- [ ] **Sección de encuestas en el dashboard** (NUEVO)
 
 ---
 
-**Base de conocimiento actualizada: Agosto 2025**
-**Última revisión: Fuentes institucionales nacionales e internacionales + Encuestas Google (Fase B)**
+## ☁️ Notas de Despliegue
+
+### Railway + Binance P2P (geo-blocking)
+
+**Problema:** Binance P2P bloquea por geolocalización las IPs de EE.UU.
+Railway despliega por defecto en regiones de EE.UU. (`us-west`, `us-east`),
+por lo que **el job de Binance fallará si el scheduler corre en Railway**.
+
+**Estado actual:** la recolección de mercado corre desde la máquina local
+(`python -m src.scripts.collect_market` o `main.py`), donde Binance funciona
+normalmente. El pipeline ya degrada con gracia: si Binance falla, solo se
+omite `binance_usdt` y el resto (BCV, OVF) se guarda igual.
+
+**Opciones si se despliega el scheduler a Railway:**
+1. Elegir una región no bloqueada por Binance (p.ej. `eu-west`) al escalar.
+2. Correr solo el job de mercado en local y el resto del scheduler en Railway.
+3. Sustituir Binance P2P por otro proxy del paralelo (DólarToday, EnParaleloVzla)
+   cuando se implemente `dolar_collector.py`.
+
+El resto de fuentes (BCV, OVF, World Bank, OPEP, encuestas Google) no tienen
+restricción geográfica y funcionan desde cualquier región.
+
+---
+
+**Base de conocimiento actualizada: Agosto 2026**
+**Última revisión: Fuentes institucionales nacionales e internacionales + Encuestas Google (Fase B) + Despliegue Railway/Binance**

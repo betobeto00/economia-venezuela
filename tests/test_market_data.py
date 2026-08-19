@@ -33,9 +33,9 @@ def session():
     s.close()
 
 
-def _rate(source="bcv", date=None):
+def _rate(source="bcv", currency="usd", date=None):
     return ExchangeRate(
-        source=source, currency="usd", rate=9.63,
+        source=source, currency=currency, rate=9.63,
         date=date or datetime(2026, 8, 19),
         variation_pct=0.35,
     )
@@ -178,13 +178,28 @@ class TestDashboardMarketData:
         from src.dashboard import market_data
 
         repo = MarketRepository(session)
-        repo.save_rates([_rate(), _rate(source="binance", date=datetime(2026, 8, 20))])
+        repo.save_rates([_rate(), _rate(source="binance", currency="usdt", date=datetime(2026, 8, 20))])
         repo.save_inflation([_point()])
         monkeypatch.setattr(db_session, "session_scope", lambda: nullcontext(session))
         metrics = market_data.dashboard_metrics()
         assert metrics["oficial"].source == "bcv"
         assert metrics["paralelo"].source == "binance"
         assert metrics["inflacion"].monthly_rate == 2.1
+
+    def test_dashboard_metrics_fallback_inflacion_ovf(self, session, monkeypatch):
+        # BCV IPC no disponible → el dashboard usa OVF como fallback.
+        from contextlib import nullcontext
+
+        import src.db.session as db_session
+        from src.dashboard import market_data
+
+        MarketRepository(session).save_inflation(
+            [_point(source="ovf", period="2026-06", monthly=3.4)]
+        )
+        monkeypatch.setattr(db_session, "session_scope", lambda: nullcontext(session))
+        metrics = market_data.dashboard_metrics()
+        assert metrics["inflacion"].source == "ovf"
+        assert metrics["inflacion"].monthly_rate == 3.4
 
     def test_latest_rate_db_caida_devuelve_none(self, monkeypatch):
         from src.dashboard import market_data

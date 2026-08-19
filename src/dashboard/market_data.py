@@ -18,8 +18,11 @@ logger = logging.getLogger(__name__)
 
 # Fuentes canónicas para las tarjetas del dashboard
 OFFICIAL_SOURCE = "bcv"
-PARALLEL_SOURCE = "binance"   # proxy digital (P2P)
+OFFICIAL_CURRENCY = "usd"
+PARALLEL_SOURCE = "binance"   # proxy digital (P2P); usa moneda "usdt"
+PARALLEL_CURRENCY = "usdt"
 INFLATION_SOURCE = "bcv"
+INFLATION_FALLBACK_SOURCE = "ovf"  # si BCV IPC no está disponible
 
 
 def latest_rate(source: str, currency: str = "usd") -> Optional[ExchangeRate]:
@@ -56,9 +59,10 @@ def dashboard_metrics() -> dict:
         inflacion (InflationPoint|None).
     """
     return {
-        "oficial": latest_rate(OFFICIAL_SOURCE),
-        "paralelo": latest_rate(PARALLEL_SOURCE),
-        "inflacion": latest_inflation(INFLATION_SOURCE),
+        "oficial": latest_rate(OFFICIAL_SOURCE, OFFICIAL_CURRENCY),
+        "paralelo": latest_rate(PARALLEL_SOURCE, PARALLEL_CURRENCY),
+        "inflacion": latest_inflation(INFLATION_SOURCE)
+        or latest_inflation(INFLATION_FALLBACK_SOURCE),
     }
 
 

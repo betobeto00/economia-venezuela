@@ -91,12 +91,16 @@ with tab_inicio:
             help="Última tasa USDT/VES del mercado P2P (Binance)",
         )
     with col3:
+        infl_source = (
+            metrics["inflacion"].source.upper()
+            if metrics["inflacion"] else "BCV/OVF"
+        )
         st.metric(
-            label="📈 Inflación Mensual (BCV)",
+            label=f"📈 Inflación Mensual ({infl_source})",
             value=format_metric(
                 metrics["inflacion"].monthly_rate if metrics["inflacion"] else None, " %"
             ),
-            help="Último IPC mensual oficial persistido por el colector BCV",
+            help="Último IPC mensual persistido (BCV oficial, fallback OVF)",
         )
 
     if not metrics["oficial"] and not metrics["paralelo"] and not metrics["inflacion"]:

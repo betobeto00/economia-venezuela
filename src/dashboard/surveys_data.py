@@ -17,7 +17,7 @@ Flujo:
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
 import pandas as pd
@@ -52,7 +52,7 @@ def load_responses_from_db(survey_type: str, days: int = DEFAULT_DAYS) -> List[S
     from src.db.repositories import SurveyRepository
     from src.db.session import get_session
 
-    since = datetime.now() - timedelta(days=days)
+    since = datetime.now(timezone.utc) - timedelta(days=days)
     with get_session() as session:
         return SurveyRepository(session).list_responses(
             segment=survey_type, since=since
@@ -94,9 +94,18 @@ def series_df(
     return indicators.compute_series(responses, freq=freq, min_responses=min_responses)
 
 
+def _as_utc(dt: Optional[datetime]) -> Optional[datetime]:
+    """Normaliza a UTC: los datos de DB son aware; los tests usan naive."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
 def split_periods(
     responses: List[SurveyResponse],
-    current_days: int = 30,
+    current_days: int = DEFAULT_DAYS,
 ) -> tuple[List[SurveyResponse], List[SurveyResponse]]:
     """Divide respuestas en período actual y período previo (misma duración).
 
@@ -107,17 +116,17 @@ def split_periods(
     Returns:
         (respuestas del período actual, respuestas del período previo).
     """
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     start_current = now - timedelta(days=current_days)
     start_previous = now - timedelta(days=2 * current_days)
 
     current = [
         r for r in responses
-        if r.submitted_at and start_current <= r.submitted_at <= now
+        if (ts := _as_utc(r.submitted_at)) and start_current <= ts <= now
     ]
     previous = [
         r for r in responses
-        if r.submitted_at and start_previous <= r.submitted_at < start_current
+        if (ts := _as_utc(r.submitted_at)) and start_previous <= ts < start_current
     ]
     return current, previous
 
