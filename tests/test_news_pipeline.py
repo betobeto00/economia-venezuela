@@ -14,6 +14,11 @@ from datetime import datetime
 import pytest
 from apscheduler.schedulers.background import BackgroundScheduler
 
+from src.analyzers.relevance import (
+    filter_relevant,
+    is_economically_relevant,
+    relevance_score,
+)
 from src.analyzers.sentiment import (
     analyze_text,
     score_text,
@@ -137,6 +142,40 @@ class TestNewsRepository:
                            "negative": 0, "mean_score": 0.0}
 
 
+class TestEconomicRelevance:
+    def test_relevante_fuerte(self):
+        # Un término fuerte (dolar, inflacion) basta
+        assert is_economically_relevant("El dólar sube frente al bolívar")
+        assert is_economically_relevant("Inflación de julio cae al 2%")
+
+    def test_relevante_debil_requiere_dos(self):
+        # Términos débiles solos no alcanzan
+        assert not is_economically_relevant("El mercado de fichajes del fútbol")
+        # Pero dos débiles sí
+        assert is_economically_relevant("Empresas reportan ingresos y ganancias")
+
+    def test_irrelevante(self):
+        assert not is_economically_relevant("Huracán deja sin electricidad a Hawái")
+        assert not is_economically_relevant("Terremoto causa 50 fallecidos")
+        assert not is_economically_relevant("Ucrania lanza ataque con drones")
+        assert not is_economically_relevant("Pieza teatral explora travesía de Odiseo")
+
+    def test_vacio(self):
+        assert not is_economically_relevant("")
+        assert not is_economically_relevant(None)
+
+    def test_relevance_score_pondera(self):
+        assert relevance_score("El dólar sube") >= 3  # fuerte
+        assert relevance_score("Empresas y mercados") >= 2  # dos débiles
+        assert relevance_score("Nota cultural") == 0
+
+    def test_filter_relevant(self):
+        texts = ["El dólar sube", "Pieza teatral de Odiseo"]
+        results = filter_relevant(texts)
+        assert results[0][1] is True
+        assert results[1][1] is False
+
+
 class FakeRSS:
     def __init__(self, articles=None):
         self._articles = articles or []
@@ -160,14 +199,34 @@ class TestRunNewsPipeline:
     def test_pipeline_completo(self, session):
         summary = run_news_pipeline(
             session,
-            rss=FakeRSS([_article(), _article(url="u2", title="La crisis se agrava")]),
+            rss=FakeRSS([_article(), _article(url="u2", title="El dólar sigue subiendo")]),
             reddit=FakeReddit([_post()]),
         )
         assert summary["news"]["fetched"] == 2
+        assert summary["news"]["relevant"] == 2
         assert summary["news"]["saved"] == 2
+        assert summary["social"]["fetched"] == 1
+        assert summary["social"]["relevant"] == 1
         assert summary["social"]["saved"] == 1
         # Los textos con tono generan sentimiento
         assert summary["sentiment"]["saved"] >= 2
+
+    def test_pipeline_filtra_irrelevantes(self, session):
+        summary = run_news_pipeline(
+            session,
+            rss=FakeRSS([
+                _article(),  # "Inflación baja en julio" → relevante
+                _article(url="u2", title="Huracán deja sin electricidad a Hawái"),
+                _article(url="u3", title="Pieza teatral explora travesía de Odiseo"),
+            ]),
+            reddit=FakeReddit([_post(), _post(url="https://reddit.com/x", title="Cultura y arte")]),
+        )
+        assert summary["news"]["fetched"] == 3
+        assert summary["news"]["relevant"] == 1
+        assert summary["news"]["saved"] == 1
+        assert summary["social"]["fetched"] == 2
+        assert summary["social"]["relevant"] == 1
+        assert summary["social"]["saved"] == 1
 
     def test_pipeline_reddit_caido_degrada(self, session):
         summary = run_news_pipeline(

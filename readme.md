@@ -273,7 +273,7 @@ economia-venezuela/
 | **Encuestas** | Percepción por segmento | Google Forms | ✅ En vivo |
 | **Spread Cambiario** | Diferencia oficial-paralelo | Cálculo | ⏳ |
 | **Índice de Nerviosismo** | Volatilidad GARCH | Binance P2P | ⏳ |
-| **Sentimiento** | Análisis léxico español | RSS/Reddit | ✅ En vivo |
+| **Sentimiento** | Análisis léxico español + filtro relevancia económica | RSS/Reddit | ✅ En vivo |
 | **Pronóstico Inflación** | SARIMA | Modelo econométrico | ⏳ |
 
 ## 🤝 Contribuciones

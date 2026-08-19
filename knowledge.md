@@ -591,11 +591,13 @@ Pipeline:
 - [x] **Formulario Comerciante (Google Forms)** ✅ activo
 - [x] **Collector de Encuestas (gspread)** ✅ pipeline end-to-end
 - [x] **Ingesta noticias/RSS + análisis de sentimiento** ✅ pipeline + dashboard
+- [x] **Filtro de relevancia económica** ✅ `analyzers/relevance.py` (léxico fuerte/débil)
 
 ### Fase 3: Análisis
 - [x] Módulo econométrico
 - [x] Integración collectors → econometría (market_integration)
 - [x] **Análisis de sentimiento (léxico español)** — `analyzers/sentiment.py`
+- [x] **Filtro de relevancia económica** — `analyzers/relevance.py`
 - [ ] Lógica de contraste multi-fuente
 - [ ] Generación de escenarios
 - [x] **Análisis de encuestas (percepción vs datos oficiales)**

@@ -30,43 +30,54 @@ def run_news_pipeline(
     reddit: Optional[RedditCollector] = None,
     per_feed_limit: int = 25,
     reddit_limit: int = 25,
+    relevance_min_strong: int = 1,
+    relevance_min_weak: int = 2,
 ) -> dict:
-    """Recolecta noticias y posts, los persiste y analiza su sentimiento.
+    """Recolecta noticias y posts, filtra por relevancia económica, persiste
+    y analiza el sentimiento de lo guardado.
 
     Args:
         session: Sesión SQLAlchemy (persistencia).
         rss: RSSCollector (por defecto se instancia con feeds configurados).
         reddit: RedditCollector (por defecto se instancia; requiere credenciales).
         per_feed_limit / reddit_limit: Límites por fuente.
+        relevance_min_strong / relevance_min_weak: Umbrales del filtro de
+            relevancia económica (ver ``analyzers.relevance``).
 
     Returns:
-        Dict de resumen: {news: {fetched, saved}, social: {fetched, saved},
-        sentiment: {analyzed, saved}}.
+        Dict de resumen: {news: {fetched, relevant, saved},
+        social: {fetched, relevant, saved}, sentiment: {analyzed, saved}}.
     """
     rss = rss or RSSCollector()
     reddit = reddit or RedditCollector()
     repo = NewsRepository(session)
 
-    summary: dict = {"news": {"fetched": 0, "saved": 0},
-                     "social": {"fetched": 0, "saved": 0},
-                     "sentiment": {"analyzed": 0, "saved": 0}}
+    summary: dict = {
+        "news": {"fetched": 0, "relevant": 0, "saved": 0},
+        "social": {"fetched": 0, "relevant": 0, "saved": 0},
+        "sentiment": {"analyzed": 0, "saved": 0},
+    }
 
-    # RSS: noticias
+    # RSS: noticias → filtro de relevancia económica
     articles: List = []
     try:
         articles = rss.fetch_articles(per_feed_limit=per_feed_limit)
     except Exception as exc:  # noqa: BLE001
         logger.warning("RSS no disponible: %s", exc)
     summary["news"]["fetched"] = len(articles)
+    articles = _filter_relevant_articles(articles, relevance_min_strong, relevance_min_weak)
+    summary["news"]["relevant"] = len(articles)
     summary["news"]["saved"] = repo.save_articles(articles)
 
-    # Reddit: posts sociales
+    # Reddit: posts sociales → filtro de relevancia económica
     posts: List = []
     try:
         posts = reddit.fetch_posts(limit=reddit_limit)
     except Exception as exc:  # noqa: BLE001 - sin credenciales o API caída
         logger.warning("Reddit no disponible: %s", exc)
     summary["social"]["fetched"] = len(posts)
+    posts = _filter_relevant_posts(posts, relevance_min_strong, relevance_min_weak)
+    summary["social"]["relevant"] = len(posts)
     summary["social"]["saved"] = repo.save_posts(posts)
 
     # Sentimiento sobre lo nuevo recolectado
@@ -76,6 +87,36 @@ def run_news_pipeline(
 
     logger.info("Resumen noticias/sentimiento: %s", summary)
     return summary
+
+
+def _filter_relevant_articles(articles, min_strong: int, min_weak: int) -> List:
+    """Conserva solo los artículos económicamente relevantes."""
+    from src.analyzers.relevance import is_economically_relevant
+
+    relevant = []
+    for article in articles:
+        text = article.title
+        if article.summary:
+            text = f"{text}. {article.summary}"
+        if is_economically_relevant(text, min_strong, min_weak):
+            relevant.append(article)
+        else:
+            logger.debug("Artículo sin relevancia económica omitido: %s", article.title[:60])
+    return relevant
+
+
+def _filter_relevant_posts(posts, min_strong: int, min_weak: int) -> List:
+    """Conserva solo los posts económicamente relevantes."""
+    from src.analyzers.relevance import is_economically_relevant
+
+    relevant = []
+    for post in posts:
+        text = post.title
+        if post.text:
+            text = f"{text}. {post.text}"
+        if is_economically_relevant(text, min_strong, min_weak):
+            relevant.append(post)
+    return relevant
 
 
 def _build_sentiment(repo: NewsRepository, articles, posts) -> List:
