@@ -34,18 +34,25 @@ def init_database():
 
 
 def start_scheduler():
-    """Arranca el scheduler de tareas periódicas (mercado y encuestas)."""
+    """Arranca el scheduler de tareas periódicas (mercado, encuestas, noticias)."""
     from apscheduler.schedulers.background import BackgroundScheduler
-    from src.scheduler.jobs import register_market_job, register_survey_job
+    from src.scheduler.jobs import (
+        register_market_job,
+        register_news_job,
+        register_survey_job,
+    )
 
     scheduler = BackgroundScheduler()
     register_market_job(scheduler)
     register_survey_job(scheduler)
+    register_news_job(scheduler)
     scheduler.start()
     logging.getLogger(__name__).info(
-        "Scheduler iniciado (mercado cada %d min, encuestas cada %d min)",
+        "Scheduler iniciado (mercado cada %d min, encuestas cada %d min, "
+        "noticias cada %d h)",
         settings.MARKET_COLLECT_INTERVAL_MINUTES,
         settings.SURVEY_COLLECT_INTERVAL_MINUTES,
+        settings.NEWS_COLLECT_INTERVAL_HOURS,
     )
     return scheduler
 

@@ -54,6 +54,25 @@ def collect_market_job() -> dict:
         return {}
 
 
+def collect_news_job() -> dict:
+    """Ejecuta el pipeline de noticias/sentimiento (una vez por intervalo)."""
+    from src.db.session import session_scope
+    from src.scripts.collect_news import run_news_pipeline
+
+    try:
+        with session_scope() as session:
+            summary = run_news_pipeline(session)
+            logger.info(
+                "Job noticias: %d artículos, %d posts, %d sentimientos",
+                summary["news"]["saved"], summary["social"]["saved"],
+                summary["sentiment"]["saved"],
+            )
+            return summary
+    except Exception as exc:  # noqa: BLE001 - el scheduler no debe caerse
+        logger.exception("Job de noticias/sentimiento falló: %s", exc)
+        return {}
+
+
 def register_market_job(scheduler) -> None:
     """Registra la recolección periódica de datos de mercado en el scheduler."""
     existing = scheduler.get_job("collect_market")
@@ -88,6 +107,28 @@ def register_survey_job(scheduler) -> None:
         minutes=settings.SURVEY_COLLECT_INTERVAL_MINUTES,
         id="collect_surveys",
         name="Recolección periódica de encuestas (Fase B)",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+
+
+def register_news_job(scheduler) -> None:
+    """Registra la recolección periódica de noticias/sentimiento.
+
+    El intervalo se configura en horas (``NEWS_COLLECT_INTERVAL_HOURS``) y se
+    convierte a minutos para el trigger ``interval``.
+    """
+    existing = scheduler.get_job("collect_news")
+    if existing is not None:
+        scheduler.remove_job("collect_news")
+
+    scheduler.add_job(
+        collect_news_job,
+        trigger="interval",
+        minutes=settings.NEWS_COLLECT_INTERVAL_HOURS * 60,
+        id="collect_news",
+        name="Recolección periódica de noticias y sentimiento (Fase A)",
         replace_existing=True,
         max_instances=1,
         coalesce=True,

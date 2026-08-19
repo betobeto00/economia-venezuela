@@ -21,10 +21,14 @@ from sqlalchemy.orm import Session
 from src.db.models import (
     ExchangeRateORM,
     InflationPointORM,
+    NewsArticleORM,
+    SentimentScoreORM,
+    SocialPostORM,
     SurveyORM,
     SurveyResponseORM,
 )
 from src.models.market import ExchangeRate, InflationPoint
+from src.models.news import NewsArticle, SentimentScore, SocialPost
 from src.models.survey import Survey, SurveyResponse
 
 logger = logging.getLogger(__name__)
@@ -335,3 +339,211 @@ class MarketRepository:
         )
         orm = self.session.scalar(stmt)
         return _inflation_orm_to_model(orm) if orm is not None else None
+
+
+def _article_to_orm(article: NewsArticle) -> NewsArticleORM:
+    return NewsArticleORM(
+        source=article.source,
+        title=article.title,
+        url=article.url,
+        published=article.published,
+        summary=article.summary,
+    )
+
+
+def _article_orm_to_model(orm: NewsArticleORM) -> NewsArticle:
+    return NewsArticle(
+        source=orm.source,
+        title=orm.title,
+        url=orm.url,
+        published=orm.published,
+        summary=orm.summary,
+    )
+
+
+def _post_to_orm(post: SocialPost) -> SocialPostORM:
+    return SocialPostORM(
+        source=post.source,
+        channel=post.channel,
+        title=post.title,
+        url=post.url,
+        text=post.text,
+        score=post.score,
+        num_comments=post.num_comments,
+        published=post.published,
+    )
+
+
+def _post_orm_to_model(orm: SocialPostORM) -> SocialPost:
+    return SocialPost(
+        source=orm.source,
+        channel=orm.channel,
+        title=orm.title,
+        url=orm.url,
+        text=orm.text,
+        score=orm.score,
+        num_comments=orm.num_comments,
+        published=orm.published,
+    )
+
+
+def _sentiment_to_orm(score: SentimentScore) -> SentimentScoreORM:
+    return SentimentScoreORM(
+        item_type=score.item_type,
+        item_id=score.item_id,
+        text=score.text,
+        score=score.score,
+        label=score.label,
+    )
+
+
+def _sentiment_orm_to_model(orm: SentimentScoreORM) -> SentimentScore:
+    return SentimentScore(
+        item_type=orm.item_type,
+        item_id=orm.item_id,
+        text=orm.text,
+        score=float(orm.score),
+        label=orm.label,
+        analyzed_at=orm.analyzed_at,
+    )
+
+
+class NewsRepository:
+    """Persistencia de noticias, posts sociales y puntajes de sentimiento."""
+
+    def __init__(self, session: Session):
+        self.session = session
+
+    # --- Articles ---
+
+    def save_articles(self, articles: List[NewsArticle]) -> int:
+        """Inserta artículos de forma idempotente (única por source/url).
+
+        Returns:
+            Número de artículos nuevos insertados.
+        """
+        saved = 0
+        for article in articles:
+            self.session.add(_article_to_orm(article))
+            try:
+                self.session.commit()
+                saved += 1
+            except IntegrityError:
+                self.session.rollback()
+                logger.info(
+                    "Artículo duplicado omitido (%s)", article.url,
+                )
+        return saved
+
+    def list_articles(
+        self,
+        source: Optional[str] = None,
+        since: Optional[datetime] = None,
+        limit: Optional[int] = None,
+    ) -> List[NewsArticle]:
+        stmt = select(NewsArticleORM).order_by(NewsArticleORM.published.desc())
+        if source is not None:
+            stmt = stmt.where(NewsArticleORM.source == source)
+        if since is not None:
+            stmt = stmt.where(NewsArticleORM.published >= since)
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        return [_article_orm_to_model(orm) for orm in self.session.scalars(stmt)]
+
+    def count_articles(self) -> int:
+        return int(self.session.scalar(select(func.count(NewsArticleORM.id))) or 0)
+
+    # --- Social posts ---
+
+    def save_posts(self, posts: List[SocialPost]) -> int:
+        """Inserta posts de forma idempotente (única por source/url)."""
+        saved = 0
+        for post in posts:
+            self.session.add(_post_to_orm(post))
+            try:
+                self.session.commit()
+                saved += 1
+            except IntegrityError:
+                self.session.rollback()
+                logger.info("Post duplicado omitido (%s)", post.url)
+        return saved
+
+    def list_posts(
+        self,
+        channel: Optional[str] = None,
+        since: Optional[datetime] = None,
+        limit: Optional[int] = None,
+    ) -> List[SocialPost]:
+        stmt = select(SocialPostORM).order_by(SocialPostORM.published.desc())
+        if channel is not None:
+            stmt = stmt.where(SocialPostORM.channel == channel)
+        if since is not None:
+            stmt = stmt.where(SocialPostORM.published >= since)
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        return [_post_orm_to_model(orm) for orm in self.session.scalars(stmt)]
+
+    def count_posts(self) -> int:
+        return int(self.session.scalar(select(func.count(SocialPostORM.id))) or 0)
+
+    # --- Sentiment ---
+
+    def save_sentiment(self, scores: List[SentimentScore]) -> int:
+        """Inserta puntajes de sentimiento de forma idempotente.
+
+        Única por (item_type, item_id); un re-análisis no duplica.
+        """
+        saved = 0
+        for score in scores:
+            self.session.add(_sentiment_to_orm(score))
+            try:
+                self.session.commit()
+                saved += 1
+            except IntegrityError:
+                self.session.rollback()
+                logger.info(
+                    "Sentimiento duplicado omitido (%s/%s)",
+                    score.item_type, score.item_id,
+                )
+        return saved
+
+    def list_sentiment(
+        self,
+        item_type: Optional[str] = None,
+        label: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> List[SentimentScore]:
+        stmt = select(SentimentScoreORM).order_by(SentimentScoreORM.analyzed_at.desc())
+        if item_type is not None:
+            stmt = stmt.where(SentimentScoreORM.item_type == item_type)
+        if label is not None:
+            stmt = stmt.where(SentimentScoreORM.label == label)
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        return [_sentiment_orm_to_model(orm) for orm in self.session.scalars(stmt)]
+
+    def sentiment_summary(self) -> dict:
+        """Resumen agregado: conteos por etiqueta y promedio ponderado.
+
+        Returns:
+            Dict con total, positive, neutral, negative y mean_score (0 si vacío).
+        """
+        rows = self.session.execute(
+            select(SentimentScoreORM.label, func.count(SentimentScoreORM.id))
+            .group_by(SentimentScoreORM.label)
+        ).all()
+        counts = {label: int(n) for label, n in rows}
+        total = sum(counts.values())
+        mean = 0.0
+        if total:
+            mean_rows = self.session.execute(
+                select(func.avg(SentimentScoreORM.score))
+            ).scalar()
+            mean = float(mean_rows or 0.0)
+        return {
+            "total": total,
+            "positive": counts.get("positive", 0),
+            "neutral": counts.get("neutral", 0),
+            "negative": counts.get("negative", 0),
+            "mean_score": round(mean, 4),
+        }

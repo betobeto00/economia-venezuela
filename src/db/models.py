@@ -116,3 +116,63 @@ class InflationPointORM(Base):
     monthly_rate: Mapped[Optional[float]] = mapped_column(Numeric(10, 4))
     annual_rate: Mapped[Optional[float]] = mapped_column(Numeric(10, 4))
     index: Mapped[Optional[float]] = mapped_column(Numeric(18, 6))
+
+
+class NewsArticleORM(Base):
+    """Artículo de noticias agregado por el collector RSS (Fase A)."""
+
+    __tablename__ = "news_articles"
+    __table_args__ = (
+        UniqueConstraint("source", "url", name="uq_news_article"),
+    )
+
+    id: Mapped[int] = mapped_column(BIGINT_ID, primary_key=True)
+    source: Mapped[str] = mapped_column(String(100), nullable=False)
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+    url: Mapped[str] = mapped_column(String(1000), nullable=False)
+    published: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    summary: Mapped[Optional[str]] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
+    )
+
+
+class SocialPostORM(Base):
+    """Publicación social (Reddit) para análisis de sentimiento (Fase A)."""
+
+    __tablename__ = "social_posts"
+    __table_args__ = (
+        UniqueConstraint("source", "url", name="uq_social_post"),
+    )
+
+    id: Mapped[int] = mapped_column(BIGINT_ID, primary_key=True)
+    source: Mapped[str] = mapped_column(String(20), nullable=False)  # reddit
+    channel: Mapped[str] = mapped_column(String(100), nullable=False)  # subreddit
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+    url: Mapped[str] = mapped_column(String(1000), nullable=False)
+    text: Mapped[Optional[str]] = mapped_column(String(1000))
+    score: Mapped[Optional[int]] = mapped_column(Integer)
+    num_comments: Mapped[Optional[int]] = mapped_column(Integer)
+    published: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
+    )
+
+
+class SentimentScoreORM(Base):
+    """Puntaje de sentimiento por ítem (noticia o post) (Fase A)."""
+
+    __tablename__ = "sentiment_scores"
+    __table_args__ = (
+        UniqueConstraint("item_type", "item_id", name="uq_sentiment_item"),
+    )
+
+    id: Mapped[int] = mapped_column(BIGINT_ID, primary_key=True)
+    item_type: Mapped[str] = mapped_column(String(20), nullable=False)  # news | social
+    item_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    text: Mapped[str] = mapped_column(String(500), nullable=False)
+    score: Mapped[float] = mapped_column(Numeric(5, 4), nullable=False)
+    label: Mapped[str] = mapped_column(String(10), nullable=False)  # positive | neutral | negative
+    analyzed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
+    )

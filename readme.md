@@ -257,12 +257,11 @@ economia-venezuela/
 |------------|------------|--------|
 | Tasa de cambio (BCV + Binance P2P) | Cada 30 min | `MARKET_COLLECT_INTERVAL_MINUTES` |
 | Encuestas (Google Forms → Sheets) | Cada 60 min | `SURVEY_COLLECT_INTERVAL_MINUTES` |
-| Noticias RSS | Pendiente de ingesta | — |
-| Análisis de sentimiento | Pendiente | — |
+| Noticias RSS + sentimiento | Cada 6 h | `NEWS_COLLECT_INTERVAL_HOURS` |
 | Análisis GARCH (volatilidad) | Pendiente | — |
 | Informe semanal | Pendiente | — |
 
-> El scheduler (APScheduler en `main.py`) ya registra los jobs de mercado y encuestas.
+> El scheduler (APScheduler en `main.py`) ya registra los jobs de mercado, encuestas y noticias.
 
 ## 📈 Métricas del Dashboard
 
@@ -271,10 +270,10 @@ economia-venezuela/
 | **Dólar Oficial** | Tasa BCV | BCV API | ✅ En vivo |
 | **Dólar Paralelo** | Precio USDT/VES Binance P2P | Binance | ✅ En vivo |
 | **Inflación Mensual** | IPC | BCV | ✅ En vivo |
-| **Encuestas** | Percepción por segmento | Google Forms | 🟡 Sin datos |
+| **Encuestas** | Percepción por segmento | Google Forms | ✅ En vivo |
 | **Spread Cambiario** | Diferencia oficial-paralelo | Cálculo | ⏳ |
 | **Índice de Nerviosismo** | Volatilidad GARCH | Binance P2P | ⏳ |
-| **Sentimiento** | Análisis NLP | Reddit/RSS | ⏳ |
+| **Sentimiento** | Análisis léxico español | RSS/Reddit | ✅ En vivo |
 | **Pronóstico Inflación** | SARIMA | Modelo econométrico | ⏳ |
 
 ## 🤝 Contribuciones

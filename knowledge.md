@@ -590,10 +590,12 @@ Pipeline:
 - [x] **Formulario Persona Común (Google Forms)** ✅ activo
 - [x] **Formulario Comerciante (Google Forms)** ✅ activo
 - [x] **Collector de Encuestas (gspread)** ✅ pipeline end-to-end
+- [x] **Ingesta noticias/RSS + análisis de sentimiento** ✅ pipeline + dashboard
 
 ### Fase 3: Análisis
 - [x] Módulo econométrico
 - [x] Integración collectors → econometría (market_integration)
+- [x] **Análisis de sentimiento (léxico español)** — `analyzers/sentiment.py`
 - [ ] Lógica de contraste multi-fuente
 - [ ] Generación de escenarios
 - [x] **Análisis de encuestas (percepción vs datos oficiales)**
@@ -602,6 +604,7 @@ Pipeline:
 ### Fase 4: Visualización
 - [x] Dashboard con métricas en vivo (dólar oficial/paralelo, inflación)
 - [x] **Sección de encuestas en el dashboard**
+- [x] **Sección de noticias y sentimiento en el dashboard**
 - [ ] Dashboard con dispersión de fuentes
 - [ ] Sistema de alertas
 

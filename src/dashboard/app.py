@@ -14,6 +14,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 
 from src.dashboard import theme
+from src.dashboard.components.news_section import render_news_section
 from src.dashboard.components.survey_section import render_survey_section
 from src.dashboard.market_data import dashboard_metrics, format_metric
 
@@ -65,7 +66,9 @@ with st.sidebar:
     )
 
 # Tabs
-tab_inicio, tab_encuestas = st.tabs(["🏠 Inicio", "📋 Encuestas"])
+tab_inicio, tab_noticias, tab_encuestas = st.tabs(
+    ["🏠 Inicio", "📰 Noticias", "📋 Encuestas"]
+)
 
 with tab_inicio:
     # Métricas generales (Fase A: datos persistidos por los collectors)
@@ -109,6 +112,9 @@ with tab_inicio:
             "`python -m src.scripts.collect_market` (o espera el job del scheduler) "
             "para poblar las tarjetas."
         )
+
+with tab_noticias:
+    render_news_section()
 
 with tab_encuestas:
     render_survey_section(survey_segment)
