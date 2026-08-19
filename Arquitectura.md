@@ -217,6 +217,45 @@ class MercadoLibreCollector:
         pass
 ```
 
+#### 1.6 Survey Collector (NUEVO — Encuestas Google)
+
+Recolección de datos primarios desde **Google Forms → Google Sheets** para análisis
+microeconómico y de percepción ciudadana.
+
+```python
+# src/collectors/surveys/survey_collector.py
+import gspread
+from google.oauth2 import service_account
+
+class SurveyCollector:
+    """
+    Recolector de respuestas de encuestas vía Google Sheets API (gspread).
+    
+    Flujo:
+    - Google Forms registra respuestas en una Google Sheet vinculada.
+    - Este collector lee las filas nuevas (idempotente, marca última fila).
+    - Normaliza y persiste en survey_responses (PostgreSQL/TimescaleDB).
+    
+    Tipos soportados:
+    - persona_comun    (ciudadano promedio)
+    - comerciante      (negocios y comercio)
+    - extensible a más segmentos (empresa, remesas, ...)
+    """
+    
+    def __init__(self, credentials_path: str):
+        self.client = gspread.authorize(
+            service_account.Credentials.from_service_account_file(credentials_path)
+        )
+    
+    async def fetch_new_responses(self, survey: Survey) -> List[SurveyResponse]:
+        """Obtiene respuestas nuevas (desde la última fila procesada)"""
+        pass
+    
+    async def process_response(self, raw: dict, survey: Survey) -> SurveyResponse:
+        """Normaliza la respuesta cruda a SurveyResponse con KPIs derivados"""
+        pass
+```
+
 ---
 
 ### 2. ⚙️ Capa de Procesamiento (Processors)
@@ -427,6 +466,42 @@ class TrendsAnalyzer:
         pass
 ```
 
+#### 3.5 Survey Analyzer (NUEVO — Encuestas)
+
+Análisis de respuestas de encuestas por segmento y contraste con datos oficiales.
+
+```python
+# src/analyzers/surveys/
+
+class SurveyAnalyzer:
+    """
+    Análisis de datos de encuestas.
+    
+    Indicadores por segmento:
+    - persona_comun: percepción de inflación, poder adquisitivo percibido,
+                     índice de ahorro, medios de pago, expectativas.
+    - comerciante:   clima de negocios, índice de ajuste de precios,
+                     evolución de demanda, acceso a crédito, dolarización.
+    
+    Métodos:
+    - Contraste percepción vs IPC oficial/OVF (brecha de percepción)
+    - Tendencias temporales por segmento
+    - Resumen ejecutivo generado con DeepSeek
+    """
+    
+    async def compute_indicators(self, responses: List[SurveyResponse]) -> Dict:
+        """Calcula KPIs agregados por segmento y período"""
+        pass
+    
+    async def contrast_with_official(self, indicators: Dict) -> ContrastResult:
+        """Contrasta percepción vs datos oficiales (BCV, OVF)"""
+        pass
+    
+    async def generate_executive_summary(self, analysis: Dict) -> str:
+        """Genera resumen ejecutivo del período con IA"""
+        pass
+```
+
 ---
 
 ### 4. 📊 Capa de Visualización (Dashboard)
@@ -632,7 +707,19 @@ class TaskScheduler:
 │  │ currency         │      │ metrics          │                     │
 │  │ timestamp        │      │ status           │                     │
 │  │ source           │      └──────────────────┘                     │
-│  └──────────────────┘                                               │
+│  └──────────────────┘                                                │
+│                                                                      │
+│  ┌──────────────────┐      ┌──────────────────┐   (NUEVO)           │
+│  │     surveys      │◄─────│ survey_responses │                     │
+│  │──────────────────│      │──────────────────│                     │
+│  │ id (PK)          │      │ id (PK)          │                     │
+│  │ survey_type      │      │ survey_id (FK)   │                     │
+│  │ form_id          │      │ submitted_at     │                     │
+│  │ sheet_id         │      │ respondent_seg.  │                     │
+│  │ form_version     │      │ raw_answers JSONB│                     │
+│  │ active           │      │ kpis JSONB       │                     │
+│  └──────────────────┘      │ quality_score    │                     │
+│                            └──────────────────┘                     │
 │                                                                      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -703,6 +790,32 @@ CREATE TABLE reports (
     metrics JSONB,
     status VARCHAR(20)
 );
+
+-- Tablas de encuestas (NUEVO)
+CREATE TABLE surveys (
+    id SERIAL PRIMARY KEY,
+    survey_type VARCHAR(50) NOT NULL,   -- persona_comun | comerciante | ...
+    form_id VARCHAR(100) NOT NULL,      -- ID del Google Form
+    sheet_id VARCHAR(100) NOT NULL,     -- ID de la Google Sheet vinculada
+    form_version INT NOT NULL DEFAULT 1,
+    name VARCHAR(200),
+    active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Respuestas de encuestas (JSONB flexible para preguntas variables)
+CREATE TABLE survey_responses (
+    id BIGSERIAL PRIMARY KEY,
+    survey_id INT REFERENCES surveys(id),
+    submitted_at TIMESTAMPTZ NOT NULL,
+    respondent_segment VARCHAR(50),
+    timezone VARCHAR(50),
+    raw_answers JSONB,                  -- Respuestas crudas (pregunta → valor)
+    kpis JSONB,                         -- KPIs derivados normalizados
+    quality_score DECIMAL(3,2),
+    source VARCHAR(20) DEFAULT 'google_forms',
+    UNIQUE (survey_id, submitted_at, raw_answers)
+);
 ```
 
 ---
@@ -742,6 +855,14 @@ CREATE TABLE reports (
 | DeepSeek V4-Pro | REST API | API Key | Pay-per-use |
 | OpenAI | REST API | API Key | Pay-per-use |
 | Hugging Face | REST API | API Token | Gratis (limitado) |
+
+### 5. APIs de Encuestas (NUEVO — Google)
+
+| API | Librería | Autenticación | Costo | Uso |
+|-----|----------|---------------|-------|-----|
+| Google Sheets API | `gspread` | Service Account (OAuth2) | Gratis (60 req/min) | Leer respuestas de formularios |
+| Google Forms | — | Vincular a Google Sheet | Gratis | Capturar respuestas (sin API directa) |
+| Google Drive API | `google-auth` | Service Account | Gratis | Compartir/permisos de hojas |
 
 ---
 
@@ -1011,6 +1132,10 @@ class Settings(BaseSettings):
     DEEPSEEK_API_KEY: Optional[str] = None
     NEWS_API_KEY: Optional[str] = None
     
+    # Google (encuestas)
+    GOOGLE_CREDENTIALS_PATH: Optional[str] = None  # Ruta al JSON de service account
+    SURVEY_COLLECT_INTERVAL_MINUTES: int = 60      # Frecuencia de ingesta
+    
     # Scheduling
     DOLLAR_COLLECT_INTERVAL_MINUTES: int = 5
     NEWS_COLLECT_INTERVAL_HOURS: int = 6
@@ -1097,6 +1222,7 @@ settings = Settings()
 | **Cache** | Redis |
 | **IA** | DeepSeek V4-Pro |
 | **Dashboard** | Streamlit |
+| **Encuestas** | Google Forms + Google Sheets API (gspread) |
 | **Despliegue** | Docker + Docker Compose |
 | **CI/CD** | GitHub Actions |
 | **Monitoreo** | Prometheus + Grafana |

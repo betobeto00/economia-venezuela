@@ -100,6 +100,18 @@ vecm_result = vecm.fit_vecm(official_rate, parallel_rate)
 | Portales de noticias | RSS/Scraping | Diaria | Noticias económicas |
 | Facebook Groups | Web Scraping | Semanal | Opinión pública |
 
+### 📋 Encuestas Ciudadanas y Comerciantes (NUEVO)
+
+Datos primarios de percepción económica vía **Google Forms** que fortalecen el análisis
+microeconómico y se contrastan con los datos oficiales.
+
+| Fuente | Tipo | Frecuencia | Datos |
+|--------|------|------------|-------|
+| Formulario Persona Común | Google Forms → Sheets | Continua (ingesta horaria) | Percepción de inflación, poder adquisitivo, gasto, ahorro, empleo |
+| Formulario Comerciante | Google Forms → Sheets | Continua (ingesta horaria) | Clima de negocios, precios, demanda, métodos de pago, costos |
+
+*Más tipos de encuesta planificados: empresa, remesas.*
+
 ## 🔧 Stack Tecnológico
 
 ### Core
@@ -167,12 +179,14 @@ economia-venezuela/
 │   ├── __init__.py
 │   ├── config.py               # Configuración
 │   ├── collectors/             # Módulos de recolección
+│   │   └── surveys/            #   Encuestas Google (Forms→Sheets) (NUEVO)
 │   ├── processors/             # Procesamiento
 │   ├── analyzers/              # Análisis e IA
 │   │   ├── macro.py            # Análisis macroeconómico
 │   │   ├── micro.py            # Análisis microeconómico
 │   │   ├── sentiment.py        # Análisis de sentimiento
 │   │   ├── trends.py           # Detección de tendencias
+│   │   ├── surveys/            # Encuestas: KPIs y contraste (NUEVO)
 │   │   └── econometric/        # Módulo econométrico (NUEVO)
 │   │       ├── __init__.py
 │   │       ├── stationarity.py # ADF, KPSS

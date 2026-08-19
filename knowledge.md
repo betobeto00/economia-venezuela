@@ -440,6 +440,112 @@ openpyxl           # Para archivos Excel del BCV/INE
 
 ---
 
+## 📝 ENCUESTAS CIUDADANAS Y COMERCIANTES (NUEVO)
+
+Datos primarios vía Google Forms para medir la **percepción económica** y contrastarla
+con los datos oficiales. Complementan la lógica de contraste multi-fuente: añaden la
+dimensión "cómo lo vive la gente" frente a "qué dicen los números".
+
+### 1. Tipos de Encuesta (segmentos)
+
+| Tipo | Segmento | Objetivo | Indicadores derivados |
+|------|----------|----------|----------------------|
+| `persona_comun` | Ciudadano promedio | Poder adquisitivo, percepción de inflación, costo de vida | Índice de percepción de inflación, brecha ingreso-vs-canasta, medios de pago |
+| `comerciante` | Negocios y comercio | Clima de negocios, dinámica de precios, demanda | Clima de negocios, índice de ajuste de precios, dolarización de transacciones |
+
+### 2. Diseño de Preguntas — Persona Común
+
+Bloques recomendados (Google Forms):
+
+| Bloque | Preguntas (ejemplos) | Tipo |
+|--------|----------------------|------|
+| **Perfil** | Rango de edad, estado, zona, ocupación, ¿cuántas personas en tu hogar? | Selección |
+| **Ingreso** | ¿En qué moneda recibes tu ingreso principal? ¿Rango mensual en USD/BS? | Selección/Número |
+| **Gasto y canasta** | ¿Cuánto gastas al mes en alimentos? ¿Qué % de tu ingreso destinas a comida? | Número/Escala |
+| **Percepción de inflación** | ¿En el último mes los precios subieron: mucho, algo, poco, nada? ¿Cuánto estimas que subieron (%)? | Escala/Número |
+| **Ahorro y deuda** | ¿Puedes ahorrar este mes? ¿Tienes deudas? | Sí/No |
+| **Medios de pago** | ¿Pagas más en efectivo, bolívares digitales, dólares, tarjetas? | Selección múltiple |
+| **Expectativas** | ¿Cómo ves la economía en 6 meses: mejor, igual, peor? | Escala |
+
+### 3. Diseño de Preguntas — Comerciante
+
+| Bloque | Preguntas (ejemplos) | Tipo |
+|--------|----------------------|------|
+| **Perfil del negocio** | Sector, ciudad, tamaño (empleados), antigüedad | Selección |
+| **Ventas** | ¿Cómo evolucionaron tus ventas este mes vs el anterior? (%, rango) | Escala/Número |
+| **Precios** | ¿Ajustaste precios este mes? ¿Por qué causa (dólar, costos, demanda)? | Selección/Número |
+| **Inventario y demanda** | ¿Cómo está tu demanda: alta, normal, baja? ¿Abastecimiento fácil o difícil? | Escala |
+| **Métodos de pago** | ¿En qué % cobras en dólares/bolívares/electrónico? | Número |
+| **Costos y márgenes** | ¿Tus costos subieron? ¿Tu margen cambió? | Escala |
+| **Crédito y empleo** | ¿Tienes acceso a crédito? ¿Contrataste o despediste personal? | Sí/No/Selección |
+
+### 4. Pipeline Google → Sistema
+
+```
+Google Forms (formulario por segmento)
+      │  (respuestas automáticas)
+      ▼
+Google Sheet vinculada al formulario
+      │  gspread + service account (Google Sheets API)
+      ▼
+survey_collector.py  ──►  survey_responses (PostgreSQL/TimescaleDB)
+      │                        ├─ raw_answers JSONB  (flexible, versionado)
+      │                        └─ kpis derivados     (columnas normalizadas)
+      ▼
+analyzers/surveys/
+      ├─ indicators.py   → KPIs por segmento
+      ├─ contrast.py     → percepción vs IPC oficial/OVF
+      └─ report.py       → resumen ejecutivo DeepSeek
+```
+
+**Claves de diseño:**
+- **Flexibilidad:** las respuestas crudas se guardan como `JSONB` (las preguntas cambian entre versiones); los KPIs se calculan y normalizan en columnas.
+- **Versionado:** cada formulario tiene `form_version`; si se editan preguntas, se versiona, no se rompe la serie histórica.
+- **Idempotencia:** el collector solo ingesta filas nuevas (marca de última fila procesada por sheet).
+- **Seguridad:** credenciales de la service account por variable de entorno (`GOOGLE_CREDENTIALS_PATH`), nunca en el repo.
+
+### 5. Contraste Percepción vs Realidad
+
+```python
+# src/analyzers/surveys/contrast.py
+
+def contrast_perception_inflation(perceived: float, official: float, ovf: float) -> dict:
+    """
+    Compara la inflación percibida por la población con la medición oficial.
+    
+    Args:
+        perceived: Inflación percibida (promedio encuesta, %)
+        official:  IPC oficial BCV (%)
+        ovf:       Estimación independiente OVF (%)
+    """
+    gap = perceived - official
+    return {
+        'perceived': perceived,
+        'official': official,
+        'ovf': ovf,
+        'gap_vs_official': gap,
+        'gap_vs_ovf': perceived - ovf,
+        'interpretation': (
+            f"La población percibe {perceived:.1f}% vs {official:.1f}% oficial "
+            f"y {ovf:.1f}% OVF. Brecha de {gap:.1f} puntos."
+            if abs(gap) > 5 else
+            "La percepción ciudadana coincide con las mediciones."
+        )
+    }
+```
+
+### 6. Limitaciones Metodológicas (advertir en informes)
+
+| Limitación | Mitigación |
+|------------|------------|
+| **Sesgo de autoselección** | No es muestreo aleatorio; los encuestados son voluntarios | 
+| **Tamaño muestral variable** | Reportar N por período; alertar si N < umbral (p.ej. 50) |
+| **Cambio de preguntas** | `form_version` en cada edición del formulario |
+| **Múltiples respuestas por persona** | Marca de tiempo + calidad; opcional deduplicación por dispositivo |
+| **Memoria/percepción imprecisa** | Preguntar rangos en vez de cifras exactas cuando aplique |
+
+---
+
 ## 📊 Métodos de Análisis
 
 ### 1. Modelos Predictivos
@@ -477,17 +583,23 @@ Pipeline:
 - [ ] Collector Dólar Paralelo
 - [ ] Collector Noticias
 - [ ] Collector Redes Sociales
+- [ ] **Formulario Persona Común (Google Forms)** (NUEVO)
+- [ ] **Formulario Comerciante (Google Forms)** (NUEVO)
+- [ ] **Collector de Encuestas (gspread)** (NUEVO)
 
 ### Fase 3: Análisis
 - [x] Módulo econométrico
 - [ ] Lógica de contraste multi-fuente
 - [ ] Generación de escenarios
+- [ ] **Análisis de encuestas (percepción vs datos oficiales)** (NUEVO)
+- [ ] **Clima de negocios** (NUEVO)
 
 ### Fase 4: Visualización
 - [ ] Dashboard con dispersión de fuentes
 - [ ] Sistema de alertas
+- [ ] **Sección de encuestas en el dashboard** (NUEVO)
 
 ---
 
 **Base de conocimiento actualizada: Agosto 2025**
-**Última revisión: Fuentes institucionales nacionales e internacionales**
+**Última revisión: Fuentes institucionales nacionales e internacionales + Encuestas Google (Fase B)**

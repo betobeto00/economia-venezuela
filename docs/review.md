@@ -236,6 +236,34 @@ def generate_executive_summary(analysis_results):
 | **GARCH** | Captura clustering de volatilidad | Incertidumbre cambiaria |
 | **Newey-West** | Corrige heterocedasticidad y autocorrelación | Regresiones macroeconómicas |
 
+### 5. Encuestas Ciudadanas y Comerciantes (NUEVO)
+
+**Oportunidad estratégica:** El sistema no tiene datos primarios. Las encuestas vía
+**Google Forms → Google Sheets** son la fuente más barata de activar y rellenan el vacío
+del análisis microeconómico (percepción de inflación, poder adquisitivo, clima de negocios).
+
+```python
+# src/analyzers/surveys/indicators.py
+import pandas as pd
+
+def perception_inflation_index(responses: pd.DataFrame) -> float:
+    """
+    Calcula el índice de percepción de inflación a partir de las encuestas.
+    
+    Escala típica: 1 (nada) a 5 (muchísimo) en "¿cuánto subieron los precios?".
+    Se normaliza a un índice donde 100 = inflación percibida alta.
+    """
+    escala = responses['perceived_price_change'].astype(int)
+    return float(((escala - 1) / 4) * 100)
+```
+
+**Valor añadido:** contrastar percepción ciudadana vs IPC oficial/OVF detecta brechas de
+confianza en las mediciones y enriquece los informes ejecutivos generados con IA.
+
+**Recomendación técnica:** usar `gspread` con service account; credenciales por variable
+de entorno (`GOOGLE_CREDENTIALS_PATH`); respuestas crudas en `JSONB` + KPIs normalizados;
+ingesta idempotente en el scheduler.
+
 ---
 
 ## 📊 Evaluación Resumen
@@ -272,6 +300,15 @@ def generate_executive_summary(analysis_results):
 11. **Detección de quiebres estructurales**
 12. **Sistema de alertas**
 
+### Fase B: Encuestas Google (NUEVO)
+13. **Formulario Persona Común + Formulario Comerciante** (Google Forms)
+14. **Service account Google + vinculación Forms → Sheets**
+15. **`survey_collector.py`** (gspread, ingesta idempotente)
+16. **Tablas `surveys` / `survey_responses`** + normalizador
+17. **`analyzers/surveys/`**: KPIs por segmento + contraste con datos oficiales
+18. **Sección de encuestas en el dashboard** + resumen ejecutivo con IA
+19. **Tests del pipeline de encuestas**
+
 ---
 
 ## 📝 Conclusión
@@ -280,10 +317,10 @@ El proyecto tiene una **arquitectura excepcional** y **documentación de primer 
 
 **Sin datos, el mejor módulo econométrico del mundo no sirve de nada.**
 
-Una vez que estén funcionando los colectores de BCV, OVF y BVC, el resto del sistema cobrará vida.
+Una vez que estén funcionando los colectores de BCV, OVF y BVC, el resto del sistema cobrará vida. Las encuestas Google (Fase B) aportarán además los datos primarios de percepción que ningún otro colector puede dar.
 
 ---
 
 **Review creado: Agosto 2025**
-**Versión: 1.0**
-**Próxima revisión: Después de implementar colectores principales**
+**Versión: 2.0**
+**Actualización: Incorporado el sistema de encuestas Google (Fase B)**

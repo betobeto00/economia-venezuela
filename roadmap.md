@@ -94,6 +94,39 @@ src/collectors/fiscal/
 | `reddit_collector.py` | Reddit | Sentimiento | API OAuth2 | 2️⃣ |
 | `twitter_collector.py` | Twitter/X | Sentimiento | API v2 | 3️⃣ |
 
+#### 📋 2.8 Encuestas Ciudadanas y Comerciantes (NUEVO)
+
+Recolección de datos primarios vía **Google Forms** para fortalecer el análisis microeconómico
+y contrastar la percepción pública con los datos oficiales.
+
+| Collector | Fuente | Datos | Método | Prioridad |
+|-----------|--------|-------|--------|-----------|
+| `survey_collector.py` | Google Forms → Sheets | Respuestas de encuestas | gspread + Google Sheets API | 1️⃣ |
+
+**Tipos de encuesta (segmentos):**
+
+| Tipo | Segmento | Datos Clave | Estado |
+|------|----------|-------------|--------|
+| `persona_comun` | Ciudadano promedio | Ingreso, gasto, percepción de inflación, canasta, ahorro, empleo | 🟡 Diseño |
+| `comerciante` | Comerciantes/negocios | Ventas, precios, inventario, demanda, métodos de pago, costos, crédito, empleo | 🟡 Diseño |
+| *(futuro)* `empresa` | Empresas/sector productivo | Inversión, producción, financiamiento | ⏳ |
+| *(futuro)* `remesas` | Receptores de remesas | Flujo, uso, impacto | ⏳ |
+
+**Estructura:**
+```
+src/collectors/surveys/
+├── __init__.py
+├── survey_collector.py     # Lee respuestas de Google Sheets (gspread)
+├── form_registry.py        # Catálogo de formularios (form_id, sheet_id, versión)
+└── utils.py                # Normalización y validación
+
+src/analyzers/surveys/
+├── __init__.py
+├── indicators.py           # KPIs por segmento (percepción, clima de negocios)
+├── contrast.py             # Contraste percepción vs datos oficiales
+└── report.py               # Resumen ejecutivo (DeepSeek)
+```
+
 ---
 
 ## 📦 Fase 3: Análisis (Semanas 9-12)
@@ -185,6 +218,59 @@ class FiscalIndicators(BaseModel):
 
 ---
 
+## 📋 Análisis con Datos de Encuestas (NUEVO)
+
+### Nuevos Análisis con Encuestas
+
+| Análisis | Datos Necesarios | Pregunta |
+|----------|------------------|----------|
+| **Índice de Percepción de Inflación** | Encuestas persona_comun | ¿La percepción ciudadana coincide con el IPC oficial/OVF? |
+| **Índice de Poder Adquisitivo Percibido** | Ingreso vs gasto reportado | ¿Cuánto cubre el ingreso real de la canasta? |
+| **Clima de Negocios** | Encuestas comerciante | ¿Los comerciantes perciben mejora o deterioro? |
+| **Dinámica de Precios desde el Vendedor** | Fijación de precios, margen | ¿Quién ajusta primero: el comerciante o el mercado? |
+| **Brecha Percepción vs Realidad** | Contraste con datos oficiales | ¿Hay sobre/subestimación de la inflación en la población? |
+| **Medios de Pago y Dolarización** | Métodos de pago (efectivo, divisas, electrónico) | ¿Qué tan dolarizada está la economía de consumo? |
+
+### Modelo de Datos de Encuestas
+
+```python
+# src/models/survey.py
+from pydantic import BaseModel
+from datetime import datetime
+from typing import Optional, Any, Dict
+
+class Survey(BaseModel):
+    id: int
+    survey_type: str        # "persona_comun", "comerciante"
+    form_id: str            # ID del Google Form
+    sheet_id: str           # ID de la Google Sheet vinculada
+    form_version: int       # Versión del formulario (cambios de preguntas)
+    name: str
+    active: bool
+
+class SurveyResponse(BaseModel):
+    id: int
+    survey_id: int
+    submitted_at: datetime
+    respondent_segment: str
+    timezone: Optional[str]
+    raw_answers: Dict[str, Any]        # Respuestas crudas (JSONB)
+    kpis: Dict[str, float]             # KPIs derivados normalizados
+    quality_score: Optional[float]     # Validación de respuesta
+    source: str = "google_forms"
+```
+
+### Dependencias Adicionales
+
+```txt
+# Para encuestas Google
+gspread==6.1.0              # Google Sheets API
+google-auth==2.27.0         # Autenticación service account
+google-auth-oauthlib==1.2.0
+```
+
+---
+
 ## 📊 Dependencias Adicionales
 
 ```txt
@@ -194,6 +280,11 @@ PyPDF2==3.0.1
 
 # Para extracción con IA
 openai==1.10.0  # DeepSeek API
+
+# Para encuestas Google
+gspread==6.1.0              # Google Sheets API
+google-auth==2.27.0         # Autenticación service account
+google-auth-oauthlib==1.2.0
 ```
 
 ---
@@ -225,6 +316,17 @@ openai==1.10.0  # DeepSeek API
 12. **Implementar `reddit_collector.py`**
 13. **Integración con modelos econométricos**
 
+### Fase B: Encuestas Google (NUEVO)
+
+14. **Diseñar y publicar Formulario Persona Común** (Google Forms)
+15. **Diseñar y publicar Formulario Comerciante** (Google Forms)
+16. **Crear service account de Google + vincular Forms → Sheets**
+17. **Implementar `survey_collector.py`** (gspread, idempotente)
+18. **Modelo de datos `surveys` / `survey_responses`** (PostgreSQL)
+19. **Implementar `analyzers/surveys/`** (KPIs + contraste con datos oficiales)
+20. **Sección de encuestas en el dashboard** + informe ejecutivo con IA
+21. **Tests del pipeline de encuestas**
+
 ---
 
 ## 📈 Métricas de Progreso
@@ -233,6 +335,8 @@ openai==1.10.0  # DeepSeek API
 |-----|------|--------|--------|
 | Collectors implementados | 20 | 0 | ⏳ |
 | Collectors fiscales | 4 | 0 | ⏳ |
+| Formularios de encuesta activos | 2+ | 0 | ⏳ |
+| Respuestas de encuesta procesadas | 500+ | 0 | ⏳ |
 | Tests unitarios | > 80% | ~20% | 🟡 |
 | Cobertura de fuentes | 15+ | 0 | ⏳ |
 
@@ -251,14 +355,17 @@ openai==1.10.0  # DeepSeek API
 - [ ] 4+ fuentes fiscales integradas
 - [ ] Validación multi-fuente funcionando
 - [ ] Datos actualizados diariamente/semanalmente
+- [ ] 2+ encuestas activas con respuesta continua
 
 ### Éxito de Análisis
 - [ ] Análisis fiscal completo
 - [ ] Efecto del gasto público cuantificado
 - [ ] Sostenibilidad fiscal evaluada
+- [ ] Índice de percepción de inflación vs datos oficiales
+- [ ] Clima de negocios con tendencia temporal
 
 ---
 
 **Roadmap actualizado: Agosto 2025**
-**Versión: 5.0**
-**Incluye: Fuentes fiscales gubernamentales**
+**Versión: 6.0**
+**Incluye: Fuentes fiscales gubernamentales + Encuestas Google (Fase B)**
