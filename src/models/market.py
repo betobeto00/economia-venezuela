@@ -89,3 +89,53 @@ class BudgetExecution(BaseModel):
     amount_usd: Optional[float] = None
     source: str = "onapre"
     url: Optional[str] = Field(default=None, description="Fuente del dato")
+
+
+class IndexPoint(BaseModel):
+    """Cierre de un índice bursátil en una fecha (p.ej. IBC de Caracas).
+
+    Atributos:
+        source: Emisor (``bvc`` por defecto).
+        symbol: Símbolo del índice/acción.
+        value: Valor de cierre.
+        date: Fecha del cierre.
+    """
+
+    source: str = "bvc"
+    symbol: str
+    value: float
+    date: datetime
+
+
+class IndicatorPoint(BaseModel):
+    """Punto de un indicador socioeconómico (pobreza, empleo, producción).
+
+    Atributos:
+        source: Emisor (``ine``, ``opec``, ...).
+        indicator: Nombre/etiqueta del indicador.
+        value: Valor numérico.
+        period: Período del dato (``2025``, ``2026-12``, ...).
+        unit: Unidad opcional (``%``, ``mbd``, ``USD``, ...).
+    """
+
+    source: str
+    indicator: str
+    value: float
+    period: str
+    unit: Optional[str] = None
+
+
+class FiscalDocument(BaseModel):
+    """Documento/informe fiscal localizado (CGR, AN, MPPEF).
+
+    Atributos:
+        source: Emisor (``cgr``, ``an``, ``mppef``, ...).
+        title: Título del documento.
+        url: URL del documento.
+        year: Año del documento (opcional).
+    """
+
+    source: str
+    title: str
+    url: str
+    year: Optional[int] = None

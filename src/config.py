@@ -60,6 +60,10 @@ class Settings(BaseSettings):
     OVF_BASE_URL: str = "https://observatoriodefinanzas.com"
     WORLD_BANK_API_URL: str = "https://api.worldbank.org/v2"
     ONAPRE_BASE_URL: str = "https://www.onapre.gob.ve"
+    CGR_BASE_URL: str = "https://www.cgr.gob.ve"
+    INE_BASE_URL: str = "https://www.ine.gob.ve"
+    OPEC_BASE_URL: str = "https://www.opec.org"
+    BINANCE_P2P_URL: str = "https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search"
     
     # Dashboard
     DASHBOARD_PORT: int = 8501

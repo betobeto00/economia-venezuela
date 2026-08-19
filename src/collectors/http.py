@@ -74,3 +74,17 @@ def http_get_bytes(url: str, params: Optional[dict] = None) -> bytes:
         return response.content
     except httpx.HTTPError as exc:
         raise CollectorError(f"No se pudo descargar {url}: {exc}") from exc
+
+
+def http_post_json(url: str, json: Optional[dict] = None,
+                   params: Optional[dict] = None) -> Any:
+    """POST y devuelve el cuerpo parseado como JSON (p.ej. Binance P2P)."""
+    try:
+        with _client() as client:
+            response = client.post(url, json=json, params=params)
+            response.raise_for_status()
+            return response.json()
+    except httpx.HTTPError as exc:
+        raise CollectorError(f"No se pudo consultar {url}: {exc}") from exc
+    except ValueError as exc:
+        raise CollectorError(f"Respuesta no-JSON desde {url}") from exc
