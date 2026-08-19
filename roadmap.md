@@ -2,326 +2,197 @@
 
 ## 🗺️ Hoja de Ruta del Proyecto
 
-Documento de planificación estratégica para el desarrollo de la herramienta de monitoreo económico de Venezuela. Define fases, hitos, entregables y cronograma.
-
 ---
 
 ## 📅 Vista General del Timeline
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        ROADMAP ECONOMÍA VENEZUELA                            │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  FASE 1         FASE 2         FASE 3         FASE 4         FASE 5        │
-│  Fundamentos    Recolección    Análisis       Visualización  Automatización │
-│  [Semanas 1-4]  [Semanas 5-8]  [Semanas 9-12] [Semanas 13-16][Semanas 17-20]│
-│      │              │              │              │              │            │
-│      ▼              ▼              ▼              ▼              ▼            │
-│  ┌────────┐    ┌────────┐    ┌────────┐    ┌────────┐    ┌────────┐        │
-│  │ 15%    │    │ 30%    │    │ 25%    │    │ 20%    │    │ 10%    │        │
-│  │Progreso│    │Progreso│    │Progreso│    │Progreso│    │Progreso│        │
-│  └────────┘    └────────┘    └────────┘    └────────┘    └────────┘        │
-│                                                                              │
-│  Línea de Tiempo: 20 semanas (5 meses)                                      │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+FASE 1: Fundamentos    ████████████████████ 100% ✅
+FASE 2: Recolección    ████░░░░░░░░░░░░░░░░  20% 🟡
+FASE 3: Análisis       ████████████████████ 100% ✅
+FASE 4: Visualización  ░░░░░░░░░░░░░░░░░░░░   0% ⏳
+FASE 5: Automatización ░░░░░░░░░░░░░░░░░░░░   0% ⏳
+
+TOTAL: 44%
 ```
-
----
-
-## 🎯 Objetivos del Proyecto
-
-### Objetivo General
-Crear una herramienta automatizada de monitoreo y análisis de la economía venezolana que proporcione:
-- Datos en tiempo real de múltiples fuentes
-- Análisis macro y microeconómico con IA y econometría
-- Dashboards interactivos para visualización
-- Informes semanales automatizados
-- Sistema de alertas tempranas
-
----
-
-## 📦 Fase 1: Fundamentos (Semanas 1-4)
-
-### Estado: ✅ COMPLETADA
-
-#### Hitos Completados
-- [x] Crear repositorio en GitHub
-- [x] Configurar estructura de proyecto
-- [x] Crear Docker Compose
-- [x] Implementar modelos de datos
-- [x] Crear módulo econométrico completo
-- [x] Crear tests unitarios
 
 ---
 
 ## 📦 Fase 2: Recolección de Datos (Semanas 5-8)
 
-### Estado: 🟡 EN PROGRESO
+### Coletores por Categoría
 
-### Detalle de Collectors
+#### 🏛️ 2.1 Fuentes Oficiales Nacionales
 
-#### 2.1 Collector BCV (Banco Central de Venezuela)
+| Collector | Fuente | Datos | Método | Prioridad |
+|-----------|--------|-------|--------|-----------|
+| `bcv_collector.py` | BCV | Tasas, IPC, PIB, Reservas | API comunitaria + Scraping | 1️⃣ |
+| `ine_collector.py` | INE | Empleo, Pobreza | Descarga Excel | 2️⃣ |
+| `mppef_collector.py` | MPPEF | Presupuesto, Deuda | Scraping | 3️⃣ |
+| `seniat_collector.py` | SENIAT | Recaudación fiscal | Scraping | 3️⃣ |
+| `sunaval_collector.py` | SUNAVAL | Mercado de capitales | Scraping | 2️⃣ |
 
-**Objetivo:** Obtener tasas de cambio oficiales e indicadores económicos
+#### 🌍 2.2 Organismos Internacionales
 
-**Estrategia de Implementación:**
+| Collector | Fuente | Datos | Método | Prioridad |
+|-----------|--------|-------|--------|-----------|
+| `worldbank_collector.py` | Banco Mundial | PIB, Desarrollo | API wbgapi | 1️⃣ |
+| `imf_collector.py` | FMI | Proyecciones | API IMF | 1️⃣ |
+| `cepal_collector.py` | CEPAL | Estadísticas regionales | Scraping | 2️⃣ |
 
-| Método | Prioridad | Librería/Herramienta | Datos |
-|--------|-----------|---------------------|-------|
-| API Comunitaria | 1️⃣ | bcv-api / bcv-exchange | Tasas USD, EUR |
-| Librería Python | 2️⃣ | pyDolarVenezuela | Tasas múltiples |
-| Scraping HTML | 3️⃣ | BeautifulSoup | Indicadores |
-| Descarga Excel | 4️⃣ | pandas + openpyxl | Series históricas |
+#### 🔬 2.3 Observatorios Independientes
 
-**Estructura del Collector:**
+| Collector | Fuente | Datos | Método | Prioridad |
+|-----------|--------|-------|--------|-----------|
+| `ovf_collector.py` | OVF | Inflación independiente | Scraping | 1️⃣ |
+| `ove_collector.py` | OVE | Análisis sectorial | Scraping | 2️⃣ |
+| `ucab_collector.py` | UCAB IIES | Proyecciones | Scraping | 2️⃣ |
 
-```text
-src/collectors/bcv/
+#### 🛢️ 2.4 Sector Energético
+
+| Collector | Fuente | Datos | Método | Prioridad |
+|-----------|--------|-------|--------|-----------|
+| `pdvsa_collector.py` | PDVSA | Producción oficial | Scraping | 1️⃣ |
+| `opec_collector.py` | OPEP | Producción (secundaria) | API/Scraping | 1️⃣ |
+| `eia_collector.py` | EIA | Estimaciones | API/Scraping | 2️⃣ |
+
+#### 💰 2.5 Mercados Financieros
+
+| Collector | Fuente | Datos | Método | Prioridad |
+|-----------|--------|-------|--------|-----------|
+| `bvc_collector.py` | BVC/Yahoo | IBC, Acciones | yfinance | 1️⃣ |
+| `dolar_collector.py` | Monitores | Tasa paralelo | pydolarvenezuela | 1️⃣ |
+| `binance_collector.py` | Binance | Precio USDT/VES | API oficial | 1️⃣ |
+
+#### 📰 2.6 Noticias y Redes Sociales
+
+| Collector | Fuente | Datos | Método | Prioridad |
+|-----------|--------|-------|--------|-----------|
+| `rss_collector.py` | Portales VE | Noticias económicas | RSS | 2️⃣ |
+| `reddit_collector.py` | Reddit | Sentimiento | API OAuth2 | 2️⃣ |
+| `twitter_collector.py` | Twitter/X | Sentimiento | API v2 | 3️⃣ |
+
+---
+
+### Estructura Completa de Collectors
+
+```
+src/collectors/
 ├── __init__.py
-├── exchange_rates.py    # Tasas de cambio (pyDolarVenezuela)
-├── indicators.py        # Indicadores económicos (scraping)
-├── excel_downloader.py  # Descarga archivos Excel
-└── utils.py             # Headers, timeouts, logging
+├── oficial/
+│   ├── __init__.py
+│   ├── bcv_collector.py        # Banco Central de Venezuela
+│   ├── ine_collector.py        # Instituto Nacional de Estadística
+│   ├── mppef_collector.py      # Ministerio de Economía
+│   ├── seniat_collector.py     # SENIAT (fiscal)
+│   └── sunaval_collector.py    # Superintendencia de Valores
+├── internacional/
+│   ├── __init__.py
+│   ├── worldbank_collector.py  # Banco Mundial
+│   ├── imf_collector.py        # FMI
+│   └── cepal_collector.py      # CEPAL
+├── independiente/
+│   ├── __init__.py
+│   ├── ovf_collector.py        # Observatorio de Finanzas
+│   ├── ove_collector.py        # Observatorio Venezolano
+│   └── ucab_collector.py       # UCAB IIES
+├── energetico/
+│   ├── __init__.py
+│   ├── pdvsa_collector.py      # PDVSA
+│   ├── opec_collector.py       # OPEP
+│   └── eia_collector.py        # EIA (EE.UU.)
+├── mercado/
+│   ├── __init__.py
+│   ├── bvc_collector.py        # Bolsa de Valores
+│   ├── dolar_collector.py      # Monitores de dólar
+│   └── binance_collector.py    # Binance P2P
+├── noticias/
+│   ├── __init__.py
+│   └── rss_collector.py        # RSS feeds
+└── social/
+    ├── __init__.py
+    ├── reddit_collector.py     # Reddit
+    └── twitter_collector.py    # Twitter/X
 ```
-
-**Implementación Sugerida:**
-
-```python
-# src/collectors/bcv/exchange_rates.py
-from pyDolarVenezuela import Bcv
-import pandas as pd
-from datetime import datetime
-
-class BCVCollector:
-    """Colector de datos del Banco Central de Venezuela"""
-    
-    def __init__(self):
-        self.bcv = Bcv()
-    
-    def get_exchange_rates(self) -> dict:
-        """Obtiene tasas de cambio oficiales"""
-        rates = self.bcv.get_rates()
-        return {
-            'usd': rates.get('USD'),
-            'eur': rates.get('EUR'),
-            'timestamp': datetime.now()
-        }
-    
-    def get_historical_rates(self, days: int = 30) -> pd.DataFrame:
-        """Obtiene tasas históricas"""
-        # Implementar con descarga de Excel del BCV
-        pass
-```
-
-**Indicadores a Obtener del BCV:**
-
-| Indicador | Método | Frecuencia |
-|-----------|--------|------------|
-| Tasa USD | API comunitaria | Diaria |
-| Tasa EUR | API comunitaria | Diaria |
-| IPC (Inflación) | Excel | Mensual |
-| Reservas | Scraping | Semanal |
-| Base Monetaria | Excel | Mensual |
-| Balanza Comercial | Excel | Trimestral |
-
----
-
-#### 2.2 Collector BVC (Bolsa de Valores de Caracas)
-
-**Objetivo:** Obtener datos del mercado accionario venezolano
-
-**Estrategia de Implementación:**
-
-| Método | Prioridad | Librería/Herramienta | Datos |
-|--------|-----------|---------------------|-------|
-| Yahoo Finance | 1️⃣ | yfinance | IBC, histórico |
-| Scraping BVC | 2️⃣ | BeautifulSoup | Subíndices, detalle |
-| ICE (pago) | 3️⃣ | API institucional | Datos premium |
-
-**Estructura del Collector:**
-
-```text
-src/collectors/bvc/
-├── __init__.py
-├── yfinance_collector.py    # Yahoo Finance (recomendado)
-├── scraper.py               # Scraping directo BVC
-├── indicators.py            # Indicadores derivados
-└── utils.py                 # Headers, logging
-```
-
-**Implementación Sugerida:**
-
-```python
-# src/collectors/bvc/yfinance_collector.py
-import yfinance as yf
-import pandas as pd
-from datetime import datetime
-
-class BVCCollector:
-    """Colector de datos de la Bolsa de Valores de Caracas"""
-    
-    def get_ibc_data(self) -> dict:
-        """Obtiene el IBC desde Yahoo Finance"""
-        ticker = yf.Ticker("IBC.CR")
-        
-        today = ticker.history(period="1d")
-        hist = ticker.history(period="1mo")
-        
-        return {
-            'ibc': today['Close'].iloc[-1] if not today.empty else None,
-            'volume': today['Volume'].iloc[-1] if not today.empty else None,
-            'high_52w': ticker.info.get('fiftyTwoWeekHigh'),
-            'low_52w': ticker.info.get('fiftyTwoWeekLow'),
-            'historical': hist['Close'].tolist(),
-            'timestamp': datetime.now()
-        }
-    
-    def get_historical_ibc(self, period: str = "1y") -> pd.DataFrame:
-        """Obtiene histórico del IBC"""
-        ticker = yf.Ticker("IBC.CR")
-        return ticker.history(period=period)
-```
-
-**Indicadores de la BVC:**
-
-| Indicador | Fuente | Utilidad |
-|-----------|--------|----------|
-| IBC | Yahoo Finance | Termómetro del mercado |
-| IBC Industrial | Scraping | Salud sector productivo |
-| IBC Financiero | Scraping | Salud sector bancario |
-| Capitalización | Yahoo Finance | Tamaño del mercado |
-| Volumen | Yahoo Finance | Liquidez |
-
----
-
-#### 2.3 Collector Dólar Paralelo
-
-**Objetivo:** Obtener precio del dólar en mercado no regulado
-
-**Estrategia:**
-
-| Fuente | Método | Datos |
-|--------|--------|-------|
-| DólarToday | Scraping | Tasa paralela |
-| Monitor Dólar | Scraping | Múltiples monitores |
-| Binance P2P | API oficial | Precio USDT/VES |
-
-**Implementación:**
-
-```python
-# src/collectors/dolar/parallel.py
-import requests
-from bs4 import BeautifulSoup
-
-class DolarParaleloCollector:
-    """Colector de dólar paralelo"""
-    
-    def get_dolartoday(self) -> dict:
-        """Obtiene tasa de DólarToday"""
-        url = 'https://dolartoday.com/'
-        response = requests.get(url)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        # Parsear y extraer tasa
-        pass
-    
-    def get_binance_p2p(self) -> dict:
-        """Obtiene precio Binance P2P"""
-        url = 'https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search'
-        # Implementar con API de Binance
-        pass
-```
-
----
-
-#### 2.4 Collector Noticias
-
-**Objetivo:** Recopilar noticias económicas de portales venezolanos
-
-**Fuentes:**
-
-| Portal | URL | Método |
-|--------|-----|--------|
-| El Nacional | elnacional.com | RSS + Scraping |
-| TalCual | talcualdigital.com | RSS |
-| Efecto Cocuyo | efectococuyo.com | RSS |
-| Reuters | reuters.com | RSS |
-
----
-
-#### 2.5 Collector Redes Sociales
-
-**Objetivo:** Obtener sentimiento de ciudadanos
-
-| Plataforma | API | Costo |
-|------------|-----|-------|
-| Reddit | PRAW (OAuth2) | Gratis |
-| Twitter/X | API v2 | $100/mes |
-| Facebook | Scraping | Gratis (limitado) |
 
 ---
 
 ### Hitos Fase 2
 
-#### Semana 5: Collectors de Dólar
-- [ ] Implementar `DolarCollector` con pyDolarVenezuela
-- [ ] Implementar `DolarParaleloCollector` con DólarToday
-- [ ] Conectar con Binance P2P API
-- [ ] Implementar cálculo de spreads
-- [ ] Crear tests
+#### Semana 5: Fuentes Oficiales
+- [ ] Implementar `bcv_collector.py`
+- [ ] Implementar `ine_collector.py`
+- [ ] Tests y documentación
 
-**Entregable**: Collectors de dólar funcionales
+#### Semana 6: Organismos Internacionales
+- [ ] Implementar `worldbank_collector.py`
+- [ ] Implementar `imf_collector.py`
+- [ ] Tests y documentación
 
-#### Semana 6: Collector BCV
-- [ ] Implementar `BCVCollector` con pyDolarVenezuela
-- [ ] Implementar scraping de indicadores
-- [ ] Implementar descarga de Excel
-- [ ] Crear tests
+#### Semana 7: Observatorios y Mercados
+- [ ] Implementar `ovf_collector.py`
+- [ ] Implementar `bvc_collector.py`
+- [ ] Implementar `dolar_collector.py`
 
-**Entregable**: Collector BCV funcional
+#### Semana 8: Energía, Noticias y Social
+- [ ] Implementar `opec_collector.py`
+- [ ] Implementar `rss_collector.py`
+- [ ] Implementar `reddit_collector.py`
 
-#### Semana 7: Collector BVC
-- [ ] Implementar `BVCCollector` con yfinance
-- [ ] Implementar scraping de subíndices
-- [ ] Crear tests
+---
 
-**Entregable**: Collector BVC funcional
+### Tabla de Fuentes por Indicador
 
-#### Semana 8: Collectors de Noticias y Redes Sociales
-- [ ] Implementar `NewsCollector`
-- [ ] Implementar `SocialCollector`
-- [ ] Crear tests
-
-**Entregable**: Todos los collectors funcionales
+| Indicador | BCV | OVF | FMI | BM | CEPAL | OPEP |
+|-----------|-----|-----|-----|----|-------|------|
+| Inflación (IPC) | ✅ | ✅ | ✅ | ✅ | ✅ | - |
+| Tipo de Cambio | ✅ | ✅ | - | - | - | - |
+| PIB | ✅ | ✅ | ✅ | ✅ | ✅ | - |
+| Reservas | ✅ | - | ✅ | ✅ | - | - |
+| Producción Petrolera | ✅ | - | - | ✅ | - | ✅ |
+| Deuda Pública | ✅ | - | ✅ | ✅ | - | - |
+| Empleo | ✅ | ✅ | - | ✅ | ✅ | - |
+| Balanza Comercial | ✅ | - | ✅ | ✅ | ✅ | - |
 
 ---
 
 ### Dependencias Fase 2
 
 ```txt
-# Fase 2 - Data Collection
-pyDolarVenezuela==0.2.0
+# Venezuela
+pydolarvenezuela==0.2.0
+pyvenezuela==0.1.0
 bcv-exchange==0.1.0
-yfinance==0.2.31
-praw==7.7.1
-tweepy==4.14.0
-feedparser==6.0.11
-beautifulsoup4==4.12.2
+
+# Internacional
+wbgapi==1.0.1          # Banco Mundial
+yfinance==0.2.31       # Yahoo Finance
+pandas-datareader==0.10.0
+
+# Scraping
 requests==2.31.0
+beautifulsoup4==4.12.2
+playwright==1.41.0
+selenium==4.17.0
+feedparser==6.0.11
+
+# Social
+tweepy==4.14.0
+praw==7.7.1
+
+# Datos
+pandas==2.1.4
+openpyxl==3.1.2        # Archivos Excel
 ```
 
 ---
 
 ## 📦 Fase 3: Análisis (Semanas 9-12)
 
-### Estado: ✅ COMPLETADA (Módulo Econométrico)
+### Estado: ✅ COMPLETADA
 
-#### Hitos Completados
-- [x] Módulo de estacionariedad (ADF, KPSS)
-- [x] Pronóstico SARIMA para inflación
-- [x] Análisis VECM para mercado cambiario
-- [x] Modelos GARCH para volatilidad
+- [x] Módulo econométrico (SARIMA, VECM, GARCH)
+- [x] Pruebas de estacionariedad
 - [x] Diagnósticos de residuos
 - [x] Regresión Newey-West
 
@@ -331,51 +202,44 @@ requests==2.31.0
 
 ### Estado: ⏳ PENDIENTE
 
-#### Hitos
+#### Dashboard con Multi-Fuentes
 
-##### Semana 13: Dashboard Streamlit
-- [ ] Crear app Streamlit base
-- [ ] Implementar tarjetas de métricas
-- [ ] Crear gráficos de series temporales
+```python
+# Ejemplo de visualización multi-fuente
+st.subheader("📊 Inflación: Análisis Multi-Fuente")
 
-##### Semana 14: Gráficos Avanzados
-- [ ] Gráficos Plotly interactivos
-- [ ] Pronósticos SARIMA visualizados
-- [ ] Mapa de volatilidad GARCH
+# Gráfico de dispersión de fuentes
+fig = go.Figure()
 
-##### Semana 15: Sistema de Alertas
-- [ ] Implementar `AlertManager`
-- [ ] Notificaciones Telegram
-- [ ] Alertas por email
+for source, value in inflation_data.items():
+    fig.add_trace(go.Bar(
+        name=source,
+        x=[source],
+        y=[value]
+    ))
 
-##### Semana 16: Informes Automáticos
-- [ ] Generación PDF
-- [ ] Generación Markdown
-- [ ] Informe semanal con IA
+fig.update_layout(
+    title="Inflación por Fuente",
+    yaxis_title="% Anual"
+)
+
+st.plotly_chart(fig)
+
+# Mostrar análisis de dispersión
+st.info(f"""
+**Análisis de Dispersión:**
+- Rango: {min_value:.1f}% - {max_value:.1f}%
+- Media: {mean_value:.1f}%
+- Dispersión: {dispersion:.1f}%
+- Confianza: {confidence}
+""")
+```
 
 ---
 
 ## 📦 Fase 5: Automatización (Semanas 17-20)
 
 ### Estado: ⏳ PENDIENTE
-
-#### Hitos
-
-##### Semana 17: Scheduler
-- [ ] Implementar `TaskScheduler`
-- [ ] Configurar APScheduler
-
-##### Semana 18: CI/CD
-- [ ] GitHub Actions workflow
-- [ ] Tests automatizados
-
-##### Semana 19: Despliegue
-- [ ] Servidor en la nube
-- [ ] Docker Compose producción
-
-##### Semana 20: Documentación
-- [ ] Guía de usuario
-- [ ] Video demo
 
 ---
 
@@ -392,38 +256,26 @@ requests==2.31.0
 
 ---
 
-## 📈 Progreso Actual
-
-```
-FASE 1: Fundamentos    ████████████████████ 100% ✅
-FASE 2: Recolección    ████░░░░░░░░░░░░░░░░  20% 🟡
-FASE 3: Análisis       ████████████████████ 100% ✅
-FASE 4: Visualización  ░░░░░░░░░░░░░░░░░░░░   0% ⏳
-FASE 5: Automatización ░░░░░░░░░░░░░░░░░░░░   0% ⏳
-
-TOTAL: 44%
-```
-
----
-
-## 📋 Próximos Pasos Inmediatos
+## 📋 Próximos Pasos
 
 ### Prioridad Alta
-1. **Implementar Collector BCV** con pyDolarVenezuela
-2. **Implementar Collector BVC** con yfinance
-3. **Implementar Collector Dólar Paralelo**
+1. **Collector BCV** con pyDolarVenezuela
+2. **Collector Banco Mundial** con wbgapi
+3. **Collector OVF** (scraping)
+4. **Collector BVC** con yfinance
 
 ### Prioridad Media
-4. **Integrar collectors en pipeline principal**
-5. **Crear tests para cada collector**
-6. **Documentar APIs de cada collector**
+5. Collector OPEP
+6. Collector Dólar Paralelo
+7. Collector Noticias (RSS)
 
 ### Prioridad Baja
-7. **Implementar collector de noticias**
-8. **Implementar collector de redes sociales**
+8. Collector Redes Sociales
+9. Collector INE
+10. Collector SENIAT
 
 ---
 
 **Roadmap actualizado: Agosto 2025**
-**Versión: 2.0**
-**Última actualización: Con collectors BCV y BVC**
+**Versión: 3.0**
+**Incluye: Todas las fuentes institucionales**

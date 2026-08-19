@@ -43,83 +43,34 @@ Este documento contiene la base de conocimiento fundamental para el análisis de
 
 ### 1. Tipo de Cambio
 
-#### Tipos de Cambio en Venezuela
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                  MERCADO CAMIARIO VENEZOLANO                    │
+│                  MERCADO CAMBIO VENEZOLANO                      │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
-│  │   OFICIAL    │  │   PARALELO   │  │  BINANCE P2P │          │
-│  │   (BCV)      │  │  (DólarToday)│  │              │          │
-│  └──────────────┘  └──────────────┘  └──────────────┘          │
-│                                                                  │
-│  Tasa Oficial: ~36.5 Bs/USD (fijo)                             │
-│  Tasa Paralelo: ~50-100 Bs/USD (fluctuante)                    │
-│  Binance P2P: ~45-90 Bs/USD (mercado libre)                    │
+│  OFICIAL (BCV)    PARALELO (DólarToday)    BINANCE P2P         │
+│  ~36.5 Bs/USD     ~50-100 Bs/USD          ~45-90 Bs/USD       │
 │                                                                  │
 │  SPREAD = (Paralelo - Oficial) / Oficial * 100                 │
-│                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-#### Definiciones
-- **Tipo de Cambio Oficial**: Fijado por el BCV, used para transacciones formales
-- **Tipo de Cambio Paralelo**: Precio en mercado no regulado (DólarToday,Monitor)
-- **Binance P2P**: Precio del dólar en plataforma de trading peer-to-peer
-- **Spread**: Diferencia porcentual entre oficial y paralelo
-
 ### 2. Inflación
 
-#### Índices de Inflación
 | Índice | Descripción | Período |
 |--------|-------------|---------|
-| IPC (Índice de Precios al Consumidor) | Precio de canasta básica | Mensual |
+| IPC (INPC) | Índice Nacional de Precios al Consumidor | Mensual |
 | IPCC | IPC de alimentos | Mensual |
-| Índice de Precios al Productor | Costos de producción | Trimestral |
-| Deflactor del PIB | Inflación generalizada | Anual |
-
-#### Fórmulas Clave
-```
-Inflación Mensual = ((IPC Mes Actual - IPC Mes Anterior) / IPC Mes Anterior) * 100
-
-Inflación Anual = ((IPC Mes Actual - IPC Mismo Mes Año Anterior) / IPC Mismo Mes Año Anterior) * 100
-
-Inflación Acumulada = Productorio(1 + inflación_mensual_i) - 1
-```
+| IPP | Índice de Precios al Productor | Trimestral |
 
 ### 3. Producto Interno Bruto (PIB)
 
-#### Componentes del PIB Venezolano
 ```
 PIB Total = PIB Petrolero + PIB No Petrolero
-
 PIB No Petrolero = Consumo + Inversión + Gasto Público + (Exportaciones - Importaciones)
-
-Donde:
-- Consumo: Gasto de hogares
-- Inversión: Formación bruta de capital
-- Gasto Público: Gasto del gobierno
-- Exportaciones: Petróleo + No petrolero
-- Importaciones: Bienes y servicios
 ```
 
-### 4. Reservas Internacionales
+### 4. Producción Petrolera
 
-#### Composición de Reservas
-```
-┌─────────────────────────────────────────────────────────────┐
-│               RESERVAS INTERNACIONALES                      │
-├─────────────────────────────────────────────────────────────┤
-│  ORO (60-70%)                                               │
-│  DIVISAS (20-30%)                                           │
-│  DERECHOS ESPECIALES (5-10%)                                │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 5. Producción Petrolera
-
-#### Datos Clave de PDVSA
 | Métrica | 2013 | 2023 | 2025 (Est.) |
 |---------|------|------|-------------|
 | Producción (barriles/día) | 2.8M | 0.8M | 1.0M |
@@ -127,271 +78,347 @@ Donde:
 
 ---
 
-## 🗺️ FUENTES DE DATOS DETALLADAS
+## 🏛️ FUENTES DE DATOS INSTITUCIONALES
 
-### 1. BANCO CENTRAL DE VENEZUELA (BCV)
+### 1. ENTES OFICIALES NACIONALES (Canal Oficial)
 
-#### ⚠️ Importante: No hay API oficial
-El BCV no ofrece una API pública. Se requiere scraping o usar herramientas comunitarias.
+Son la base del sistema. Publican la información que el Estado declara como oficial. **Es crucial contrastarla con fuentes independientes.**
 
-#### Opción A: APIs Comunitarias (Recomendado)
+#### 1.1 Banco Central de Venezuela (BCV)
+**URL:** https://www.bcv.org.ve
 
-| Herramienta | Tecnología | Qué obtienes | Enlace |
-|-------------|------------|--------------|--------|
-| **BCV-Tasa-Oficial** | Python + FastAPI | Tasas USD y EUR en JSON | github.com/StudiosDanilIs/BCV-Tasa-Oficial |
-| **bcv-api** (rafnixg) | Python | Tasas de cambio actuales | github.com/rafnixg/bcv-api |
-| **tipo-cambio** (oariasz) | Python | USD, EUR, CNY, RUB, TRY | github.com/oariasz/tipo-cambio |
-| **bcv_scraper** (ivanovertime) | Python + FastAPI | Tasas en JSON | github.com/ivanovertime/bcv_scraper |
+| Categoría | Indicadores | Frecuencia |
+|-----------|-------------|------------|
+| **Tasas de Cambio** | USD, EUR, CNY | Diaria |
+| **Monetarios** | Base monetaria (M0), Liquidez (M1, M2), Reservas | Semanal/Mensual |
+| **Precios** | INPC (Inflación) | Mensual |
+| **Cuentas Nacionales** | PIB trimestral y anual | Trimestral |
+| **Balanza de Pagos** | Comercio exterior, Deuda externa | Trimestral |
 
-**Ejemplo de uso con bcv-api:**
-```python
-import requests
+**Métodos de Extracción:**
+- Web scraping del portal de estadísticas
+- Descarga de archivos PDF/Excel
+- Librerías: `pyvenezuela`, `pydolarvenezuela`
 
-response = requests.get('https://bcv-api.herokuapp.com/api/v1/rates')
-data = response.json()
-print(f"Dólar oficial: {data['usd']} Bs/USD")
-print(f"Euro oficial: {data['eur']} Bs/EUR")
-```
+#### 1.2 Instituto Nacional de Estadística (INE)
+**URL:** https://www.ine.gov.ve
 
-#### Opción B: Librerías Python
+| Categoría | Indicadores |
+|-----------|-------------|
+| **Demográficos** | Censos de población y vivienda |
+| **Laborales** | Encuestas de hogares: Empleo, desempleo, ingresos |
+| **Vitales** | Natalidad, mortalidad, migración |
 
-| Librería | Instalación | Uso básico |
-|----------|-------------|------------|
-| **bcv-exchange** | `pip install bcv-exchange` | `from bcv_exchange import Bcv; bcv = Bcv(); print(bcv.get_rate('USD'))` |
-| **pyDolarVenezuela** | `pip install pyDolarVenezuela` | `import pyDolarVenezuela as pdv; print(pdv.Bcv().get_rates())` |
+**Método:** Descarga de bases de datos y reportes en PDF/Excel
 
-#### Opción C: Scraping Directo
+#### 1.3 Ministerio del Poder Popular de Economía y Finanzas (MPPEF)
+**URL:** https://www.mppef.gob.ve
 
-**Estructura del sitio BCV:**
-- Tasas de cambio: `<div id="dolar">` en la portada
-- Indicadores económicos: Sección "Estadísticas" → "Indicadores Económicos"
-- Datos históricos: Archivos Excel (.xls) descargables
+| Categoría | Indicadores |
+|-----------|-------------|
+| **Fiscal** | Ejecución presupuestaria |
+| **Finanzas Públicas** | Deuda del gobierno central |
 
-**Ejemplo de scraping:**
-```python
-import requests
-from bs4 import BeautifulSoup
-import re
+**Método:** Web scraping y descarga de reportes financieros
 
-url = 'https://www.bcv.org.ve/'
-response = requests.get(url)
-soup = BeautifulSoup(response.text, 'html.parser')
+#### 1.4 Servicio Nacional Integrado de Administración Aduanera y Tributaria (SENIAT)
+**URL:** https://www.seniat.gob.ve
 
-# Buscar el elemento con la tasa
-dolar_element = soup.find('div', {'id': 'dolar'})
-if dolar_element:
-    match = re.search(r'(\d+[\.,]?\d*)', dolar_element.text)
-    if match:
-        tasa = float(match.group(1).replace(',', '.'))
-        print(f"Tasa USD: {tasa} Bs/USD")
-```
+| Categoría | Indicadores |
+|-----------|-------------|
+| **Recaudación** | ISLR, IVA, rentas aduaneras |
 
-#### Opción D: Scrapers Comunitarios GitHub
+**Método:** Web scraping de boletines de prensa y reportes de gestión
 
-| Repositorio | Qué extrae | Tecnología |
-|-------------|------------|------------|
-| **fquivera/scraper-bcv** | Tasas de cambio (scraper defensivo) | Python |
-| **pcamilo89/bcv-scraper** | USD y EUR desde HTML y Excel | Python |
-| **Guerrero85/Tasa-BCV** | Tasas de cambio + INPC | C# |
-| **AlexR1712/bcv-extractor** | Tasas compra/venta + Excel | Python |
+#### 1.5 Superintendencia Nacional de Valores (SUNAVAL)
+**URL:** https://www.sunaval.gob.ve
 
-**Recomendación:** Usar `fquivera/scraper-bcv` (diseñado con tolerancia a cambios en HTML).
+| Categoría | Indicadores |
+|-----------|-------------|
+| **Mercado de Capitales** | Capitalización bursátil, monto de transacciones |
+| **Regulación** | Autorizaciones de emisiones, evolución del IBC |
 
-#### Estructura de Colector BCV Sugerida
-
-```text
-src/collectors/bcv/
-├── __init__.py
-├── exchange_rates.py    # Usa pyDolarVenezuela o bcv-exchange
-├── indicators.py        # Scraping de indicadores económicos
-├── excel_downloader.py  # Descarga y procesa archivos Excel
-└── utils.py             # Funciones comunes
-```
-
-#### Indicadores Disponibles en BCV
-
-| Indicador | Disponibilidad | Método |
-|-----------|----------------|--------|
-| Tasa de cambio USD | API comunitaria | Fácil |
-| Tasa de cambio EUR | API comunitaria | Fácil |
-| IPC (Inflación) | Excel descargable | Scraping |
-| Reservas internacionales | Semanal | Scraping |
-| Base monetaria (M2) | Mensual | Scraping |
-| Balanza de pagos | Trimestral | Excel |
+**Método:** Web scraping de reportes periódicos
 
 ---
 
-### 2. BOLSA DE VALORES DE CARACAS (BVC)
+### 2. ORGANISMOS INTERNACIONALES Y MULTILATERALES
 
-#### Datos Relevantes de la BVC
+Estas fuentes son cruciales para tener una visión externa y objetiva, y para **contrastar los datos oficiales**.
 
-| Indicador | Descripción | Utilidad |
-|-----------|-------------|----------|
-| **Índice Bursátil Caracas (IBC)** | Índice principal, 16 mayores empresas | Termómetro del mercado |
-| **IBC Industrial** | Subíndice sector industrial | Salud sector productivo |
-| **IBC Financiero** | Subíndice sector financiero | Salud sector bancario |
-| **Capitalización Bursátil** | Valor total de mercado | Tamaño del mercado |
-| **Monto Efectivo Negociado** | Volumen en bolívares | Liquidez del mercado |
-| **Precios de acciones** | Cotizaciones individuales | Análisis microeconómico |
+#### 2.1 Banco Mundial
+**URL:** https://datos.bancomundial.org
 
-#### Opción A: Yahoo Finance (Recomendado para empezar)
+| Categoría | Indicadores | API |
+|-----------|-------------|-----|
+| **PIB** | PIB nominal, per cápita, crecimiento | wbgapi (Python) |
+| **Desarrollo** | Formación bruta de capital, inflación estimada | API pública |
+| **Sociales** | Pobreza, desigualdad | CSV descargable |
 
-**Librería:** `yfinance`
+**Librería Python:** `wbgapi`
+```python
+import wbgapi as wb
+# PIB de Venezuela
+data = wb.data.DataFrame('NY.GDP.MKTP.CD', countries='VEN')
+```
+
+#### 2.2 Fondo Monetario Internacional (FMI)
+**URL:** https://www.imf.org
+
+| Categoría | Indicadores | Publicación |
+|-----------|-------------|-------------|
+| **Perspectivas** | Proyecciones de PIB, inflación | World Economic Outlook |
+| **Finanzas** | Balanza cuenta corriente, deuda pública | Informes trimestrales |
+
+**API:** https://dataservices.imf.org/REST/SDMX_JSON.svc/
+
+#### 2.3 Comisión Económica para América Latina y el Caribe (CEPAL)
+**URL:** https://www.cepal.org
+
+| Categoría | Indicadores |
+|-----------|-------------|
+| **Macroeconomía** | PIB, balanza comercial, inversión |
+| **Social** | Empleo, pobreza, desigualdad |
+
+**Portal:** CEPALSTAT (https://estadisticas.cepal.org)
+
+---
+
+### 3. OBSERVATORIOS, THINK TANKS Y ACADEMIA
+
+Son fuentes independientes que **llenan los vacíos de información oficial** y ofrecen análisis de alta calidad.
+
+#### 3.1 Observatorio de Finanzas (OVF)
+**URL:** https://observatoriodefinanzas.org
+
+| Categoría | Indicadores | Importancia |
+|-----------|-------------|-------------|
+| **Inflación** | Estimación independiente del IPC | ⭐⭐⭐⭐⭐ |
+| **Tipo de Cambio** | Múltiples monitores | ⭐⭐⭐⭐⭐ |
+| **Salario Real** | Índice de poder adquisitivo | ⭐⭐⭐⭐ |
+| **Actividad Económica** | Índice mensual | ⭐⭐⭐⭐ |
+| **Recaudación Fiscal** | Estimación independiente | ⭐⭐⭐ |
+
+**Método:** Web scraping de series de datos ordenadas
+
+#### 3.2 Observatorio Venezolano de Economía (OVE)
+**URL:** https://ove-venezuela.com
+
+| Categoría | Indicadores |
+|-----------|-------------|
+| **Sectoriales** | Análisis por sector económico |
+| **Coyuntura** | Informes de análisis económico |
+
+#### 3.3 Universidad Católica Andrés Bello (UCAB) - IIES
+**URL:** https://www.ucab.ve/iies
+
+| Categoría | Indicadores |
+|-----------|-------------|
+| **Proyecciones** | Inflación, PIB, precio del petróleo |
+| **Social** | Análisis de pobreza |
+| **Coyuntura** | Informes trimestrales |
+
+#### 3.4 Transparencia Venezuela
+**URL:** https://transparencia.org.ve
+
+| Categoría | Indicadores |
+|-----------|-------------|
+| **Gobernanza** | Informes sobre transparencia |
+| **Sector Petrolero** | Análisis de PDVSA |
+
+---
+
+### 4. SECTOR ENERGÉTICO (El Pilar de la Economía)
+
+Dada la dependencia venezolana del petróleo, es un sector crítico.
+
+#### 4.1 Fuentes Oficiales
+
+| Fuente | URL | Datos |
+|--------|-----|-------|
+| **PDVSA** | pdvsa.com | Producción oficial |
+| **Ministerio de Hidrocarburos** | minhidrocarburos.gob.ve | Producción, precio de cesta |
+
+#### 4.2 Fuentes Internacionales (Para Contraste)
+
+| Fuente | URL | Datos | Importancia |
+|--------|-----|-------|-------------|
+| **OPEP** | opec.org | Producción (fuentes secundarias) | ⭐⭐⭐⭐⭐ |
+| **EIA (EE.UU.)** | eia.gov | Estimaciones de producción | ⭐⭐⭐⭐ |
+| **Reuters** | reuters.com | Datos de mercado | ⭐⭐⭐⭐ |
+| **datosmacro** | datosmacro.expansion.com | Precio cesta venezolana | ⭐⭐⭐ |
+
+**Importancia:** Las fuentes secundarias (OPEP, EIA) son fundamentales para **contrastar la producción oficial de PDVSA**, que tiende a ser sobreestimada.
+
+---
+
+### 5. SECTOR FINANCIERO Y PRECIOS DE MERCADO
+
+#### 5.1 Bolsa de Valores de Caracas (BVC)
+**URL:** https://www.bolsadecaracas.com
+
+| Indicador | Fuente Alternativa | Método |
+|-----------|-------------------|--------|
+| IBC | Yahoo Finance (IBC.CR) | yfinance |
+| Subíndices | Scraping BVC | BeautifulSoup |
+| Acciones individuales | Scraping BVC | BeautifulSoup |
+
+#### 5.2 Monitores de Dólar
+
+| Monitor | Tipo | Método |
+|---------|------|--------|
+| DólarToday | Paralelo | Scraping |
+| EnParaleloVzla | Paralelo | Scraping |
+| Binance P2P | Mercado libre | API oficial |
+| Mercado Libre | Precios reales | Scraping |
+| **pydolarvenezuela** | Consolida todos | Librería Python |
+
+---
+
+## 🔧 ESTRATEGIA DE INTEGRACIÓN
+
+### Arquitectura Modular de Collectors
+
+```
+src/collectors/
+├── oficial/                    # Fuentes oficiales
+│   ├── bcv_collector.py       # Banco Central
+│   ├── ine_collector.py       # Instituto Nacional de Estadística
+│   ├── mppef_collector.py     # Ministerio de Economía
+│   └── seniat_collector.py    # SENIAT (fiscal)
+├── internacional/              # Organismos internacionales
+│   ├── worldbank_collector.py # Banco Mundial
+│   ├── imf_collector.py       # FMI
+│   └── cepal_collector.py     # CEPAL
+├── independiente/              # Fuentes independientes
+│   ├── ovf_collector.py       # Observatorio de Finanzas
+│   ├── ove_collector.py       # Observatorio Venezolano
+│   └── ucab_collector.py      # UCAB IIES
+├── mercado/                    # Mercados financieros
+│   ├── bvc_collector.py       # Bolsa de Valores
+│   ├── dolar_collector.py     # Monitores de dólar
+│   └── binance_collector.py   # Binance P2P
+├── energetico/                 # Sector petrolero
+│   ├── pdvsa_collector.py     # PDVSA
+│   ├── opec_collector.py      # OPEP
+│   └── eia_collector.py       # EIA (EE.UU.)
+├── noticias/                   # Prensa
+│   ├── rss_collector.py       # RSS feeds
+│   └── scraper_collector.py   # Scraping
+└── social/                     # Redes sociales
+    ├── reddit_collector.py    # Reddit
+    └── twitter_collector.py   # Twitter/X
+```
+
+### Lógica de Contraste y Validación
 
 ```python
-# src/collectors/bvc/yfinance_collector.py
-import yfinance as yf
-import pandas as pd
+# src/analyzers/data_validation.py
 
-def get_ibc_data():
-    """Obtiene el IBC desde Yahoo Finance"""
-    ticker = yf.Ticker("IBC.CR")
+def validate_indicator(indicator_name: str, sources: dict) -> dict:
+    """
+    Valida un indicador comparando múltiples fuentes.
     
-    # Datos del día
-    today = ticker.history(period="1d")
+    Args:
+        indicator_name: Nombre del indicador (ej. 'inflacion')
+        sources: Dict con valores de cada fuente
+                 {'bcv': 120, 'ovf': 180, 'fmi': 150}
     
-    # Datos históricos (últimos 30 días)
-    hist = ticker.history(period="1mo")
+    Returns:
+        Dict con análisis de dispersión
+    """
+    values = list(sources.values())
     
-    return {
-        'current_price': today['Close'].iloc[-1] if not today.empty else None,
-        'volume': today['Volume'].iloc[-1] if not today.empty else None,
-        'high_52w': ticker.info.get('fiftyTwoWeekHigh'),
-        'low_52w': ticker.info.get('fiftyTwoWeekLow'),
-        'historical': hist['Close'].tolist(),
-        'dates': hist.index.tolist()
+    result = {
+        'indicator': indicator_name,
+        'sources': sources,
+        'mean': np.mean(values),
+        'std': np.std(values),
+        'min': min(values),
+        'max': max(values),
+        'dispersion': (max(values) - min(values)) / np.mean(values) * 100,
+        'confidence': 'alta' if np.std(values) < 10 else ('media' if np.std(values) < 30 else 'baja')
     }
+    
+    # Generar interpretación
+    if result['dispersion'] > 50:
+        result['interpretation'] = (
+            f"ALTA INCERTIDUMBRE: {indicator_name} varía significativamente "
+            f"entre fuentes ({result['min']:.1f}% - {result['max']:.1f}%). "
+            f"La medición oficial puede no ser confiable."
+        )
+    elif result['dispersion'] > 20:
+        result['interpretation'] = (
+            f"MEDIA INCERTIDUMBRE: Existe variación entre fuentes "
+            f"({result['min']:.1f}% - {result['max']:.1f}%). "
+            f"Considerar el rango como estimación."
+        )
+    else:
+        result['interpretation'] = (
+            f"BAJA INCERTIDUMBRE: Las fuentes coinciden "
+            f"({result['min']:.1f}% - {result['max']:.1f}%). "
+            f"Estimación confiable."
+        )
+    
+    return result
 ```
 
-**Ventajas:** No scraping, estable, datos históricos
-**Desventajas:** Solo IBC, no acciones individuales
-
-#### Opción B: Scraping Directo de la BVC
-
-**URL:** https://www.bolsadecaracas.com/
+### Ejemplo: Análisis de Inflación Multi-Fuente
 
 ```python
-# src/collectors/bvc/scraper.py
-import requests
-from bs4 import BeautifulSoup
-import re
-from datetime import datetime
+# Resultado típico del sistema
+inflacion_analysis = {
+    'bcv': 120,        # Inflación oficial
+    'ovf': 180,        # Observatorio de Finanzas
+    'fmi': 150,        # Fondo Monetario Internacional
+    'ucab': 160,       # UCAB
+}
 
-def scrape_bvc_home():
-    """Scraping de la portada de la BVC"""
-    url = 'https://www.bolsadecaracas.com/'
-    response = requests.get(url)
-    soup = BeautifulSoup(response.text, 'html.parser')
-    
-    # Selectores hipotéticos (ajustar tras inspeccionar HTML)
-    ibc_element = soup.find('span', {'id': 'ibc-value'})
-    
-    return {
-        'ibc': float(re.sub(r'[^\d.]', '', ibc_element.text)) if ibc_element else None,
-        'timestamp': datetime.now()
-    }
+# Conclusión del Sistema:
+"""
+La inflación se estima entre 120% y 180%, con una media de 152.5%.
+La alta dispersión (39.3%) sugiere incertidumbre en la medición oficial.
+El modelo SARIMA sugiere una tendencia a la baja para el próximo trimestre
+si se mantiene la política monetaria actual.
+"""
 ```
 
-#### Opción C: ICE (Intercontinental Exchange)
+### Tabla Resumen de Fuentes por Indicador
 
-Para uso profesional con datos institucionales de alta calidad (servicio de pago).
-
-#### Estructura de Colector BVC Sugerida
-
-```text
-src/collectors/bvc/
-├── __init__.py
-├── yfinance_collector.py    # Yahoo Finance (recomendado)
-├── scraper.py               # Scraping directo
-├── indicators.py            # Indicadores derivados
-└── utils.py                 # Headers, timeouts, logging
-```
-
-#### Modelo de Datos BVC
-
-```python
-from pydantic import BaseModel
-from datetime import datetime
-
-class BVCData(BaseModel):
-    timestamp: datetime
-    ibc: float
-    ibc_industrial: float | None = None
-    ibc_financiero: float | None = None
-    market_cap_usd: float | None = None
-    traded_volume_bs: float | None = None
-    operations_count: int | None = None
-    top_gainers: list[dict] = []
-    top_losers: list[dict] = []
-```
-
-#### Uso en Análisis Econométrico
-
-| Modelo | Variable BVC | Relación |
-|--------|--------------|----------|
-| VECM | IBC vs. Dólar paralelo | ¿El mercado anticipa devaluaciones? |
-| GARCH | Volatilidad del IBC | Medir incertidumbre financiera |
-| Regresión | IBC vs. Petróleo | Correlación con commodities |
-| Nowcasting | Capitalización vs. PIB | Estimar PIB en tiempo real |
+| Indicador | BCV | OVF | FMI | BM | CEPAL | OPEP |
+|-----------|-----|-----|-----|----|-------|------|
+| Inflación (IPC) | ✅ | ✅ | ✅ | ✅ | ✅ | - |
+| Tipo de Cambio | ✅ | ✅ | - | - | - | - |
+| PIB | ✅ | ✅ | ✅ | ✅ | ✅ | - |
+| Reservas | ✅ | - | ✅ | ✅ | - | - |
+| Producción Petrolera | ✅ | - | - | ✅ | - | ✅ |
+| Deuda Pública | ✅ | - | ✅ | ✅ | - | - |
+| Empleo | ✅ | ✅ | - | ✅ | ✅ | - |
+| Balanza Comercial | ✅ | - | ✅ | ✅ | ✅ | - |
 
 ---
 
-### 3. OTROS PROVEEDORES DE DATOS
+## 📋 DEPENDENCIAS PARA requirements.txt
 
-#### DólarToday
-```
-URL: https://dolartoday.com
-Datos: Tasa paralela, evolución histórica
-API: No oficial (scraping)
-```
+```txt
+# Fuentes oficiales y APIs
+pydolarvenezuela   # Monitores de dólar y BCV
+pyvenezuela        # Datos del BCV
+wbgapi             # API del Banco Mundial
+imfpy              # API del FMI
+pandas-datareader  # Para yfinance y otras fuentes
+yfinance           # Yahoo Finance (BVC)
 
-#### Binance P2P
-```
-URL: https://p2p.binance.com
-Datos: Precio USDT en VES, volumen
-API: Oficial (REST API)
-```
+# Web scraping robusto
+requests
+beautifulsoup4
+selenium           # Si algún sitio usa JavaScript
+playwright         # Alternativa moderna a Selenium
 
-#### Mercado Libre
-```
-URL: https://www.mercadolibre.com.ve
-Datos: Precios de productos de referencia
-Método: Web scraping
-```
-
----
-
-### 4. FUENTES DE NOTICIAS
-
-#### Portales Venezolanos
-```
-- El Nacional: https://www.elnacional.com
-- TalCual: https://talcualdigital.com
-- Efecto Cocuyo: https://efectococuyo.com
-- Runrunes: https://runrunes.org
-- El Pitazo: https://elpitazo.net
-```
-
-#### Portales Internacionales
-```
-- Reuters: https://www.reuters.com
-- Bloomberg: https://www.bloomberg.com
-- Financial Times: https://www.ft.com
-```
-
-### 5. REDES SOCIALES
-
-#### Reddit
-```
-Subreddits: r/vzla, r/vzlaconomics
-API: Reddit API (OAuth2)
-Límites: 60 requests/minuto
-```
-
-#### Twitter/X
-```
-Cuentas: @BCVOficial, @DolarToday
-API: Twitter API v2 (requiere suscripción)
+# Manejo de datos
+pandas
+numpy
+openpyxl           # Para archivos Excel del BCV/INE
 ```
 
 ---
@@ -411,56 +438,26 @@ API: Twitter API v2 (requiere suscripción)
 | Carne de res | 2 kg | 3,000 | $83.33 |
 | **TOTAL** | - | **~13,230** | **~$367.50** |
 
-### Salario Mínimo vs Canasta Básica
-
-```
-Salario Mínimo 2025: ~130 Bs ($3.61)
-Canasta Básica: ~13,230 Bs ($367.50)
-Déficit: -99.0%
-```
-
 ---
 
 ## 📊 Métodos de Análisis
 
-### 1. Análisis de Tendencias
-```
-- Regresión Lineal
-- Media Móvil (SMA)
-- MACD
-- RSI
-- Bollinger Bands
-```
-
-### 2. Análisis de Sentimiento
-```
-Pipeline:
-1. Recolección (Reddit, Twitter, Noticias)
-2. Pre-procesamiento (Limpieza, Tokenización)
-3. Análisis (DeepSeek, BERT, VADER)
-4. Clasificación (Positivo/Neutro/Negativo)
-5. Agregación y tendencia
-```
-
-### 3. Modelos Predictivos
+### 1. Modelos Predictivos
 ```
 - ARIMA/SARIMA (series temporales)
 - VECM (cointegración)
 - GARCH (volatilidad)
 - Prophet (estacionalidad)
-- LSTM (patrones complejos)
 ```
 
----
-
-## ⚠️ Factores de Riesgo
-
-| Riesgo | Probabilidad | Impacto | Señales |
-|--------|--------------|---------|---------|
-| Hiperinflación | Media | Crítico | IPC > 20% mensual |
-| Default de deuda | Media | Alto | spreads > 500 pbs |
-| Colapso petrolero | Baja | Crítico | Producción < 0.5M bbl/d |
-| Sanciones adicionales | Alta | Alto | Anuncios políticos |
+### 2. Análisis de Contraste
+```
+Pipeline:
+1. Recolectar de múltiples fuentes
+2. Calcular estadísticas de dispersión
+3. Identificar incertidumbre
+4. Generar escenarios (optimista, base, pesimista)
+```
 
 ---
 
@@ -469,36 +466,28 @@ Pipeline:
 ### Fase 1: Fundamentos
 - [x] Configurar proyecto base
 - [x] Implementar modelos de datos
-- [ ] Configurar base de datos
-- [ ] Crear collector BCV (pyDolarVenezuela)
+- [x] Módulo econométrico
 
 ### Fase 2: Recolección
-- [ ] Implementar collector BVC (yfinance)
-- [ ] Implementar collector DólarToday
-- [ ] Implementar collector Binance P2P
-- [ ] Implementar collector Noticias
-- [ ] Implementar collector Mercado Libre
+- [ ] Collector BCV (pyDolarVenezuela)
+- [ ] Collector BVC (yfinance)
+- [ ] Collector OVF (scraping)
+- [ ] Collector Banco Mundial (wbgapi)
+- [ ] Collector OPEP
+- [ ] Collector Dólar Paralelo
+- [ ] Collector Noticias
+- [ ] Collector Redes Sociales
 
-### Fase 3: Procesamiento
-- [ ] Pipeline de limpieza
-- [ ] Normalización de datos
-- [ ] Almacenamiento persistente
+### Fase 3: Análisis
+- [x] Módulo econométrico
+- [ ] Lógica de contraste multi-fuente
+- [ ] Generación de escenarios
 
-### Fase 4: Análisis
-- [x] Módulo econométrico (SARIMA, VECM, GARCH)
-- [ ] Análisis de sentimiento
-- [ ] Detección de tendencias
-
-### Fase 5: Visualización
-- [ ] Dashboard Streamlit
+### Fase 4: Visualización
+- [ ] Dashboard con dispersión de fuentes
 - [ ] Sistema de alertas
-- [ ] Informes automáticos
-
-### Fase 6: Automatización
-- [ ] Scheduler de tareas
-- [ ] GitHub Actions
 
 ---
 
 **Base de conocimiento actualizada: Agosto 2025**
-**Última revisión: Con métodos de recolección BCV y BVC**
+**Última revisión: Fuentes institucionales nacionales e internacionales**
