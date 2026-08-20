@@ -112,9 +112,17 @@ class ANCollector:
         """
         docs: List[FiscalDocument] = []
         for page in range(1, max_pages + 1):
-            html = self._page(
-                f"/leyes/{categoria}", {"page": page} if page > 1 else None
-            )
+            try:
+                html = self._page(
+                    f"/leyes/{categoria}", {"page": page} if page > 1 else None
+                )
+            except Exception as exc:  # noqa: BLE001 - tolerar páginas que fallen
+                logger.warning(
+                    "AN leyes %s: página %d no disponible (%s); se conservan "
+                    "las %d ya recogidas",
+                    categoria, page, exc, len(docs),
+                )
+                break
             cards = parse_leyes(html)
             if not cards:
                 break
@@ -141,7 +149,11 @@ class ANCollector:
         self, keywords: Optional[List[str]] = None
     ) -> List[FiscalDocument]:
         """Actos legislativos del acordeón (acuerdos, informes de comisiones)."""
-        html = self._page("/actos")
+        try:
+            html = self._page("/actos")
+        except Exception as exc:  # noqa: BLE001 - sección opcional
+            logger.warning("AN actos no disponible: %s", exc)
+            return []
         rows = parse_actos(html)
         docs = [
             FiscalDocument(

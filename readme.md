@@ -14,7 +14,7 @@ Crear un sistema automatizado que:
 - Genere pronósticos con SARIMA, VECM y GARCH
 - Evalúe el sentimiento público sobre la economía
 - Proporcione dashboards interactivos para la visualización de datos
-- Genere informes semanales automatizados con IA
+- Genere informes automatizados con IA: semanal en Markdown y periódicos (diario → anual) en PDF
 
 ## 🏗️ Arquitectura del Sistema
 
@@ -88,16 +88,25 @@ vecm_result = vecm.fit_vecm(official_rate, parallel_rate)
 |--------|------|------------|-------|
 | BCV (Banco Central de Venezuela) | API comunitaria | Diaria | Tasa de cambio oficial, IPC |
 | OVF (Observatorio Venezolano de Finanzas) | Web | Mensual | Inflación independiente |
-| Binance P2P | API | Tiempo real | Precio del dólar en mercado paralelo |
+| Binance P2P | API | Tiempo real | Precio USDT/VES mercado paralelo |
+| Bybit P2P | API + backfill histórico | Tiempo real | Precio USDT/VES alternativo (brecha) |
 | BVC (Bolsa de Caracas) | yfinance | Diaria | Índice IBC |
 | OPEP | API | Mensual | Producción petrolera |
 
 ### 🏛️ Fuentes Fiscales y Oficiales
 | Fuente | Tipo | Frecuencia | Datos |
 |--------|------|------------|-------|
-| ONAPRE | Web + PDF | Mensual | Ejecución presupuestaria |
+| SENIAT | Web scraping | Periódica | Recaudación tributaria |
+| MPPEF | Web scraping | Mensual | Ejecución presupuestaria |
+| ONAPRE | Web + PDF | Mensual | Presupuesto y ejecución |
 | CGR (Contraloría General) | Web | Trimestral | Informes de gestión |
+| Gaceta Oficial | Web scraping | Diaria | Índice + PDFs de gacetas |
+| AN (Asamblea Nacional) | Web scraping | Periódica | Leyes y actos legislativos |
 | INE | Web | Periódica | Empleo, demografía |
+| PDVSA | API | Periódica | Documentos operacionales |
+| FMI (IFS/SDMX) | API REST | Mensual | PIB, inflación, indicadores |
+| CEPAL | API (CEPALSTAT) | Anual | PIB, crecimiento |
+| UNSCEB | CSV | Anual | Gasto del sistema ONU en Venezuela |
 | Banco Mundial | API REST | Anual | PIB, indicadores de desarrollo |
 
 ### 📰 Noticias y Sentimiento
@@ -125,9 +134,9 @@ Google Forms y el service account, y configurar los IDs en `.env`.*
 
 ### Core
 - **Lenguaje Principal**: Python 3.10+
-- **Motor de Análisis IA**: DeepSeek V4-Pro (1M tokens contexto)
-- **Base de Datos**: PostgreSQL + TimescaleDB (series temporales)
-- **Cache**: Redis
+- **Motor de Análisis IA**: Cadena de 4+ LLMs con fallback (LLM1..LLM8 configurable)
+- **Base de Datos**: PostgreSQL (Railway)
+- **Cache**: Redis (opcional)
 
 ### Econometrics (NUEVO)
 - `statsmodels` - Modelos econométricos (ARIMA, SARIMA, VECM)
@@ -144,12 +153,11 @@ Google Forms y el service account, y configurar los IDs en `.env`.*
 ### Visualización
 - `Streamlit` - Dashboard principal
 - `Plotly` - Gráficos interactivos
-- `Grafana` - Monitoreo en tiempo real
+- `matplotlib` - Gráficos para informes PDF
 
 ### Automatización
-- `GitHub Actions` - CI/CD y scheduling
 - `Docker` - Contenedores
-- `APScheduler` - Tareas programadas
+- `APScheduler` - Tareas programadas (recolección + informes)
 
 ## 🚀 Instalación Rápida
 
@@ -169,15 +177,16 @@ pip install -r requirements.txt
 cp .env.example .env
 # Editar .env con tus API keys
 
-# Ejecutar (scheduler + dashboard)
+# Ejecutar el scheduler (recolección + informes automáticos)
 python main.py
 
 # O solo el dashboard
 streamlit run src/dashboard/app.py
 
 # Ingestas manuales
-python -m src.scripts.collect_surveys   # Encuestas Google
 python -m src.scripts.collect_market    # Tasa de cambio / inflación → DB
+python -m src.scripts.collect_news      # Noticias RSS + Reddit + sentimiento
+python -m src.scripts.collect_surveys   # Encuestas Google
 
 # Informes económicos en PDF (diario → anual)
 python -m src.scripts.generate_report --cadence semanal --format md,pdf
@@ -250,7 +259,7 @@ economia-venezuela/
 │   │   ├── backfill_rates.py   #   Backfill histórico (usdt.com.ve)
 │   │   └── generate_report.py  #   Informes periódicos MD/PDF (--cadence)
 │   ├── scheduler/              # Programación
-│   │   └── jobs.py             #   Jobs APScheduler (encuestas, mercado)
+│   │   └── jobs.py             #   Jobs APScheduler (mercado, encuestas, noticias, informes)
 │   ├── alerts/                 # Sistema de alertas
 │   ├── metrics/                # Métricas del sistema
 │   └── security/               # Seguridad
@@ -258,7 +267,7 @@ economia-venezuela/
 │   ├── raw/                    # Datos crudos
 │   ├── processed/              # Datos procesados
 │   └── reports/                # Informes generados
-├── tests/                      # 158 tests (pytest)
+├── tests/                      # 278 tests (pytest)
 └── docs/                       # Documentación
 ```
 
@@ -286,22 +295,23 @@ economia-venezuela/
 |---------|-------------|--------|--------|
 | **Dólar Oficial** | Tasa BCV | BCV API | ✅ En vivo |
 | **Dólar Paralelo** | Precio USDT/VES Binance P2P | Binance | ✅ En vivo |
+| **Dólar Bybit** | Precio USDT/VES Bybit P2P | Bybit | ✅ En vivo |
 | **Inflación Mensual** | IPC | BCV | ✅ En vivo |
 | **Encuestas** | Percepción por segmento | Google Forms | ✅ En vivo |
-| **Spread Cambiario** | Diferencia oficial-paralelo | Cálculo | ⏳ |
+| **Brecha Cambiaria** | Diferencia oficial-paralelo % | Cálculo | ✅ En vivo |
 | **Índice de Nerviosismo** | Volatilidad GARCH | Binance P2P | ⏳ |
 | **Sentimiento** | Análisis léxico español + filtro relevancia económica | RSS/Reddit | ✅ En vivo |
-| **Informe Semanal** | Markdown + resumen IA (cadena de 4 LLMs) | Todo el sistema | ✅ Semanal |
+| **Informe Semanal** | Markdown + resumen IA (cadena de LLMs con fallback) | Todo el sistema | ✅ Semanal |
 | **Informes Periódicos PDF** | Diario→anual: carátula, resumen IA, gráficos, tablas de mercado/inflación/encuestas/sentimiento/noticias/fiscal/macro | Todo el sistema | ✅ 6 cadencias |
 | **Pronóstico Inflación** | SARIMA | Modelo econométrico | ⏳ |
 
 ## 🤝 Contribuciones
 
-Las contribuciones son bienvenidas. Por favor, lee `CONTRIBUTING.md` para detalles.
+Las contribuciones son bienvenidas: abre un issue o pull request en el repositorio.
 
 ## 📄 Licencia
 
-Este proyecto está bajo la Licencia MIT - ver el archivo `LICENSE` para detalles.
+Este proyecto se distribuye bajo la Licencia MIT.
 
 ## ⚠️ Disclaimer
 

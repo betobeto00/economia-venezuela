@@ -39,6 +39,7 @@ def start_scheduler():
     from src.scheduler.jobs import (
         register_market_job,
         register_news_job,
+        register_periodic_report_jobs,
         register_survey_job,
         register_weekly_report_job,
     )
@@ -48,10 +49,12 @@ def start_scheduler():
     register_survey_job(scheduler)
     register_news_job(scheduler)
     register_weekly_report_job(scheduler)
+    register_periodic_report_jobs(scheduler)
     scheduler.start()
     logging.getLogger(__name__).info(
         "Scheduler iniciado (mercado cada %d min, encuestas cada %d min, "
-        "noticias cada %d h, informe semanal %s %02d:00)",
+        "noticias cada %d h, informe semanal %s %02d:00, informes periódicos "
+        "diario→anual)",
         settings.MARKET_COLLECT_INTERVAL_MINUTES,
         settings.SURVEY_COLLECT_INTERVAL_MINUTES,
         settings.NEWS_COLLECT_INTERVAL_HOURS,
