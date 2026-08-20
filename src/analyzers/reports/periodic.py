@@ -187,14 +187,24 @@ def _ai_resumen(markdown: str) -> str:
 
         text = summarize(
             (
-                "Eres un economista jefe para Venezuela. Redacta un resumen "
-                "ejecutivo de máximo 5 frases del informe para un lector no "
-                "técnico: contexto general, cifras clave y tendencias del "
-                "período. Termina cada frase con un punto final. "
+                "Eres un economista jefe para Venezuela. Escribe un resumen "
+                "ejecutivo amplio (10-15 frases) del informe para un lector "
+                "no técnico. No te limites a listar cifras: analiza, compara, "
+                "explora relaciones entre secciones y valida coherencia. "
+                "Incluye:\n"
+                "1. Contexto general del período.\n"
+                "2. Mercado cambiario: tendencias por fuente, brechas, volatilidad.\n"
+                "3. Inflación: trayectoria y comparación con el período anterior.\n"
+                "4. Sentimiento de noticias y encuestas: qué信号 envía la calle.\n"
+                "5. Marco fiscal y macro: qué cambió y por qué importa.\n"
+                "6. Proyección para la próxima semana: hacia dónde apuntan "
+                "tipo de cambio, inflación y sentimiento; riesgos al alza y "
+                "a la baja.\n"
+                "Termina cada frase con punto final. "
                 "Responde siempre en español."
             ),
             markdown,
-            max_tokens=1200,
+            max_tokens=2500,
         ) or ""
     except Exception as exc:  # noqa: BLE001 - el informe no debe fallar
         logger.warning("Resumen IA no disponible: %s", exc)
@@ -423,10 +433,6 @@ def build_markdown(snapshot: Dict) -> str:
     lines += articles_block(snapshot.get("articles") or [])
     lines += fiscal_docs_block(snapshot.get("fiscal_docs") or [])
     lines += macro_block(snapshot.get("macro") or [])
-    lines += projection_block(
-        snapshot.get("proyeccion") or "",
-        snapshot.get("proyeccion_rows") or [],
-    )
     base = "\n".join(lines)
 
     resumen = snapshot.get("resumen") or ""

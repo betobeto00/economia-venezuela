@@ -126,6 +126,20 @@ class TestBloquesMarkdown:
         assert "Se espera un dólar estable." in text
         assert "| bcv | 780.50 |" in text
 
+    def test_clean_summary_quita_wordpress(self):
+        from src.analyzers.reports.weekly import _clean_summary
+
+        raw = (
+            "La compañía que había adquirido el control. "
+            "La entrada Crossover Energy cerca de concretar "
+            "acuerdos petroleros con Pdvsa se publicó primero "
+            "en Diario Primicia"
+        )
+        result = _clean_summary(raw)
+        assert "La entrada" not in result
+        assert "se publicó primero" not in result
+        assert "La compañía" in result
+
 
 class TestBuildWeeklyReport:
     def test_plantilla_sin_ia(self):

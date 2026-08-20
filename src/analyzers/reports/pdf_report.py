@@ -19,7 +19,7 @@ import logging
 from datetime import datetime
 from html import escape as _esc
 from io import BytesIO
-from src.analyzers.reports.weekly import _strip_html
+from src.analyzers.reports.weekly import _clean_summary, _strip_html
 from typing import Dict, List, Optional
 
 import matplotlib
@@ -514,7 +514,7 @@ def _noticias(story, snapshot: Dict) -> None:
 
     def _cell(a: Dict) -> Paragraph:
         title = _esc(_strip_html(a.get("title", "")))
-        summary = _strip_html(a.get("summary") or "")[:240]
+        summary = _clean_summary(a.get("summary") or "")[:240]
         text = f"<b>{title}</b>"
         if summary:
             text += f"<br/><font size=7 color='#6B7280'>{_esc(summary)}</font>"
@@ -663,7 +663,6 @@ def render_pdf(snapshot: Dict, output_path: str) -> str:
     _noticias(story, snapshot)
     _marco_fiscal(story, snapshot)
     _macro(story, snapshot)
-    _proyeccion(story, snapshot)
 
     doc = SimpleDocTemplate(
         output_path,

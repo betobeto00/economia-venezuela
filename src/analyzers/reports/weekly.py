@@ -27,11 +27,23 @@ TOP_ARTICLES = 5
 MAX_RATE_DEVIATION = 0.30
 
 _TAG_RE = re.compile(r"<[^>]+>")
+# Patrones WordPress que aparecen en resúmenes RSS ("La entrada ... se publicó primero en ...")
+_WP_RE = re.compile(
+    r"La entrada\s+.+?\sse public[oó] primero en\s+.+",
+    re.IGNORECASE,
+)
 
 
 def _strip_html(text: Optional[str]) -> str:
     """Quita etiquetas HTML de un texto (resúmenes RSS suelen traerlas)."""
     return _TAG_RE.sub(" ", str(text or "")).strip()
+
+
+def _clean_summary(text: Optional[str]) -> str:
+    """Limpia residuos WordPress y HTML de un resumen RSS."""
+    clean = _strip_html(text)
+    clean = _WP_RE.sub("", clean).strip()
+    return clean
 
 
 def _clean_rates(rates, max_deviation: float = MAX_RATE_DEVIATION) -> List:
@@ -162,7 +174,7 @@ def articles_block(articles: List[Dict]) -> List[str]:
             f"- **{a.get('title', '')}** — {a.get('source', '?')} "
             f"({_fmt_date(a.get('published'))})"
         )
-        summary = _strip_html(a.get("summary"))
+        summary = _clean_summary(a.get("summary"))
         if summary:
             lines.append(f"  - {summary[:220]}")
     lines.append("")
