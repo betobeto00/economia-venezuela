@@ -185,7 +185,10 @@ class GacetaOficialCollector:
         out: List[FiscalDocument] = []
         for doc in docs[:max_docs]:
             try:
-                sumarios = self.fetch_detalle(int(doc.url.rstrip("/").rsplit("/", 1)[-1]))
+                # Extract gaceta number from URL: /storage/2026/43421-2026-07-22-ORDINARIA.pdf
+                filename = doc.url.rstrip("/").rsplit("/", 1)[-1]
+                numero = int(filename.split("-")[0])
+                sumarios = self.fetch_detalle(numero)
                 relevant = [s["titulo"] for s in sumarios if _economically_relevant(s["titulo"])]
                 selected = relevant or [
                     s["titulo"] for s in sumarios if s["organo"] in (
