@@ -288,13 +288,20 @@ def _p(text: str, style) -> Paragraph:
     return Paragraph(str(text), style)
 
 
+def _cell(c) -> Paragraph:
+    """Convierte ``c`` a Paragraph; si ya lo es, lo devuelve tal cual."""
+    if isinstance(c, Paragraph):
+        return c
+    return _p(c, styles["Cell"])
+
+
 def _data_table(headers: List[str], rows: List[List[str]],
                 widths: Optional[List] = None) -> Optional[Table]:
     if not rows:
         return None
     data = [[_p(h, styles["CellB"]) for h in headers]]
     for r in rows:
-        data.append([_p(c, styles["Cell"]) for c in r])
+        data.append([_cell(c) for c in r])
     table = Table(data, colWidths=widths, repeatRows=1, hAlign="LEFT")
     style = [
         ("BACKGROUND", (0, 0), (-1, 0), NAVY),
@@ -577,7 +584,7 @@ def _macro(story, snapshot: Dict) -> None:
             _esc(str(m.get("impact") or "")), styles["Cell"],
         )
 
-    headers = ["Fuente", "Indicador", "Período", "Valor", "Por qué importa"]
+    headers = ["Fuente", "Indicador", "Período", "Valor", "Nota"]
     rows = [
         [_SOURCE_LABELS.get(m.get("source"), m.get("source", "?")),
          _esc(str(m.get("indicator", ""))),

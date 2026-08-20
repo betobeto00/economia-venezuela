@@ -394,12 +394,12 @@ def macro_block(points: List[Dict]) -> List[str]:
     if not points:
         lines += ["_Sin indicadores macroeconómicos disponibles._", ""]
         return lines
-    lines += ["| Fuente | Indicador | Período | Valor | Unidad | Por qué importa |",
-              "|---|---|---|---|---|---|"]
+    lines += ["| Fuente | Indicador | Período | Valor | Nota |",
+              "|---|---|---|---|---|"]
     for p in points:
         lines.append(f"| {p.get('source', '?')} | {p.get('indicator', '')} | "
                      f"{p.get('period', '—')} | {_fmt(p.get('value'))} | "
-                     f"{p.get('unit', '')} | {p.get('impact', '')} |")
+                     f"{p.get('impact', '')} |")
     lines += ["",
               "_Última observación disponible; los datos anuales son contexto "
               "estructural, no impulsores de la semana._",
