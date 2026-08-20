@@ -889,6 +889,48 @@ CREATE TABLE survey_responses (
 );
 ```
 
+### Base de Conocimiento OCR (37 documentos)
+
+Además de la DB relacional, el proyecto mantiene una **base de conocimiento** de documentos procesados con OCR en `data/ocr/`:
+
+```
+data/ocr/
+├── gacetas/2026/          # 13 Gacetas Oficiales (jul-ago 2026)
+│   ├── 43421.md           # Frontmatter YAML + texto OCR
+│   ├── 43422.md
+│   └── ...
+├── bvc/2026/              # 24 Documentos BVC
+│   ├── dpn.md             # Deuda Pública Nacional
+│   ├── bills.md           # Letras del Tesoro
+│   ├── INSTRUMENTOS-DE-RENTA-FIJA.md
+│   ├── CAPITALIZACION-*.md
+│   └── ...
+├── ANALISIS_CONTENIDO.md  # Análisis completo de contenido
+└── index.json             # Índice de archivos procesados
+```
+
+**Cada .md tiene frontmatter YAML:**
+```yaml
+---
+source: gacetas
+pdf_hash: sha256:6f3ec7d7911a8bbc
+date: 2026-08-07
+number: 43432
+categories: ["comercial"]
+ocr_method: pdfplumber
+ocr_chars: 22920
+---
+```
+| Tipo de Documento | Cantidad | Uso en el Proyecto |
+|-------------------|----------|--------------------|
+| Gacetas (IVA, impuestos, presupuesto) | 13 | `fiscal_data.py`, dashboard Fiscal |
+| Deuda Pública (DPN, BCV, PDVSA) | 7 | `public_debt.py`, `sovereign_risk.py` |
+| Capitalización del mercado | 5 | Dashboard IBC |
+| Acciones en circulación | 2 | Validación tickers |
+| Instrumentos renta fija | 3 | `balance_of_payments.py` |
+| Reglamentos BVC | 2 | Contexto institucional |
+| Gacetas históricas | 4 | Análisis longitudinal |
+
 ---
 
 ## 🔌 APIs Externas Integradas

@@ -37,7 +37,7 @@ TOTAL: 78%
 | # | Tarea | Fuente | Método | Estado |
 |---|-------|--------|--------|--------|
 | 50 | **Ubicar gacetas últimos 7 días** — descargar PDFs | Gaceta Oficial | API/HTML | ⏳ |
-| 51 | **OCR masivo** — procesar todas las gacetas pendientes | PDFs | PyMuPDF + Tesseract | ⏳ |
+| 51 | **OCR masivo** — procesar todas las gacetas pendientes | PDFs | PyMuPDF + Tesseract | ✅ |
 
 ### 🔴 7.3 Noticias con Playwright
 
@@ -232,17 +232,17 @@ Evitar re-descargas y re-procesamiento. Todo dato descargado se cachea en disco,
 | 114 | **Directorio `data/pdfs/`** — estructura por fuente y fecha | `data/pdfs/gacetas/2026/08/43432.pdf`, `data/pdfs/bvc/historical/*.pdf` | Alta | ⏳ |
 | 115 | **Manifest de descargas** — `data/pdfs/manifest.json` con hash SHA256, fecha, fuente | Evita re-descargar el mismo archivo | Alta | ⏳ |
 | 116 | **Dedup por hash** — antes de descargar, calcular hash y verificar si ya existe | Si existe → skip, si no → descargar + guardar | Alta | ⏳ |
-| 117 | **Descarga incremental de BVC** — `bolsadecaracas.com/descargas/` poco a poco | PDFs históricos de la Bolsa de Valores | Alta | ⏳ |
+| 117 | **Descarga incremental de BVC** — `bolsadecaracas.com/descargas/` poco a poco | PDFs históricos de la Bolsa de Valores | Alta | ✅ |
 | 118 | **Rate limiting en descargas** — máximo 1 PDF cada 2 segundos | Evitar bloqueos | Media | ⏳ |
 
 ### 8.2 Caché de OCR resultados (.md)
 
 | # | Tarea | Descripción | Prioridad | Estado |
 |---|-------|-------------|-----------|--------|
-| 119 | **Directorio `data/ocr/`** — un .md por PDF procesado | `data/ocr/gacetas/2026/08/43432.md` | Alta | ⏳ |
-| 20 | **Frontmatter YAML** — metadata en cada .md (fuente, fecha, hash, categorías, OCR text) | Identificable y consultable | Alta | ⏳ |
-| 121 | **Dedup OCR** — verificar si ya existe .md antes de procesar | Si el PDF no cambió, no re-procesar | Alta | ⏳ |
-| 122 | **Índice de OCR** — `data/ocr/index.json` con lista de archivos procesados | Para búsqueda rápida | Media | ⏳ |
+| 119 | **Directorio `data/ocr/`** — un .md por PDF procesado | `data/ocr/gacetas/2026/08/43432.md` | Alta | ✅ |
+| 20 | **Frontmatter YAML** — metadata en cada .md (fuente, fecha, hash, categorías, OCR text) | Identificable y consultable | Alta | ✅ |
+| 121 | **Dedup OCR** — verificar si ya existe .md antes de procesar | Si el PDF no cambió, no re-procesar | Alta | ✅ |
+| 122 | **Índice de OCR** — `data/ocr/index.json` con lista de archivos procesados | Para búsqueda rápida | Media | ✅ |
 
 ### 8.3 Caché de API responses
 

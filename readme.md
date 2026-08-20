@@ -481,6 +481,24 @@ cache_api_response("worldbank_gdp_venezuela", data, ttl_hours=24)
 data = get_cached_api("worldbank_gdp_venezuela")
 ```
 
+### 📄 Base de Conocimiento OCR (37 documentos)
+
+El proyecto maintain una base de conocimiento de **37 documentos** procesados con OCR:
+
+| Fuente | Documentos | Contenido | Uso en el Proyecto |
+|--------|-----------|-----------|--------------------|
+| **Gacetas Oficiales** | 13 | Decretos IVA, impuestos, presupuesto, petróleo, laboral | `fiscal_data.py`, dashboard Fiscal |
+| **BVC — Deuda Pública** | 7 | Bonos DPN, BCV, PDVSA, gobierno, exportación | `public_debt.py`, `sovereign_risk.py` |
+| **BVC — Capitalización** | 5 | Capitalización mensual por sector | Dashboard IBC |
+| **BVC — Acciones** | 2 | Acciones en circulación BVC | Validación tickers |
+| **BVC — Renta Fija** | 3 | Instrumentos ISIN, papeles comerciales | `balance_of_payments.py` |
+| **BVC — Reglamentos** | 2 | Normativa de negociación | Contexto institucional |
+| **Gacetas Históricas** | 4 | Decretos 2020 (gacetas BVC) | Análisis longitudinal |
+
+**Total: ~636,000 caracteres** de texto estructurado.
+
+Ver [ANALISIS_CONTENIDO.md](data/ocr/ANALISIS_CONTENIDO.md) para el análisis completo.
+
 ---
 
 ## 🤝 Contribuciones
