@@ -72,7 +72,7 @@ class TestLimpiarTasas:
 class TestBloquesMarkdown:
     def test_market_block_vacio(self):
         lines = market_block([])
-        assert "Sin datos de mercado" in "\n".join(lines)
+        assert "Sin datos de tipo de cambio" in "\n".join(lines)
 
     def test_market_block_con_datos(self):
         lines = market_block([
@@ -145,7 +145,8 @@ class TestBuildWeeklyReport:
     def test_plantilla_sin_ia(self):
         out = build_weekly_report(ai_enabled=False)
         assert out.startswith("# Informe Semanal")
-        assert "## Mercado" in out
+        assert "## Tipo de Cambio" in out
+        assert "## Índice Bursátil Caracas (IBC)" in out
         assert "## Inflación" in out
         assert "## Encuestas" in out
         assert "## Sentimiento de Noticias" in out

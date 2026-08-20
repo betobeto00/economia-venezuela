@@ -151,10 +151,12 @@ class TestMarkdown:
             "generated_at": _now(),
             "market": [], "inflation": [], "surveys": {},
             "sentiment": {}, "articles": [], "fiscal_docs": [], "macro": [],
+            "ibc_index": {}, "ibc_stocks": {},
             "resumen": "",
         })
         assert out.startswith("# Informe Semanal")
-        assert "Sin datos de mercado" in out
+        assert "Sin datos de tipo de cambio" in out
+        assert "Sin datos del índice IBC" in out
         assert "Marco Fiscal y Legislativo Reciente" in out
         assert "Indicadores Macroeconómicos" in out
 

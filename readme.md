@@ -1,6 +1,6 @@
 # Economía Venezuela - Herramienta de Monitoreo y Análisis
 
-![Venezuela Economy Tracker](https://img.shields.io/badge/Status-En%20Desarrollo-yellow) ![Python](https://img.shields.io/badge/Language-Python-blue) ![AI Powered](https://img.shields.io/badge/AI-DeepSeek%20V4--Pro-purple) ![Econometrics](https://img.shields.io/badge/Econometrics-Statsmodels-green) ![Tests](https://img.shields.io/badge/Tests-278%20passing-brightgreen)
+![Venezuela Economy Tracker](https://img.shields.io/badge/Status-En%20Desarrollo-yellow) ![Python](https://img.shields.io/badge/Language-Python-blue) ![AI Powered](https://img.shields.io/badge/AI-DeepSeek%20V4--Pro-purple) ![Econometrics](https://img.shields.io/badge/Econometrics-Statsmodels-green) ![Tests](https://img.shields.io/badge/Tests-299%20passing-brightgreen)
 
 ## 📋 Visión General
 
@@ -90,8 +90,21 @@ vecm_result = vecm.fit_vecm(official_rate, parallel_rate)
 | OVF (Observatorio Venezolano de Finanzas) | Web | Mensual | Inflación independiente |
 | Binance P2P | API | Tiempo real | Precio USDT/VES mercado paralelo |
 | Bybit P2P | API + backfill histórico | Tiempo real | Precio USDT/VES alternativo (brecha) |
-| BVC (Bolsa de Caracas) | yfinance | Diaria | Índice IBC |
 | OPEP | API | Mensual | Producción petrolera |
+
+### 📊 Índice Bursátil Caracas (IBC)
+| Fuente | Tipo | Frecuencia | Datos |
+|--------|------|------------|-------|
+| Investing.com | Web scraping | Diaria (backfill) | Índice IBC + 9 componentes (BPV, MPA, CRMa, TDVd, MVZb, MVZa, ENV, FVIb) |
+
+> **Nota:** Yahoo Finance NO tiene las acciones del IBC. Se usa Investing.com para componentes del índice.
+
+### 📊 Tickers Venezolanos Relevantes
+| Fuente | Tipo | Frecuencia | Datos |
+|--------|------|------------|-------|
+| Yahoo Finance | API | Diaria (backfill) | CCC, BAM, BIV, BRO, DIA, EDC, etc. (acciones fuera del IBC) |
+
+> **Nota:** Estos tickers son empresas venezolanas que cotizan en Yahoo Finance pero NO son componentes del IBC.
 
 ### 🏛️ Fuentes Fiscales y Oficiales
 | Fuente | Tipo | Frecuencia | Datos |
@@ -188,8 +201,18 @@ python -m src.scripts.collect_market    # Tasa de cambio / inflación → DB
 python -m src.scripts.collect_news      # Noticias RSS + Reddit + sentimiento
 python -m src.scripts.collect_surveys   # Encuestas Google
 
+# Backfill de IBC y tickers venezolanos (para informes históricos)
+python -m src.scripts.backfill_ibc                          # Backfill últimos 30 días
+python -m src.scripts.backfill_ibc --since 2026-08-01 --until 2026-08-14  # Rango específico
+
 # Informes económicos en PDF (diario → anual)
 python -m src.scripts.generate_report --cadence semanal --format md,pdf
+
+# Informe rango personalizado (ej: semana 10-14 agosto)
+python -m src.scripts.generate_report --since 2026-08-10 --until 2026-08-14 --format md,pdf
+
+# Informe sin resumen IA (más rápido)
+python -m src.scripts.generate_report --cadence semanal --format pdf --no-ai
 ```
 
 ## 📁 Estructura del Proyecto
@@ -210,7 +233,7 @@ economia-venezuela/
 │   ├── collectors/             # Módulos de recolección
 │   │   ├── http.py             #   Cliente HTTP compartido (GET/POST, retries)
 │   │   ├── errors.py           #   Excepciones del dominio
-│   │   ├── market/             #   bcv, ovf, bvc, binance
+│   │   ├── market/             #   bcv, ovf, bvc, binance, ibc_components, ibc_stocks
 │   │   ├── fiscal/             #   onapre, cgr, seniat, mppef, gaceta, an + documents.py
 │   │   ├── official/           #   ine
 │   │   ├── international/      #   worldbank, opec, imf, cepal, pdvsa, unsceb
@@ -223,8 +246,8 @@ economia-venezuela/
 │   │   └── news.py             #   NewsArticle, SocialPost
 │   ├── db/                     # Persistencia
 │   │   ├── session.py          #   Conexión (psycopg2)
-│   │   ├── models.py           #   ORMs: SurveyORM, SurveyResponseORM, ExchangeRateORM...
-│   │   ├── repositories.py     #   SurveyRepository, MarketRepository
+│   │   ├── models.py           #   ORMs: SurveyORM, ExchangeRateORM, IBCIndexORM, VenezuelanTickerORM...
+│   │   ├── repositories.py     #   SurveyRepository, MarketRepository, IBCIndexRepository, VenezuelanTickerRepository
 │   │   └── migrations/         #   SQL de esquema
 │   ├── analyzers/              # Análisis e IA
 │   │   ├── macro.py            # Análisis macroeconómico
@@ -257,7 +280,8 @@ economia-venezuela/
 │   │   ├── collect_market.py   #   Recolección de mercado → DB
 │   │   ├── collect_news.py     #   Noticias RSS + Reddit + sentimiento
 │   │   ├── backfill_rates.py   #   Backfill histórico (usdt.com.ve)
-│   │   └── generate_report.py  #   Informes periódicos MD/PDF (--cadence)
+│   │   ├── backfill_ibc.py     #   Backfill IBC + tickers venezolanos → BD
+│   │   └── generate_report.py  #   Informes periódicos MD/PDF (--cadence, --since/--until)
 │   ├── scheduler/              # Programación
 │   │   └── jobs.py             #   Jobs APScheduler (mercado, encuestas, noticias, informes)
 │   ├── alerts/                 # Sistema de alertas
@@ -267,7 +291,7 @@ economia-venezuela/
 │   ├── raw/                    # Datos crudos
 │   ├── processed/              # Datos procesados
 │   └── reports/                # Informes generados
-├── tests/                      # 278 tests (pytest)
+├── tests/                      # 299 tests (pytest)
 └── docs/                       # Documentación
 ```
 
@@ -276,6 +300,7 @@ economia-venezuela/
 | Componente | Frecuencia | Config |
 |------------|------------|--------|
 | Tasa de cambio (BCV + Binance P2P) | Cada 30 min | `MARKET_COLLECT_INTERVAL_MINUTES` |
+| IBC + Tickers (backfill) | Diaria | `python -m src.scripts.backfill_ibc` |
 | Encuestas (Google Forms → Sheets) | Cada 60 min | `SURVEY_COLLECT_INTERVAL_MINUTES` |
 | Noticias RSS + sentimiento | Cada 6 h | `NEWS_COLLECT_INTERVAL_HOURS` |
 | Análisis GARCH (volatilidad) | Pendiente | — |
@@ -303,6 +328,8 @@ economia-venezuela/
 | **Sentimiento** | Análisis léxico español + filtro relevancia económica | RSS/Reddit | ✅ En vivo |
 | **Informe Semanal** | Markdown + resumen IA (cadena de LLMs con fallback) | Todo el sistema | ✅ Semanal |
 | **Informes Periódicos PDF** | Diario→anual: carátula, resumen IA, gráficos, tablas de mercado/inflación/encuestas/sentimiento/noticias/fiscal/macro | Todo el sistema | ✅ 6 cadencias |
+| **Acciones del IBC** | Top gainers/losers del índice bursátil (Yahoo Finance) | BVC via yfinance | ✅ En vivo |
+| **Informes Rango Personalizado** | Generar informes para fechas específicas (--since/--until) | CLI | ✅ |
 | **Pronóstico Inflación** | SARIMA | Modelo econométrico | ⏳ |
 
 ## 🤝 Contribuciones

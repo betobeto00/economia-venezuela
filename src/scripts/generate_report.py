@@ -5,11 +5,13 @@ Genera informes económicos periódicos (diario/semanal/mensual/trimestral/semes
 Uso:
     python -m src.scripts.generate_report --cadence semanal --format md,pdf
     python -m src.scripts.generate_report --cadence diario --format pdf --no-ai
+    python -m src.scripts.generate_report --since 2026-08-10 --until 2026-08-14 --format md
 """
 
 import argparse
 import logging
 import sys
+from datetime import datetime, timezone
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
@@ -35,7 +37,20 @@ def parse_args(argv=None) -> argparse.Namespace:
         "--no-ai", action="store_true",
         help="Omite el resumen ejecutivo por IA.",
     )
+    parser.add_argument(
+        "--since", default=None, dest="since",
+        help="Fecha de inicio (YYYY-MM-DD). Sobreescribe la cadencia.",
+    )
+    parser.add_argument(
+        "--until", default=None, dest="until",
+        help="Fecha de fin (YYYY-MM-DD). Sobreescribe la cadencia.",
+    )
     return parser.parse_args(argv)
+
+
+def _parse_date(s: str) -> datetime:
+    """Parsea YYYY-MM-DD a datetime UTC."""
+    return datetime.strptime(s, "%Y-%m-%d").replace(tzinfo=timezone.utc)
 
 
 def main(argv=None) -> int:
@@ -44,12 +59,19 @@ def main(argv=None) -> int:
 
     from src.analyzers.reports.periodic import generate_periodic_report
 
+    snapshot_kwargs = {}
+    if args.since:
+        snapshot_kwargs["since"] = _parse_date(args.since)
+    if args.until:
+        snapshot_kwargs["until"] = _parse_date(args.until)
+
     try:
         result = generate_periodic_report(
             cadence=args.cadence,
             output_dir=args.output_dir,
             formats=formats,
             with_ai=not args.no_ai,
+            **snapshot_kwargs,
         )
     except Exception as exc:  # noqa: BLE001 - el CLI debe reportar el error
         logging.error("Fallo al generar el informe: %s", exc)

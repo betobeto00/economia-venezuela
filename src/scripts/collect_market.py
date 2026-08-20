@@ -18,6 +18,8 @@ from typing import List, Optional
 
 from src.collectors.market.bcv_collector import BCVCollector
 from src.collectors.market.binance_collector import BinanceCollector
+from src.collectors.market.bvc_collector import BVCCollector
+from src.collectors.market.ibc_components_collector import fetch_ibc_from_investing
 from src.collectors.market.ovf_collector import OVFCollector
 from src.db.repositories import MarketRepository
 from src.models.market import ExchangeRate, InflationPoint
@@ -45,6 +47,7 @@ def run_market_pipeline(
     bcv = bcv or BCVCollector()
     ovf = ovf or OVFCollector()
     binance = binance or BinanceCollector()
+    bvc = BVCCollector()
     period = period or CURRENT_MONTH
 
     repo = MarketRepository(session)
@@ -84,6 +87,22 @@ def run_market_pipeline(
         _save("binance_usdt", "rate", [p2p])
     except Exception as exc:  # noqa: BLE001
         logger.warning("Binance P2P no disponible: %s", exc)
+
+    # BVC: Índice IBC (Bolsa de Valores de Caracas)
+    try:
+        ibc = bvc.fetch_index()
+        _save("bvc_ibc", "rate", [ibc])
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("BVC IBC no disponible: %s", exc)
+
+    # BVC: Componentes del IBC desde Investing.com
+    try:
+        ibc_data = fetch_ibc_from_investing()
+        if ibc_data:
+            n_comp = len(ibc_data.components)
+            summary["bvc_ibc_components"] = {"type": "ibc_components", "saved": n_comp}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("IBC componentes no disponibles: %s", exc)
 
     logger.info("Resumen recolección de mercado: %s", summary)
     return summary

@@ -20,12 +20,15 @@ from sqlalchemy.orm import Session
 
 from src.db.models import (
     ExchangeRateORM,
+    IBCComponentORM,
+    IBCIndexORM,
     InflationPointORM,
     NewsArticleORM,
     SentimentScoreORM,
     SocialPostORM,
     SurveyORM,
     SurveyResponseORM,
+    VenezuelanTickerORM,
 )
 from src.models.market import ExchangeRate, InflationPoint
 from src.models.news import NewsArticle, SentimentScore, SocialPost
@@ -547,3 +550,138 @@ class NewsRepository:
             "negative": counts.get("negative", 0),
             "mean_score": round(mean, 4),
         }
+
+
+# ---------------------------------------------------------------------------
+# IBC Index Repository
+# ---------------------------------------------------------------------------
+
+class IBCIndexRepository:
+    """Persistencia del índice IBC y sus componentes."""
+
+    def __init__(self, session: Session):
+        self.session = session
+
+    def save_index(self, date: datetime, value: float, change: float = 0,
+                   change_pct: float = 0) -> bool:
+        """Guarda un punto del índice IBC (idempotente)."""
+        existing = self.session.execute(
+            select(IBCIndexORM).where(IBCIndexORM.date == date)
+        ).scalar_one_or_none()
+        if existing:
+            existing.value = value
+            existing.change = change
+            existing.change_pct = change_pct
+            return False
+        self.session.add(IBCIndexORM(
+            date=date, value=value, change=change, change_pct=change_pct,
+        ))
+        return True
+
+    def save_components(self, date: datetime, components: list) -> int:
+        """Guarda componentes del IBC para una fecha. Retorna cantidad insertados."""
+        saved = 0
+        for comp in components:
+            existing = self.session.execute(
+                select(IBCComponentORM).where(
+                    IBCComponentORM.date == date,
+                    IBCComponentORM.ticker == comp["ticker"],
+                )
+            ).scalar_one_or_none()
+            if not existing:
+                self.session.add(IBCComponentORM(
+                    date=date,
+                    ticker=comp["ticker"],
+                    name=comp.get("name", comp["ticker"]),
+                    price=comp.get("price", 0),
+                    change_pct=comp.get("change_pct", 0),
+                    volume=comp.get("volume", 0),
+                ))
+                saved += 1
+        return saved
+
+    def list_index(self, since: Optional[datetime] = None,
+                   until: Optional[datetime] = None,
+                   limit: int = 50) -> List[dict]:
+        """Lista puntos del índice IBC en un rango."""
+        stmt = select(IBCIndexORM).order_by(IBCIndexORM.date.desc())
+        if since:
+            stmt = stmt.where(IBCIndexORM.date >= since)
+        if until:
+            stmt = stmt.where(IBCIndexORM.date <= until)
+        stmt = stmt.limit(limit)
+        return [
+            {"date": orm.date, "value": float(orm.value),
+             "change": float(orm.change), "change_pct": float(orm.change_pct)}
+            for orm in self.session.scalars(stmt)
+        ]
+
+    def list_components(self, date: Optional[datetime] = None,
+                        since: Optional[datetime] = None,
+                        until: Optional[datetime] = None,
+                        limit: int = 50) -> List[dict]:
+        """Lista componentes del IBC."""
+        stmt = select(IBCComponentORM).order_by(IBCComponentORM.date.desc())
+        if date:
+            stmt = stmt.where(IBCComponentORM.date == date)
+        if since:
+            stmt = stmt.where(IBCComponentORM.date >= since)
+        if until:
+            stmt = stmt.where(IBCComponentORM.date <= until)
+        stmt = stmt.limit(limit)
+        return [
+            {"date": orm.date, "ticker": orm.ticker, "name": orm.name,
+             "price": float(orm.price), "change_pct": float(orm.change_pct),
+             "volume": orm.volume}
+            for orm in self.session.scalars(stmt)
+        ]
+
+
+# ---------------------------------------------------------------------------
+# Venezuelan Tickers Repository
+# ---------------------------------------------------------------------------
+
+class VenezuelanTickerRepository:
+    """Persistencia de tickers venezolanos relevantes."""
+
+    def __init__(self, session: Session):
+        self.session = session
+
+    def save_tickers(self, date: datetime, tickers: list) -> int:
+        """Guarda tickers para una fecha. Retorna cantidad insertados."""
+        saved = 0
+        for t in tickers:
+            existing = self.session.execute(
+                select(VenezuelanTickerORM).where(
+                    VenezuelanTickerORM.date == date,
+                    VenezuelanTickerORM.ticker == t["ticker"],
+                )
+            ).scalar_one_or_none()
+            if not existing:
+                self.session.add(VenezuelanTickerORM(
+                    date=date,
+                    ticker=t["ticker"],
+                    name=t.get("name", t["ticker"]),
+                    close=t.get("close", 0),
+                    change_pct=t.get("change_pct", 0),
+                    avg_volume=t.get("avg_volume", 0),
+                ))
+                saved += 1
+        return saved
+
+    def list_tickers(self, since: Optional[datetime] = None,
+                     until: Optional[datetime] = None,
+                     limit: int = 100) -> List[dict]:
+        """Lista datos de tickers en un rango."""
+        stmt = select(VenezuelanTickerORM).order_by(VenezuelanTickerORM.date.desc())
+        if since:
+            stmt = stmt.where(VenezuelanTickerORM.date >= since)
+        if until:
+            stmt = stmt.where(VenezuelanTickerORM.date <= until)
+        stmt = stmt.limit(limit)
+        return [
+            {"date": orm.date, "ticker": orm.ticker, "name": orm.name,
+             "close": float(orm.close), "change_pct": float(orm.change_pct),
+             "avg_volume": orm.avg_volume}
+            for orm in self.session.scalars(stmt)
+        ]

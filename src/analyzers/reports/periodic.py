@@ -193,6 +193,118 @@ def _collect_bancos() -> List[Dict]:
         return []
 
 
+def _collect_ibc_index(session=None, since=None, until=None) -> Dict:
+    """Datos del índice IBC y sus componentes desde la BD."""
+    try:
+        from src.db.repositories import IBCIndexRepository
+        from src.db.session import get_session
+
+        if session is None:
+            with get_session() as sess:
+                return _query_ibc_index(sess, since, until)
+        return _query_ibc_index(session, since, until)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("IBC desde BD no disponible: %s", exc)
+        return {}
+
+
+def _query_ibc_index(session, since, until) -> Dict:
+    """Consulta IBC desde la BD."""
+    from src.db.repositories import IBCIndexRepository
+
+    repo = IBCIndexRepository(session)
+    index_points = repo.list_index(since=since, until=until, limit=1)
+    components = repo.list_components(since=since, until=until, limit=20)
+
+    if not index_points and not components:
+        return {}
+
+    point = index_points[0] if index_points else {}
+
+    # Agrupar componentes por fecha más reciente
+    latest_date = components[0]["date"] if components else None
+    latest_comps = [c for c in components if c["date"] == latest_date] if latest_date else []
+
+    gainers = sorted(
+        [c for c in latest_comps if c["change_pct"] > 0],
+        key=lambda x: x["change_pct"], reverse=True,
+    )
+    losers = sorted(
+        [c for c in latest_comps if c["change_pct"] < 0],
+        key=lambda x: x["change_pct"],
+    )
+
+    return {
+        "value": point.get("value", 0),
+        "change": point.get("change", 0),
+        "change_pct": point.get("change_pct", 0),
+        "date": point.get("date", ""),
+        "components": [
+            {"ticker": c["ticker"], "name": c["name"],
+             "price": c["price"], "change_pct": c["change_pct"],
+             "volume": c["volume"]}
+            for c in latest_comps
+        ],
+        "gainers": [
+            {"ticker": c["ticker"], "name": c["name"],
+             "price": c["price"], "change_pct": c["change_pct"]}
+            for c in gainers[:5]
+        ],
+        "losers": [
+            {"ticker": c["ticker"], "name": c["name"],
+             "price": c["price"], "change_pct": c["change_pct"]}
+            for c in losers[:5]
+        ],
+    }
+
+
+def _collect_ibc_stocks(session=None, since=None, until=None) -> Dict:
+    """Otros tickers venezolanos relevantes desde la BD."""
+    try:
+        from src.db.repositories import VenezuelanTickerRepository
+        from src.db.session import get_session
+
+        if session is None:
+            with get_session() as sess:
+                return _query_tickers(sess, since, until)
+        return _query_tickers(session, since, until)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Tickers venezolanos desde BD no disponibles: %s", exc)
+        return {}
+
+
+def _query_tickers(session, since, until) -> Dict:
+    """Consulta tickers venezolanos desde la BD."""
+    from src.db.repositories import VenezuelanTickerRepository
+
+    repo = VenezuelanTickerRepository(session)
+    tickers = repo.list_tickers(since=since, until=until, limit=100)
+
+    if not tickers:
+        return {}
+
+    # Tomar la fecha más reciente
+    latest_date = tickers[0]["date"] if tickers else None
+    latest = [t for t in tickers if t["date"] == latest_date] if latest_date else []
+
+    by_change = sorted(latest, key=lambda x: x["change_pct"], reverse=True)
+
+    return {
+        "gainers": [
+            {"ticker": t["ticker"], "name": t["name"],
+             "close": t["close"], "change_pct": t["change_pct"],
+             "avg_volume": t["avg_volume"]}
+            for t in by_change[:5] if t["change_pct"] > 0
+        ],
+        "losers": [
+            {"ticker": t["ticker"], "name": t["name"],
+             "close": t["close"], "change_pct": t["change_pct"],
+             "avg_volume": t["avg_volume"]}
+            for t in by_change[-5:][::-1] if t["change_pct"] < 0
+        ],
+    }
+
+
 def _ai_resumen(markdown: str) -> str:
     """Resumen ejecutivo por IA con fallback silencioso."""
     if not settings.llm_providers():
@@ -311,6 +423,8 @@ def collect_snapshot(
     with_fiscal: bool = True,
     with_macro: bool = True,
     with_ai: bool = True,
+    since: Optional[datetime] = None,
+    until: Optional[datetime] = None,
 ) -> Dict:
     """Compila el snapshot de datos del período para el informe.
 
@@ -320,6 +434,8 @@ def collect_snapshot(
         with_fiscal: Recoge documentos fiscales en vivo.
         with_macro: Recoge indicadores macro en vivo.
         with_ai: Añade resumen ejecutivo por IA.
+        since: Fecha de inicio personalizada (override de cadencia).
+        until: Fecha de fin personalizada (override de cadencia).
 
     Returns:
         Snapshot con secciones: market, market_series, inflation, surveys,
@@ -331,19 +447,25 @@ def collect_snapshot(
     from src.analyzers.reports.weekly import _snapshot_from_session
     from src.db.session import get_session
 
-    days = CADENCES[cadence]["days"]
     now = datetime.now(timezone.utc)
+
+    if since and until:
+        days = (until - since).days
+        period_label = f"Del {since:%Y-%m-%d} al {until:%Y-%m-%d}"
+    else:
+        days = CADENCES[cadence]["days"]
+        period_label = _period_label(cadence, now)
 
     if session is None:
         with get_session() as session:
-            base = _snapshot_from_session(session, days)
+            base = _snapshot_from_session(session, days, since=since, until=until)
     else:
-        base = _snapshot_from_session(session, days)
+        base = _snapshot_from_session(session, days, since=since, until=until)
 
     market_series = base.get("market") or []
     snapshot = {
         "cadence": cadence,
-        "period": _period_label(cadence, now),
+        "period": period_label,
         "generated_at": now,
         "market": market_series,
         "market_series": _market_series(session, days),
@@ -354,6 +476,8 @@ def collect_snapshot(
         "fiscal_docs": _collect_fiscal_docs(days) if with_fiscal else [],
         "macro": _collect_macro(days) if with_macro else [],
         "bancos": _collect_bancos(),
+        "ibc_index": _collect_ibc_index(session, since, until),
+        "ibc_stocks": _collect_ibc_stocks(session, since, until),
         "resumen": "",
         "proyeccion": "",
         "proyeccion_rows": _projection_rows(market_series),
@@ -449,6 +573,8 @@ def build_markdown(snapshot: Dict) -> str:
     """Construye el informe en Markdown a partir del snapshot."""
     from src.analyzers.reports.weekly import (
         articles_block,
+        ibc_index_block,
+        ibc_stocks_block,
         inflation_block,
         market_block,
         projection_block,
@@ -465,11 +591,14 @@ def build_markdown(snapshot: Dict) -> str:
         "",
     ]
     lines += market_block(snapshot.get("market") or [])
+    lines += ibc_index_block(snapshot.get("ibc_index"))
     lines += inflation_block(snapshot.get("inflation") or [])
     lines += surveys_block(snapshot.get("surveys") or {})
     lines += sentiment_block(snapshot.get("sentiment") or {})
     lines += articles_block(snapshot.get("articles") or [])
+    lines += ibc_stocks_block(snapshot.get("ibc_stocks"))
     lines += bancos_block(snapshot.get("bancos") or [])
+    lines += ibc_stocks_block(snapshot.get("ibc_stocks"))
     lines += fiscal_docs_block(snapshot.get("fiscal_docs") or [])
     lines += macro_block(snapshot.get("macro") or [])
     base = "\n".join(lines)

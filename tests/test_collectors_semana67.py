@@ -44,7 +44,9 @@ class TestBVC:
         collector = BVCCollector()
         collector._history = lambda period=None: FakeTicker().history(period)
         point = collector.fetch_index()
-        assert point.value == 105.5
+        assert point.rate == 105.5
+        assert point.source == "bvc"
+        assert point.currency == "usd"
 
     def test_fetch_index_sin_datos(self):
         collector = BVCCollector()

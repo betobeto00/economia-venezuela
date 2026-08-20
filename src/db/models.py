@@ -176,3 +176,70 @@ class SentimentScoreORM(Base):
     analyzed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, nullable=False
     )
+
+
+# ---------------------------------------------------------------------------
+# IBC Index & Components (Investing.com)
+# ---------------------------------------------------------------------------
+
+class IBCIndexORM(Base):
+    """Punto diario del índice IBC (Bolsa de Valores de Caracas)."""
+
+    __tablename__ = "ibc_index"
+
+    id: Mapped[int] = mapped_column(BIGINT_ID, primary_key=True)
+    date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    value: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    change: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    change_pct: Mapped[float] = mapped_column(Numeric(8, 4), default=0)
+    fetched_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
+    )
+
+    __table_args__ = (UniqueConstraint("date", name="uq_ibc_index_date"),)
+
+
+class IBCComponentORM(Base):
+    """Componente diario del índice IBC."""
+
+    __tablename__ = "ibc_components"
+
+    id: Mapped[int] = mapped_column(BIGINT_ID, primary_key=True)
+    date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ticker: Mapped[str] = mapped_column(String(10), nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    price: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    change_pct: Mapped[float] = mapped_column(Numeric(8, 4), default=0)
+    volume: Mapped[int] = mapped_column(BigInteger, default=0)
+    fetched_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint("date", "ticker", name="uq_ibc_component_date_ticker"),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Venezuelan Tickers (Yahoo Finance)
+# ---------------------------------------------------------------------------
+
+class VenezuelanTickerORM(Base):
+    """Punto diario de un ticker venezolano relevante (fuera del IBC)."""
+
+    __tablename__ = "venezuelan_tickers"
+
+    id: Mapped[int] = mapped_column(BIGINT_ID, primary_key=True)
+    date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ticker: Mapped[str] = mapped_column(String(10), nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    close: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    change_pct: Mapped[float] = mapped_column(Numeric(8, 4), default=0)
+    avg_volume: Mapped[int] = mapped_column(BigInteger, default=0)
+    fetched_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint("date", "ticker", name="uq_venezuelan_ticker_date_ticker"),
+    )

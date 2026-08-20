@@ -84,19 +84,90 @@ def _fmt_currency(value: Optional[float], digits: int = 2) -> str:
 
 
 def market_block(rows: List[Dict]) -> List[str]:
-    """Sección de mercado: tasas por fuente y variación en el período."""
-    lines = ["## Mercado", ""]
+    """Sección de mercado: tasas de cambio por fuente y variación en el período."""
+    lines = ["## Tipo de Cambio", ""]
     if not rows:
-        lines += ["_Sin datos de mercado en el período._", ""]
+        lines += ["_Sin datos de tipo de cambio en el período._", ""]
         return lines
 
     lines += ["| Fuente | Última (Bs/USD) | Variación semanal % | Fecha |", "|---|---|---|---|"]
     for row in rows:
+        # Excluir BVC del IBC — no es tipo de cambio
+        if row.get("source") == "bvc":
+            continue
         lines.append(
             f"| {row.get('source', '?')} | {_fmt_currency(row.get('rate'))} | "
             f"{_fmt_currency(row.get('variation_pct'), 2)} | {_fmt_date(row.get('date'))} |"
         )
     lines.append("")
+    return lines
+
+
+def ibc_index_block(ibc_data: Optional[Dict] = None) -> List[str]:
+    """Sección del índice IBC y sus componentes (Investing.com)."""
+    lines = ["## Índice Bursátil Caracas (IBC)", ""]
+    if not ibc_data or not ibc_data.get("value"):
+        lines += ["_Sin datos del índice IBC._", ""]
+        return lines
+
+    value = ibc_data.get("value", 0)
+    change = ibc_data.get("change", 0)
+    change_pct = ibc_data.get("change_pct", 0)
+    date = ibc_data.get("date", "")
+
+    sign = "+" if change >= 0 else ""
+    lines.append(
+        f"**Cotización:** {_fmt_currency(value)} puntos "
+        f"({sign}{_fmt_currency(change)} / {sign}{_fmt_currency(change_pct)}%)"
+    )
+    if date:
+        lines.append(f"**Fecha:** {date}")
+    lines.append("")
+
+    # Componentes
+    components = ibc_data.get("components", [])
+    if components:
+        lines += ["### Componentes del IBC", ""]
+        lines += ["| Ticker | Empresa | Precio | Var. % | Volumen |", "|---|---|---|---|---|"]
+        for c in components:
+            pct = c.get("change_pct", 0)
+            sign = "+" if pct > 0 else ""
+            lines.append(
+                f"| {c.get('ticker', '?')} | {c.get('name', '?')} | "
+                f"{_fmt_currency(c.get('price'))} | "
+                f"{sign}{_fmt_currency(pct)}% | "
+                f"{c.get('volume', 0):,} |"
+            )
+        lines.append("")
+
+    # Ganadores
+    gainers = ibc_data.get("gainers", [])
+    if gainers:
+        lines += ["### Ganadores del día", ""]
+        for g in gainers:
+            lines.append(
+                f"- **{g.get('ticker')}** ({g.get('name')}): "
+                f"{_fmt_currency(g.get('price'))} "
+                f"(+{_fmt_currency(g.get('change_pct'))}%)"
+            )
+        lines.append("")
+
+    # Perdedores
+    losers = ibc_data.get("losers", [])
+    if losers:
+        lines += ["### Perdedores del día", ""]
+        for l in losers:
+            lines.append(
+                f"- **{l.get('ticker')}** ({l.get('name')}): "
+                f"{_fmt_currency(l.get('price'))} "
+                f"({_fmt_currency(l.get('change_pct'))}%)"
+            )
+        lines.append("")
+
+    lines += [
+        "_Fuente: Investing.com — El IBC cotiza en puntos (VES), no en dólares._",
+        "",
+    ]
     return lines
 
 
@@ -200,6 +271,50 @@ def projection_block(projection: str, rows: Optional[List[Dict]] = None) -> List
     return lines
 
 
+def ibc_stocks_block(stocks_data: Optional[Dict] = None) -> List[str]:
+    """Sección de otros tickers venezolanos relevantes (fuera del IBC)."""
+    lines = ["## Tickers Venezolanos Relevantes", ""]
+    if not stocks_data:
+        lines += ["_Sin datos de tickers venezolanos._", ""]
+        return lines
+
+    gainers = stocks_data.get("gainers", [])
+    losers = stocks_data.get("losers", [])
+
+    if gainers:
+        lines += ["### Mayores Ganancias (mes)", ""]
+        lines += ["| Ticker | Empresa | Cierre | Variación % | Vol. Promedio |", "|---|---|---|---|---|"]
+        for s in gainers:
+            lines.append(
+                f"| {s.get('ticker', '?')} | {s.get('name', '?')} | "
+                f"{_fmt_currency(s.get('close'))} | "
+                f"+{_fmt_currency(s.get('change_pct'))}% | "
+                f"{int(s.get('avg_volume', 0)):,} |"
+            )
+        lines.append("")
+
+    if losers:
+        lines += ["### Mayores Caídas (mes)", ""]
+        lines += ["| Ticker | Empresa | Cierre | Variación % | Vol. Promedio |", "|---|---|---|---|---|"]
+        for s in losers:
+            lines.append(
+                f"| {s.get('ticker', '?')} | {s.get('name', '?')} | "
+                f"{_fmt_currency(s.get('close'))} | "
+                f"{_fmt_currency(s.get('change_pct'))}% | "
+                f"{int(s.get('avg_volume', 0)):,} |"
+            )
+        lines.append("")
+
+    if not gainers and not losers:
+        lines += ["_No se encontraron datos de tickers._", ""]
+
+    lines += [
+        "_Acciones venezolanas que cotizan en Yahoo Finance (no componentes del IBC)._",
+        "",
+    ]
+    return lines
+
+
 def build_weekly_report(
     *,
     market: Optional[List[Dict]] = None,
@@ -207,6 +322,8 @@ def build_weekly_report(
     surveys: Optional[Dict[str, Dict]] = None,
     sentiment: Optional[Dict] = None,
     articles: Optional[List[Dict]] = None,
+    ibc_index: Optional[Dict] = None,
+    ibc_stocks: Optional[Dict] = None,
     period: Optional[str] = None,
     ai_enabled: Optional[bool] = None,
 ) -> str:
@@ -218,6 +335,8 @@ def build_weekly_report(
         surveys: KPIs por segmento (segmento → {label, kpis, n_responses}).
         sentiment: Resumen de sentimiento (total/positive/neutral/negative/mean_score).
         articles: Artículos recientes (dicts con title/published).
+        ibc_index: Datos del índice IBC desde Investing.com.
+        ibc_stocks: Otros tickers venezolanos desde Yahoo Finance.
         period: Etiqueta del período (default: semana actual ISO).
         ai_enabled: Habilita resumen IA (None = según LLMs configurados).
 
@@ -236,10 +355,12 @@ def build_weekly_report(
         "",
     ]
     lines += market_block(market or [])
+    lines += ibc_index_block(ibc_index)
     lines += inflation_block(inflation or [])
     lines += surveys_block(surveys or {})
     lines += sentiment_block(sentiment or {})
     lines += articles_block(articles or [])
+    lines += ibc_stocks_block(ibc_stocks)
     lines += ["---", "_Informe generado automáticamente (Fase A + Fase B)._"]
 
     base = "\n".join(lines)
@@ -287,11 +408,12 @@ def collect_weekly_snapshot(days: int = DEFAULT_DAYS, session=None) -> Dict:
     return _snapshot_from_session(session, days)
 
 
-def _snapshot_from_session(session, days: int) -> Dict:
+def _snapshot_from_session(session, days: int, since=None, until=None) -> Dict:
     """Lee y agrega los datos de la semana desde una sesión abierta."""
     from src.db.repositories import MarketRepository, NewsRepository, SurveyRepository
 
-    since = datetime.now(timezone.utc) - timedelta(days=days)
+    if since is None:
+        since = datetime.now(timezone.utc) - timedelta(days=days)
 
     market_repo = MarketRepository(session)
     news_repo = NewsRepository(session)
