@@ -30,6 +30,12 @@ def _title_from_href(href: str) -> str:
     return " ".join(name.replace("_", " ").replace("-", " ").split())
 
 
+_GENERIC_TITLES = {
+    "leer pdf", "leer", "ver pdf", "ver", "descargar", "descarga",
+    "download", "download pdf", "abrir", "pdf", "archivo", "documento",
+}
+
+
 def find_documents(html: str, base_url: str, source: str = "cgr",
                    extensions: tuple = DEFAULT_EXTENSIONS,
                    keywords: tuple = DEFAULT_KEYWORDS) -> List[FiscalDocument]:
@@ -37,12 +43,13 @@ def find_documents(html: str, base_url: str, source: str = "cgr",
     soup = BeautifulSoup(html, "html.parser")
     base_host = urlparse(base_url).netloc
     docs: List[FiscalDocument] = []
+    seen_urls: set = set()
     for link in soup.find_all("a", href=True):
         href = link["href"].strip()
         if not href or href == "#" or href.startswith("javascript:"):
             continue
         title = " ".join(link.get_text(" ", strip=True).split())
-        if not title:
+        if not title or title.strip().lower() in _GENERIC_TITLES:
             title = _title_from_href(href)
         lower = (title + " " + href).lower()
         is_doc = lower.endswith(extensions) or any(k in lower for k in keywords)
@@ -53,6 +60,9 @@ def find_documents(html: str, base_url: str, source: str = "cgr",
         )
         if urlparse(absolute).netloc != base_host:
             continue
+        if absolute in seen_urls:
+            continue
+        seen_urls.add(absolute)
         year_match = YEAR_RE.search(title)
         docs.append(
             FiscalDocument(

@@ -100,6 +100,14 @@ PDVSA_ALT_HTML = """
 </body></html>
 """
 
+PDVSA_DOCS_HTML = """
+<html>
+<a href="https://pdvsa-adhoc.com/wp-content/uploads/2026/03/Comunicado-Resultados-operacionales-2025.pdf">Comunicado Resultados operacionales 2025</a>
+<a href="/wp-content/uploads/2025/05/CITGO-REPORTA_ES.pdf">CITGO reporta avances operativos</a>
+<a href="/noticias">Noticias</a>
+</html>
+"""
+
 
 class TestPDVSA:
     def test_parse_basket_price(self):
@@ -123,6 +131,17 @@ class TestPDVSA:
         )
         point = PDVSACollector().fetch_basket_price()
         assert point.value == 62.45
+
+    def test_fetch_documents(self, monkeypatch):
+        monkeypatch.setattr(
+            "src.collectors.international.pdvsa_collector.http_get_text",
+            lambda url, params=None: PDVSA_DOCS_HTML,
+        )
+        docs = PDVSACollector().fetch_documents()
+        assert len(docs) == 2
+        assert docs[0].source == "pdvsa"
+        assert docs[0].year == 2025
+        assert "Resultados operacionales" in docs[0].title
 
 
 # ---------------------------------------------------------------- FMI

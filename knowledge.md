@@ -647,6 +647,18 @@ Pipeline:
 > **Nota PDVSA/CEPAL:** los datos de mercado con DNS caído localmente se recogen
 > mejor desde Railway (ver `pdvsa.com`, `dataservices.imf.org`).
 >
+> **Fuente real de PDVSA:** `www.pdvsa.com` suele fallar por DNS; se usa el portal
+> de la Junta Administradora Ad Hoc **`pdvsa-adhoc.com`** → `/documentacion-de-interes/`
+> publica comunicados y resultados operacionales (CITGO, producción, gacetas
+> legislativas de la AN de 2022-23). `PDVSACollector.fetch_documents()` devuelve el
+> catálogo (`FiscalDocument`); `fetch_basket_price()` (cesta venezolana) se mantiene
+> como método secundario y degrada si la página no trae el precio.
+>
+> **FMI (referencias adicionales):** `data.imf.org`, `data.imf.org/en/Datasets`
+> (portal de datasets) y `unsceb.org/data-download/` (datos del sistema de la ONU,
+> útil para remuneraciones/personal). La API SDMX-JSON ya integrada es
+> `dataservices.imf.org`.
+>
 > **Dashboard:** `market_data` ahora expone `list_rates` (serie), `brecha_porcentaje`
 > y `brecha_series`; `app.py` muestra 4 tarjetas (Oficial, Binance, Bybit, Inflación),
 > 2 tarjetas de brecha y un gráfico Plotly de 6 meses.

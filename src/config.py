@@ -96,7 +96,7 @@ class Settings(BaseSettings):
     OPEC_BASE_URL: str = "https://www.opec.org"
     SENIAT_BASE_URL: str = "https://www.seniat.gob.ve"
     MPPEF_BASE_URL: str = "https://www.mppef.gob.ve"
-    PDVSA_BASE_URL: str = "https://www.pdvsa.com"
+    PDVSA_BASE_URL: str = "https://pdvsa-adhoc.com"
     IMF_SDMX_URL: str = "https://dataservices.imf.org/REST/SDMX_JSON.svc"
     CEPALSTAT_BASE_URL: str = "https://api-cepalstat.cepal.org/cepalstat/api/v1"
     BINANCE_P2P_URL: str = "https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search"
