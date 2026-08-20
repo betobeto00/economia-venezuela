@@ -1046,7 +1046,7 @@ with tab_macro:
             st.caption("Predice inflación mensual con datos de alta frecuencia")
         with nc2:
             if metrics["oficial"] and metrics["paralelo"]:
-                brecha_val = (metrics["paralelo"] / metrics["oficial"] - 1) * 100 if metrics["oficial"] > 0 else 0
+                brecha_val = (metrics["paralelo"].rate / metrics["oficial"].rate - 1) * 100 if metrics["oficial"] and metrics["oficial"].rate > 0 else 0
                 st.metric("Brecha cambiaria actual", f"{brecha_val:.1f}%")
                 st.caption("Variable proxy principal para nowcasting")
             else:
