@@ -2,14 +2,17 @@
 Dashboard Principal - Economía Venezuela
 ========================================
 
-5 tabs:
-- 🏠 Inicio: métricas de dólar, inflación, brecha, gráfico histórico
-- 📈 IBC: índice bursátil, componentes, gainers/losers, tickers
-- 📰 Noticias: sentimiento, distribución, últimos titulares
+8 tabs:
+- 🏠 Inicio: métricas de dólar, inflación, brecha, gráfico histórico, macro
+- 💱 Mercado: tasas por fuente, serie histórica, brecha, CSV
+- 📈 IBC: índice, componentes completos, tickers venezolanos, búsqueda
+- 📰 Noticias + Reddit: RSS, sentimiento, posts Reddit con sentimiento
 - 📋 Encuestas: KPIs, serie temporal, contraste, informe ejecutivo
+- 🏛️ Fiscal: gacetas OCR, categorías, leyes AN
 - 📊 Informes: generador de informes periódicos (MD + PDF)
+- 🔬 Macro: riesgo, BOP, deuda, pronóstico, nowcasting, alertas
 
-Sidebar: filtros globales y generación rápida de informes.
+Sidebar: filtros globales, panel de recolectores con time range.
 """
 
 import sys
@@ -82,16 +85,74 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # Quick actions
-    st.subheader("⚡ Acciones Rápidas")
-    if st.button("🔄 Recolección de mercado", use_container_width=True):
-        st.toast("Ejecutando collect_market...", icon="🔄")
-    if st.button("📰 Recolectar noticias", use_container_width=True):
-        st.toast("Ejecutando collect_news...", icon="📰")
+    # ── Panel de Recolectores ──
+    st.subheader("⚡ Recolectores")
+
+    COLLECTORS = {
+        "💰 Mercado (BCV, Binance, Bybit, Bancos)": "collect_market",
+        "📰 Noticias (RSS + Reddit)": "collect_news",
+        "📈 IBC + Tickers": "backfill_ibc",
+        "📋 Encuestas (Google Forms)": "collect_surveys",
+        "🏛️ Gacetas Oficiales": "collect_gacetas",
+        "🔄 Macro (CEPAL, FMI, OPEP, WB)": "refresh_macro",
+        "📊 Informe Periódico": "generate_report",
+    }
+
+    selected_collectors = st.multiselect(
+        "Seleccionar recolectores",
+        options=list(COLLECTORS.keys()),
+        default=[list(COLLECTORS.keys())[0]],
+        key="sidebar_collectors",
+    )
+
+    col_time1, col_time2 = st.columns(2)
+    with col_time1:
+        since_date = st.date_input(
+            "Desde",
+            value=datetime.now() - timedelta(days=7),
+            key="collector_since",
+        )
+    with col_time2:
+        until_date = st.date_input(
+            "Hasta",
+            value=datetime.now(),
+            key="collector_until",
+        )
+
+    if st.button("🚀 Ejecutar", use_container_width=True, type="primary"):
+        if not selected_collectors:
+            st.warning("Selecciona al menos un recolector")
+        else:
+            import subprocess
+            import sys as _sys
+            results = []
+            for label in selected_collectors:
+                script = COLLECTORS[label]
+                cmd = [_sys.executable, "-m", f"src.scripts.{script}"]
+                if script == "backfill_ibc":
+                    days = (until_date - since_date).days or 7
+                    cmd.extend(["--days", str(days)])
+                elif script == "generate_report":
+                    cmd.extend(["--cadence", "diario"])
+                st.toast(f"Ejecutando {script}...", icon="⏳")
+                try:
+                    result = subprocess.run(
+                        cmd, capture_output=True, text=True, timeout=120,
+                        cwd=str(Path(__file__).resolve().parent.parent.parent),
+                    )
+                    if result.returncode == 0:
+                        st.success(f"✅ {label}: completado")
+                    else:
+                        err = (result.stderr or result.stdout or "")[:200]
+                        st.error(f"❌ {label}: {err}")
+                except subprocess.TimeoutExpired:
+                    st.error(f"⏰ {label}: timeout (120s)")
+                except Exception as e:
+                    st.error(f"❌ {label}: {e}")
 
 # ─── Tabs ───────────────────────────────────────────────────────────────────
-tab_inicio, tab_mercado, tab_ibc, tab_noticias, tab_social, tab_encuestas, tab_fiscal, tab_informes, tab_macro = st.tabs(
-    ["🏠 Inicio", "💱 Mercado", "📈 IBC", "📰 Noticias", "💬 Social", "📋 Encuestas", "🏛️ Fiscal", "📊 Informes", "🔬 Macro"]
+tab_inicio, tab_mercado, tab_ibc, tab_noticias, tab_encuestas, tab_fiscal, tab_informes, tab_macro = st.tabs(
+    ["🏠 Inicio", "💱 Mercado", "📈 IBC", "📰 Noticias", "📋 Encuestas", "🏛️ Fiscal", "📊 Informes", "🔬 Macro"]
 )
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -580,13 +641,12 @@ with tab_ibc:
 with tab_noticias:
     render_news_section()
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# TAB: SOCIAL (Reddit + Sentimiento)
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-with tab_social:
+    st.markdown("---")
+
+    # ── Reddit + Sentimiento (fusionado de tab Social) ──
     from src.dashboard.social_data import social_posts_with_sentiment, social_summary, sentiment_by_item
 
-    st.subheader("💬 Social — Reddit r/vzla")
+    st.subheader("💬 Reddit — Discusión Económica")
 
     summary = social_summary()
 
@@ -606,35 +666,34 @@ with tab_social:
 
     # Sentiment distribution
     if summary["sentiment_dist"]:
-        st.markdown("### 📊 Distribución de Sentimiento")
-        sent_df = pd.DataFrame([
-            {"Etiqueta": k.title(), "Cantidad": v}
-            for k, v in summary["sentiment_dist"].items()
-        ])
-        if not sent_df.empty:
-            fig_sent = go.Figure(data=[go.Pie(
-                labels=sent_df["Etiqueta"], values=sent_df["Cantidad"],
-                hole=0.4,
-                marker_colors=[theme.PALETTE.get("verde", "#2CA58D"), theme.PALETTE.get("amarillo", "#F2C14E"), theme.PALETTE.get("rojo", "#C0392B")],
-            )])
-            fig_sent.update_layout(
-                template=theme.plotly_template(), height=300,
-                showlegend=True,
-            )
-            st.plotly_chart(fig_sent, use_container_width=True)
-
-    # Posts by channel
-    if summary["posts_per_channel"]:
-        st.markdown("### 📡 Posts por Subreddit")
-        for ch, count in summary["posts_per_channel"].items():
-            st.write(f"**r/{ch}**: {count} posts")
+        col_chart, col_channels = st.columns([1, 1])
+        with col_chart:
+            st.markdown("### 📊 Distribución de Sentimiento")
+            sent_df = pd.DataFrame([
+                {"Etiqueta": k.title(), "Cantidad": v}
+                for k, v in summary["sentiment_dist"].items()
+            ])
+            if not sent_df.empty:
+                fig_sent = go.Figure(data=[go.Pie(
+                    labels=sent_df["Etiqueta"], values=sent_df["Cantidad"],
+                    hole=0.4,
+                    marker_colors=[theme.PALETTE.get("verde", "#2CA58D"), theme.PALETTE.get("amarillo", "#F2C14E"), theme.PALETTE.get("rojo", "#C0392B")],
+                )])
+                fig_sent.update_layout(template=theme.plotly_template(), height=280, showlegend=True)
+                st.plotly_chart(fig_sent, use_container_width=True)
+        with col_channels:
+            st.markdown("### 📡 Posts por Subreddit")
+            if summary["posts_per_channel"]:
+                for ch, count in summary["posts_per_channel"].items():
+                    st.write(f"**r/{ch}**: {count} posts")
+            else:
+                st.info("Sin datos por subreddit")
 
     # Posts table with sentiment
     st.markdown("### 📋 Posts de Reddit con Sentimiento")
     posts = social_posts_with_sentiment(limit=50)
     if posts:
         df_posts = pd.DataFrame(posts)
-        # Search
         search_social = st.text_input("🔍 Buscar en posts", key="search_social")
         if search_social:
             mask = df_posts["title"].str.contains(search_social, case=False, na=False)
@@ -654,7 +713,7 @@ with tab_social:
     else:
         st.info("No hay posts de Reddit disponibles. Ejecuta `collect_news` para recolectar.")
 
-    # Sentiment detail table
+    # Sentiment detail
     sent_detail = sentiment_by_item(item_type="social", limit=50)
     if not sent_detail.empty:
         with st.expander("📊 Detalle de Sentimiento por Post"):
