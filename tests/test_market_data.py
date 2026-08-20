@@ -217,3 +217,68 @@ class TestDashboardMarketData:
         assert format_metric(None) == "—"
         assert format_metric(9.5, " Bs") == "9.50 Bs"
         assert format_metric(2.1, " %") == "2.10 %"
+
+
+class TestBrechaCambiaria:
+    def test_brecha_porcentaje(self):
+        from src.dashboard.market_data import brecha_porcentaje
+
+        oficial = ExchangeRate(source="bcv", currency="usd", rate=100.0, date=datetime(2026, 8, 19))
+        paralelo = ExchangeRate(source="binance", currency="usdt", rate=110.0, date=datetime(2026, 8, 19))
+        assert brecha_porcentaje(oficial, paralelo) == pytest.approx(10.0)
+
+    def test_brecha_falta_dato_devuelve_none(self):
+        from src.dashboard.market_data import brecha_porcentaje
+
+        oficial = ExchangeRate(source="bcv", currency="usd", rate=100.0, date=datetime(2026, 8, 19))
+        assert brecha_porcentaje(oficial, None) is None
+        assert brecha_porcentaje(None, None) is None
+
+    def test_brecha_series_desde_db(self, session, monkeypatch):
+        from contextlib import nullcontext
+        from datetime import timedelta
+
+        import src.db.session as db_session
+        from src.dashboard import market_data
+
+        repo = MarketRepository(session)
+        base = datetime(2026, 8, 1)
+        for i in range(5):
+            repo.save_rates([
+                ExchangeRate(source="bcv", currency="usd", rate=100.0,
+                             date=base + timedelta(days=i)),
+                ExchangeRate(source="binance", currency="usdt", rate=110.0,
+                             date=base + timedelta(days=i)),
+            ])
+        monkeypatch.setattr(db_session, "session_scope", lambda: nullcontext(session))
+        df = market_data.brecha_series("binance", since_days=180)
+        assert len(df) == 5
+        assert list(df.columns) == ["oficial", "paralelo", "brecha_%"]
+        assert df["brecha_%"].iloc[0] == pytest.approx(10.0)
+
+    def test_brecha_series_sin_datos(self, session, monkeypatch):
+        from contextlib import nullcontext
+
+        import src.db.session as db_session
+        from src.dashboard import market_data
+
+        monkeypatch.setattr(db_session, "session_scope", lambda: nullcontext(session))
+        df = market_data.brecha_series("binance")
+        assert df.empty
+
+    def test_dashboard_metrics_incluye_bybit(self, session, monkeypatch):
+        from contextlib import nullcontext
+
+        import src.db.session as db_session
+        from src.dashboard import market_data
+
+        repo = MarketRepository(session)
+        repo.save_rates([
+            _rate(date=datetime(2026, 8, 19)),
+            _rate(source="binance", currency="usdt", date=datetime(2026, 8, 20)),
+            ExchangeRate(source="bybit", currency="usdt", rate=90.0, date=datetime(2026, 8, 20)),
+        ])
+        monkeypatch.setattr(db_session, "session_scope", lambda: nullcontext(session))
+        metrics = market_data.dashboard_metrics()
+        assert metrics["bybit"].source == "bybit"
+        assert metrics["bybit"].rate == 90.0

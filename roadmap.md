@@ -333,8 +333,9 @@ google-auth-oauthlib==1.2.0
 23. ✅ **Persistencia del loop de mercado** — *verificado con Postgres real (Railway)*
 24. ✅ **Ingesta de noticias/RSS + análisis de sentimiento**
 25. ✅ **Informes semanales automatizados con IA** — cadena de 4 LLMs con fallback
-26. ⏳ **Collectors restantes**: `mppef`, `seniat`, `sunaval`, `an`, `caracas`, `imf`, `cepal`, `pdvsa`, `twitter`
+26. 🔄 **Collectors restantes**: ✅ `seniat`, `mppef`, `pdvsa`, `imf`, `cepal` — ⏳ `an`, `caracas`, `twitter`
 27. ✅ **Backfill histórico de tasas** (6 meses) — dataset abierto usdt.com.ve (CC-BY-4.0)
+28. ✅ **Dashboard: Bybit + brecha cambiaria** — tarjetas, brecha y gráfico de 6 meses
 
 ---
 
@@ -342,13 +343,13 @@ google-auth-oauthlib==1.2.0
 
 | KPI | Meta | Actual | Estado |
 |-----|------|--------|--------|
-| Collectors implementados | 20 | 12 | 🟡 |
-| Collectors fiscales | 4 | 2 | 🟡 |
+| Collectors implementados | 20 | 17 | 🟡 |
+| Collectors fiscales | 4 | 4 ✅ | ✅ |
 | Formularios de encuesta activos | 2+ | 2 ✅ | ✅ |
 | Respuestas de encuesta procesadas | 500+ | 2 | ⏳ |
-| Tests unitarios | > 80% | ~184 tests ✅ | 🟡 |
-| Cobertura de fuentes | 15+ | 12 | 🟡 |
-| Dashboard con métricas en vivo | — | ✅ Inicio + Encuestas + Noticias | ✅ |
+| Tests unitarios | > 80% | ~250 tests ✅ | 🟡 |
+| Cobertura de fuentes | 15+ | 16 | 🟡 |
+| Dashboard con métricas en vivo | — | ✅ Inicio + Encuestas + Noticias + Bybit/brecha | ✅ |
 | Scheduler automático | — | ✅ 4 jobs (encuestas, mercado, noticias, informe semanal) | ✅ |
 
 **Código implementado**: Fases 2 (recolección), 3 (análisis), dashboard Fase 4 y scheduler

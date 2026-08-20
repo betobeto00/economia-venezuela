@@ -621,6 +621,36 @@ Pipeline:
 > promedio diario (``source/currency``: binance/usdt, bybit/usdt, bcv/usd) e inserta
 > idempotente. Se cargaron 6 meses (2026-02-20 → hoy): ~195 tasas por fuente.
 
+### Fase 5b: Nuevas fuentes (dashboard + collectors)
+- [x] **Dashboard con Bybit + brecha cambiaria** — `market_data.brecha_porcentaje`
+      y `brecha_series`; gráfico histórico de 6 meses en `app.py` (Plotly)
+- [x] **SENIAT** — `collectors/fiscal/seniat_collector.py` (catálogo `FiscalDocument`)
+- [x] **MPPEF** — `collectors/fiscal/mppef_collector.py` (catálogo `FiscalDocument`)
+- [x] **PDVSA** — `collectors/international/pdvsa_collector.py` (cesta venezolana)
+- [x] **FMI** — `collectors/international/imf_collector.py` (API SDMX-JSON de IFS)
+- [x] **CEPAL** — `collectors/international/cepal_collector.py` (API CEPALSTAT)
+
+> **Helpers compartidos:** `collectors/fiscal/documents.py` centraliza el catálogo de
+> documentos (filtra hrefs `#`/`javascript:`, hosts externos, y deriva título del
+> nombre de archivo si el ancla está vacía). CGR usa este helper.
+>
+> **API CEPALSTAT** (`api-cepalstat.cepal.org/cepalstat/api/v1`): indicador 2216 =
+> PIB anual a precios constantes (millones USD). Dimensiones: 208=país (Venezuela
+> 259, nombre "Venezuela (República Bolivariana de)"), 21004=rubro (21166=PIB total),
+> 29117=años (id→año). Data: `members=<país>,<rubro>` devuelve la serie anual.
+> Verificado en vivo: PIB 2025 ≈ 94.368 millones USD.
+>
+> **API FMI** (`dataservices.imf.org/REST/SDMX_JSON.svc`): `CompactData/IFS/A.VE.<ind>`.
+> NGDP_RPCH (crec. PIB real) y PCPIPCH (inflación IPC). DNS caído desde la red local
+> (como BCV IPC); funciona desde Railway u otras redes.
+>
+> **Nota PDVSA/CEPAL:** los datos de mercado con DNS caído localmente se recogen
+> mejor desde Railway (ver `pdvsa.com`, `dataservices.imf.org`).
+>
+> **Dashboard:** `market_data` ahora expone `list_rates` (serie), `brecha_porcentaje`
+> y `brecha_series`; `app.py` muestra 4 tarjetas (Oficial, Binance, Bybit, Inflación),
+> 2 tarjetas de brecha y un gráfico Plotly de 6 meses.
+
 ---
 
 ## ☁️ Notas de Despliegue

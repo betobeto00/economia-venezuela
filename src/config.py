@@ -94,6 +94,11 @@ class Settings(BaseSettings):
     CGR_BASE_URL: str = "https://www.cgr.gob.ve"
     INE_BASE_URL: str = "https://www.ine.gob.ve"
     OPEC_BASE_URL: str = "https://www.opec.org"
+    SENIAT_BASE_URL: str = "https://www.seniat.gob.ve"
+    MPPEF_BASE_URL: str = "https://www.mppef.gob.ve"
+    PDVSA_BASE_URL: str = "https://www.pdvsa.com"
+    IMF_SDMX_URL: str = "https://dataservices.imf.org/REST/SDMX_JSON.svc"
+    CEPALSTAT_BASE_URL: str = "https://api-cepalstat.cepal.org/cepalstat/api/v1"
     BINANCE_P2P_URL: str = "https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search"
     # Feeds RSS de noticias (separados por coma)
     # Nota: elpitazo.net y bancaynegocios.com no responden desde la red local
