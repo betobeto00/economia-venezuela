@@ -90,8 +90,8 @@ with st.sidebar:
         st.toast("Ejecutando collect_news...", icon="📰")
 
 # ─── Tabs ───────────────────────────────────────────────────────────────────
-tab_inicio, tab_ibc, tab_noticias, tab_encuestas, tab_informes = st.tabs(
-    ["🏠 Inicio", "📈 IBC", "📰 Noticias", "📋 Encuestas", "📊 Informes"]
+tab_inicio, tab_ibc, tab_noticias, tab_encuestas, tab_informes, tab_macro = st.tabs(
+    ["🏠 Inicio", "📈 IBC", "📰 Noticias", "📋 Encuestas", "📊 Informes", "🔬 Macro"]
 )
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -400,7 +400,109 @@ with tab_encuestas:
 with tab_informes:
     render_reports_section()
 
-# ─── Footer ─────────────────────────────────────────────────────────────────
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# TAB: MACRO (Análisis Avanzado)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+with tab_macro:
+    from src.analyzers.sovereign_risk import SovereignRiskIndex
+    from src.analyzers.balance_of_payments import BalanceOfPaymentsAnalyzer
+    from src.analyzers.public_debt import PublicDebtAnalyzer
+    from src.analyzers.phillips import PhillipsCurveAnalyzer
+    from src.dashboard.macro_data import macro_summary
+
+    st.subheader("🔬 Análisis Macro Avanzado")
+
+    # ── Riesgo Soberano ──
+    st.markdown("### 🚨 Índice de Riesgo Soberano")
+    risk = SovereignRiskIndex()
+    risk_result = risk.calculate(
+        spread_pct=brecha if brecha else 0,
+        annual_inflation=metrics["inflacion"].annual_rate if metrics["inflacion"] else 0,
+    )
+
+    rc1, rc2 = st.columns([1, 3])
+    with rc1:
+        # Score con color
+        score = risk_result.score
+        if score < 25:
+            color = theme.PALETTE["verde"]
+        elif score < 50:
+            color = theme.PALETTE["amarillo"]
+        elif score < 75:
+            color = theme.PALETTE["naranja"]
+        else:
+            color = theme.PALETTE["rojo"]
+        st.markdown(
+            f"<div style='text-align:center; padding:20px; border-radius:10px; "
+            f"background:rgba(0,0,0,0.05);'>
+            f"<div style='font-size:48px; font-weight:bold; color:{color};'>{score:.0f}</div>
+            f"<div style='font-size:14px; color:#666;'>/100</div>
+            f"<div style='font-size:18px; font-weight:600; color:{color};'>"
+            f"{risk_result.level.upper()}</div></div>",
+            unsafe_allow_html=True,
+        )
+    with rc2:
+        st.markdown(risk_result.interpretation)
+        st.markdown("**Factores:**")
+        for factor, value in sorted(risk_result.components.items(), key=lambda x: -x[1]):
+            label = {
+                "spread": "Brecha cambiaria",
+                "volatility": "Volatilidad",
+                "inflation": "Inflación",
+                "reserves": "Reservas",
+                "debt": "Deuda",
+                "oil": "Petróleo",
+            }.get(factor, factor)
+            st.progress(min(value / 100, 1.0), text=f"{label}: {value:.0f}/100")
+
+    # ── Balanza de Pagos ──
+    st.markdown("### 💱 Balanza de Pagos")
+    bop = BalanceOfPaymentsAnalyzer()
+    bop_result = bop.analyze(
+        reserves=None,  # Pendiente de obtener de BCV
+        oil_production_mbd=1.08,
+        oil_price_usd=70,
+        imports_monthly=2e9,  # Estimado
+    )
+    st.markdown(bop_result.interpretation)
+
+    # ── Deuda Pública ──
+    st.markdown("### 💳 Deuda Pública")
+    debt = PublicDebtAnalyzer()
+    debt_result = debt.analyze(
+        total_debt_usd=240e9,  # Estimado
+        gdp_usd=94e9,
+        external_debt_usd=180e9,
+        fiscal_deficit_pct=-5.8,
+        oil_revenues_usd=35e9,
+    )
+
+    dc1, dc2, dc3 = st.columns(3)
+    with dc1:
+        st.metric("Deuda/PIB", f"{debt_result.debt_gdp_ratio:.0f}%" if debt_result.debt_gdp_ratio else "—")
+    with dc2:
+        st.metric("Sostenibilidad", debt_result.sustainability.upper())
+    with dc3:
+        if debt_result.external_ratio:
+            st.metric("Deuda Externa", f"{debt_result.external_ratio:.0f}%")
+    st.markdown(debt_result.interpretation)
+
+    # ── Curva de Phillips ──
+    st.markdown("### 📉 Curva de Phillips")
+    phillips = PhillipsCurveAnalyzer()
+    st.info(
+        "*La Curva de Phillips requiere datos históricos de desempleo e inflación. "
+        "Se activará cuando se integren los datos del INE con la serie de inflación.*"
+    )
+
+    # ── Regional ──
+    st.markdown("### 🌎 Comparación Regional")
+    st.info(
+        "*Las comparaciones regionales se activarán cuando se integren "
+        "los datos de World Bank (wbgapi) con el dashboard.*"
+    )
+
+    # ── Footer ─────────────────────────────────────────────────────────────────
 st.markdown("---")
 st.markdown(
     """
