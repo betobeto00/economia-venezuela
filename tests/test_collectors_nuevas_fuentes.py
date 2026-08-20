@@ -7,6 +7,7 @@ import pytest
 from datetime import date, timedelta
 
 from src.collectors.errors import CollectorSourceError
+from src.collectors.fiscal.an_collector import ANCollector, parse_actos, parse_leyes
 from src.collectors.fiscal.mppef_collector import MPPEFCollector
 from src.collectors.fiscal.seniat_collector import SENIATCollector
 from src.collectors.fiscal.gaceta_collector import GacetaOficialCollector
@@ -437,3 +438,85 @@ class TestGacetaOficial:
         GacetaOficialCollector().fetch_recientes(days=3)
         assert len(calls) == 3
         assert calls[0]["day"] == (date.today() - timedelta(days=2)).day
+
+
+# ---------------------------------------------------------------- ASAMBLEA NACIONAL
+
+LEY_HTML = """
+<div class="an-padding-remove-small ">
+  <div class="uk-card uk-card-default uk-height-1-1 an-height-medium ">
+    <div class="an-background-muted  uk-flex uk-flex-between uk-padding-small">
+      <div><small class="an-text-black">Fecha: 23/02/2023</small></div>
+      <div><small class="an-text-black">Gaceta N&#176; <b>6.737</b></small></div>
+    </div>
+    <div class="uk-padding-small">
+      <a href="https://www.asambleanacional.gob.ve/leyes/sancionadas/ley-de-presupuesto-2023"><b>Ley de Presupuesto para el Ejercicio Fiscal 2023</b></a><br>
+      <p style="text-align: justify;">Descripci&oacute;n.</p>
+    </div>
+  </div>
+</div>
+<div class="an-padding-remove-small ">
+  <div class="uk-card uk-card-default uk-height-1-1 an-height-medium ">
+    <div class="an-background-muted  uk-flex uk-flex-between uk-padding-small">
+      <div><small class="an-text-black">Fecha: 07/12/2022</small></div>
+      <div><small class="an-text-black">Gaceta N&#176; <b>6.722 Ext</b></small></div>
+    </div>
+    <div class="uk-padding-small">
+      <a href="https://www.asambleanacional.gob.ve/leyes/sancionadas/ley-de-sellos"><b>Ley de Sellos</b></a><br>
+      <p style="text-align: justify;">Otra descripci&oacute;n.</p>
+    </div>
+  </div>
+</div>
+"""
+
+ACTO_HTML = """
+<div class="uk-accordion-content uk-margin-remove-top"><table class="uk-table">
+<tbody>
+<tr><td width="10"><small>19/05/2026</small></td><td class="td"><p>
+<a href="https://www.asambleanacional.gob.ve/actos/detalle/acuerdo-sobre-el-presupuesto">ACUERDO SOBRE EL PRESUPUESTO</a></p></td></tr>
+<tr><td width="10"><small>12/05/2026</small></td><td class="td"><p>
+<a href="https://www.asambleanacional.gob.ve/actos/detalle/acuerdo-en-conmemoracion-de-los-213-anos">ACUERDO EN CONMEMORACION DE LOS 213 A&Ntilde;OS</a></p></td></tr>
+</tbody></table></div>
+"""
+
+
+class TestAN:
+    def test_parse_leyes(self):
+        cards = parse_leyes(LEY_HTML)
+        assert len(cards) == 2
+        assert cards[0]["title"] == "Ley de Presupuesto para el Ejercicio Fiscal 2023"
+        assert cards[0]["gaceta"] == "6.737"
+        assert cards[0]["date"].isoformat() == "2023-02-23"
+        assert cards[0]["url"].endswith("/leyes/sancionadas/ley-de-presupuesto-2023")
+
+    def test_parse_actos(self):
+        rows = parse_actos(ACTO_HTML)
+        assert len(rows) == 2
+        assert rows[0]["title"] == "ACUERDO SOBRE EL PRESUPUESTO"
+        assert rows[0]["date"].isoformat() == "2026-05-19"
+
+    def test_fetch_leyes_filtra_keywords(self, monkeypatch):
+        calls = []
+
+        def fake(url, params=None):
+            calls.append(params)
+            if params is None or params.get("page") == 1:
+                return LEY_HTML
+            return "<html><body></body></html>"
+
+        monkeypatch.setattr("src.collectors.fiscal.an_collector.http_get_text", fake)
+        docs = ANCollector().fetch_leyes(
+            keywords=["presupuesto"], max_pages=3
+        )
+        assert len(docs) == 1  # solo la Ley de Presupuesto
+        assert docs[0].source == "an"
+        assert docs[0].year == 2023
+        assert calls[0] is None
+        assert calls[1] == {"page": 2}
+        assert len(calls) == 2  # corta al no haber tarjetas en la página 2
+
+    def test_fetch_documentos_deduplica(self, monkeypatch):
+        monkeypatch.setattr("src.collectors.fiscal.an_collector.http_get_text",
+                           lambda url, params=None: LEY_HTML)
+        docs = ANCollector().fetch_documentos(keywords=["presupuesto"], max_pages=2)
+        assert len(docs) == 1

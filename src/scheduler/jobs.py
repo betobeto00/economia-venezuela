@@ -90,6 +90,20 @@ def weekly_report_job() -> dict:
         return {}
 
 
+def periodic_report_job(cadence: str) -> dict:
+    """Genera un informe periódico (diario/semanal/.../anual) en MD + PDF."""
+    from src.analyzers.reports.periodic import generate_periodic_report
+
+    try:
+        result = generate_periodic_report(cadence, formats=("md", "pdf"))
+        paths = result["paths"]
+        logger.info("Informe %s generado: %s", cadence, paths)
+        return paths
+    except Exception as exc:  # noqa: BLE001 - el scheduler no debe caerse
+        logger.exception("Job de informe %s falló: %s", cadence, exc)
+        return {}
+
+
 def register_market_job(scheduler) -> None:
     """Registra la recolección periódica de datos de mercado en el scheduler."""
     existing = scheduler.get_job("collect_market")
@@ -179,3 +193,39 @@ def register_weekly_report_job(scheduler) -> None:
         max_instances=1,
         coalesce=True,
     )
+
+
+# Cadencia → configuración cron (hora por defecto, sobrescribible por settings)
+_PERIODIC_CRON = {
+    "diario": {"hour": 7, "minute": 0},
+    "semanal": {"day_of_week": "mon", "hour": 8, "minute": 0},
+    "mensual": {"day": 1, "hour": 9, "minute": 0},
+    "trimestral": {"month": "1,4,7,10", "day": 1, "hour": 10, "minute": 0},
+    "semestral": {"month": "1,7", "day": 1, "hour": 11, "minute": 0},
+    "anual": {"month": 1, "day": 1, "hour": 12, "minute": 0},
+}
+
+
+def register_periodic_report_jobs(scheduler) -> None:
+    """Registra los informes periódicos (diario a anual) en el scheduler.
+
+    Cada cadencia tiene su propio job con trigger ``cron``; un fallo en la
+    generación no afecta al scheduler.
+    """
+    from functools import partial
+
+    for cadence, cron in _PERIODIC_CRON.items():
+        job_id = f"report_{cadence}"
+        existing = scheduler.get_job(job_id)
+        if existing is not None:
+            scheduler.remove_job(job_id)
+        scheduler.add_job(
+            partial(periodic_report_job, cadence),
+            trigger="cron",
+            **cron,
+            id=job_id,
+            name=f"Informe {cadence} (MD + PDF)",
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True,
+        )

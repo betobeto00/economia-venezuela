@@ -631,6 +631,8 @@ Pipeline:
 - [x] **CEPAL** — `collectors/international/cepal_collector.py` (API CEPALSTAT)
 - [x] **UNSCEB** — `collectors/international/unsceb_collector.py` (gasto ONU por país)
 - [x] **Gaceta Oficial** — `collectors/fiscal/gaceta_collector.py` (índice + PDFs)
+- [x] **AN** — `collectors/fiscal/an_collector.py` (leyes y actos legislativos)
+- [x] **Informes periódicos en PDF** — `analyzers/reports/periodic.py` + `pdf_report.py`
 
 > **Helpers compartidos:** `collectors/fiscal/documents.py` centraliza el catálogo de
 > documentos (filtra hrefs `#`/`javascript:`, hosts externos, y deriva título del
@@ -665,6 +667,20 @@ Pipeline:
 > El endpoint devuelve JSON con httpx (httpx no envía Accept HTML); en el
 > navegador directo muestra HTML (SPA). Verificado en vivo: 241 gacetas con
 > "presupuesto"; 17/06/2026 → gaceta 43399 ORDINARIA.
+>
+> **Asamblea Nacional** (`asambleanacional.gob.ve`): leyes en tarjetas paginadas
+> (`/leyes/vigentes?page=N` con `Fecha:` + `Gaceta N°` + título) y actos en
+> tablas dentro de acordeones (`/actos`). `ANCollector.fetch_leyes/fetch_actos/
+> fetch_documentos` filtran por keywords (presupuesto, endeudamiento...).
+>
+> **Informes periódicos** (`analyzers/reports/`): `periodic.py` define 6
+> cadencias (diario=1d, semanal=7d, mensual=30d, trimestral=91d, semestral=182d,
+> anual=365d) y compila un snapshot (mercado, inflación, encuestas, sentimiento,
+> noticias + documentos fiscales e indicadores macro recogidos en vivo).
+> `pdf_report.py` renderiza el PDF con ReportLab + matplotlib (carátula,
+> resumen IA, tablas con estilo, gráficos de tasas/inflación/sentimiento/encuestas).
+> CLI: `python -m src.scripts.generate_report --cadence semanal --format md,pdf`.
+> Scheduler: `register_periodic_report_jobs` con un job por cadencia (cron).
 >
 > **Nota PDVSA/CEPAL:** los datos de mercado con DNS caído localmente se recogen
 > mejor desde Railway (ver `pdvsa.com`, `dataservices.imf.org`).

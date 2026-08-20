@@ -56,6 +56,10 @@ vaderSentiment==3.3.2
 # Visualization
 streamlit==1.30.0
 plotly==5.18.0
+matplotlib==3.11.1      # Gráficos para informes PDF
+
+# Reportes PDF
+reportlab==5.0.0        # Generación de informes en PDF
 
 # Database
 sqlalchemy==2.0.23

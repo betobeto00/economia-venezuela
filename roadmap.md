@@ -39,7 +39,7 @@ TOTAL: 73%
 | `onapre_collector.py` | ONAPRE | Ejecución presupuestaria | Scraping + PDF | 1️⃣ | ✅ |
 | `cgr_collector.py` | CGR | Informes de gestión | Scraping + PDF | 1️⃣ | ✅ |
 | `gaceta_collector.py` | Gaceta Oficial | Gacetas (índice + PDF) | API + HTML | 1️⃣ | ✅ |
-| `an_collector.py` | AN | Leyes de presupuesto | Scraping | 2️⃣ | ⏳ |
+| `an_collector.py` | AN | Leyes de presupuesto | Scraping | 2️⃣ | ✅ |
 | `caracas_collector.py` | Alcaldía | Gestión municipal | Scraping | 3️⃣ | ⏳ |
 
 **Estructura:**
@@ -335,10 +335,11 @@ google-auth-oauthlib==1.2.0
 23. ✅ **Persistencia del loop de mercado** — *verificado con Postgres real (Railway)*
 24. ✅ **Ingesta de noticias/RSS + análisis de sentimiento**
 25. ✅ **Informes semanales automatizados con IA** — cadena de 4 LLMs con fallback
-26. 🔄 **Collectors restantes**: ✅ `seniat`, `mppef`, `pdvsa`, `imf`, `cepal`, `unsceb`, `gaceta` — ⏳ `an`, `caracas`, `twitter`
+26. 🔄 **Collectors restantes**: ✅ `seniat`, `mppef`, `pdvsa`, `imf`, `cepal`, `unsceb`, `gaceta`, `an` — ⏳ `caracas`, `twitter`
 27. ✅ **Backfill histórico de tasas** (6 meses) — dataset abierto usdt.com.ve (CC-BY-4.0)
 28. ✅ **Dashboard: Bybit + brecha cambiaria** — tarjetas, brecha y gráfico de 6 meses
 29. 🔄 **Datos macro**: ✅ `unsceb` (`unsceb.org/data-download`) — ⏳ FMI `data.imf.org` (bloqueado 403 local; SDMX IFS ya integrado)
+30. ✅ **Informes económicos en PDF** — diario/semanal/mensual/trimestral/semestral/anual con gráficos, tablas, datos y resumen IA (`generate_report.py`, scheduler)
 
 ### Nice to have
 - ⏳ **Redes sociales**: Facebook e Instagram (requiere tokens de Graph API o scraping frágil)
@@ -349,14 +350,15 @@ google-auth-oauthlib==1.2.0
 
 | KPI | Meta | Actual | Estado |
 |-----|------|--------|--------|
-| Collectors implementados | 20 | 19 | 🟡 |
+| Collectors implementados | 20 | 20 ✅ | ✅ |
 | Collectors fiscales | 4 | 4 ✅ | ✅ |
 | Formularios de encuesta activos | 2+ | 2 ✅ | ✅ |
 | Respuestas de encuesta procesadas | 500+ | 2 | ⏳ |
 | Tests unitarios | > 80% | ~250 tests ✅ | 🟡 |
 | Cobertura de fuentes | 15+ | 16 | 🟡 |
 | Dashboard con métricas en vivo | — | ✅ Inicio + Encuestas + Noticias + Bybit/brecha | ✅ |
-| Scheduler automático | — | ✅ 4 jobs (encuestas, mercado, noticias, informe semanal) | ✅ |
+| Informes PDF automáticos | 6 cadencias | ✅ diario a anual (MD + PDF) | ✅ |
+| Scheduler automático | — | ✅ 4 jobs (encuestas, mercado, noticias, informe semanal) + informes periódicos | ✅ |
 
 **Código implementado**: Fases 2 (recolección), 3 (análisis), dashboard Fase 4 y scheduler
 Fase 5. Pendiente: collectors de menor prioridad y pasos de despliegue (Railway).

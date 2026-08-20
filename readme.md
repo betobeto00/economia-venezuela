@@ -1,6 +1,6 @@
 # Economía Venezuela - Herramienta de Monitoreo y Análisis
 
-![Venezuela Economy Tracker](https://img.shields.io/badge/Status-En%20Desarrollo-yellow) ![Python](https://img.shields.io/badge/Language-Python-blue) ![AI Powered](https://img.shields.io/badge/AI-DeepSeek%20V4--Pro-purple) ![Econometrics](https://img.shields.io/badge/Econometrics-Statsmodels-green) ![Tests](https://img.shields.io/badge/Tests-158%20passing-brightgreen)
+![Venezuela Economy Tracker](https://img.shields.io/badge/Status-En%20Desarrollo-yellow) ![Python](https://img.shields.io/badge/Language-Python-blue) ![AI Powered](https://img.shields.io/badge/AI-DeepSeek%20V4--Pro-purple) ![Econometrics](https://img.shields.io/badge/Econometrics-Statsmodels-green) ![Tests](https://img.shields.io/badge/Tests-278%20passing-brightgreen)
 
 ## 📋 Visión General
 
@@ -178,6 +178,9 @@ streamlit run src/dashboard/app.py
 # Ingestas manuales
 python -m src.scripts.collect_surveys   # Encuestas Google
 python -m src.scripts.collect_market    # Tasa de cambio / inflación → DB
+
+# Informes económicos en PDF (diario → anual)
+python -m src.scripts.generate_report --cadence semanal --format md,pdf
 ```
 
 ## 📁 Estructura del Proyecto
@@ -199,7 +202,7 @@ economia-venezuela/
 │   │   ├── http.py             #   Cliente HTTP compartido (GET/POST, retries)
 │   │   ├── errors.py           #   Excepciones del dominio
 │   │   ├── market/             #   bcv, ovf, bvc, binance
-│   │   ├── fiscal/             #   onapre, cgr, seniat, mppef, gaceta + documents.py
+│   │   ├── fiscal/             #   onapre, cgr, seniat, mppef, gaceta, an + documents.py
 │   │   ├── official/           #   ine
 │   │   ├── international/      #   worldbank, opec, imf, cepal, pdvsa, unsceb
 │   │   ├── news/               #   rss
@@ -223,7 +226,10 @@ economia-venezuela/
 │   │   ├── trends.py           # Detección de tendencias
 │   │   ├── market_integration.py # Collectors → ARIMA/SARIMA
 │   │   ├── surveys/            # Encuestas: KPIs y contraste
-│   │   ├── reports/            # Informe semanal automatizado (con IA)
+│   │   ├── reports/            # Informes: semanal (IA) + periódicos MD/PDF
+│   │   │   ├── weekly.py       #   Informe semanal con resumen IA
+│   │   │   ├── periodic.py     #   Snapshot por cadencia (diario→anual) + Markdown
+│   │   │   └── pdf_report.py   #   Render PDF (ReportLab + matplotlib)
 │   │   └── econometric/        # Módulo econométrico (NUEVO)
 │   │       ├── stationarity.py # ADF, KPSS
 │   │       ├── forecasting.py  # ARIMA, SARIMA
@@ -241,7 +247,8 @@ economia-venezuela/
 │   │   ├── collect_surveys.py  #   Ingesta de encuestas
 │   │   ├── collect_market.py   #   Recolección de mercado → DB
 │   │   ├── collect_news.py     #   Noticias RSS + Reddit + sentimiento
-│   │   └── backfill_rates.py   #   Backfill histórico (usdt.com.ve)
+│   │   ├── backfill_rates.py   #   Backfill histórico (usdt.com.ve)
+│   │   └── generate_report.py  #   Informes periódicos MD/PDF (--cadence)
 │   ├── scheduler/              # Programación
 │   │   └── jobs.py             #   Jobs APScheduler (encuestas, mercado)
 │   ├── alerts/                 # Sistema de alertas
@@ -264,8 +271,14 @@ economia-venezuela/
 | Noticias RSS + sentimiento | Cada 6 h | `NEWS_COLLECT_INTERVAL_HOURS` |
 | Análisis GARCH (volatilidad) | Pendiente | — |
 | Informe semanal (con IA) | Cada domingo 08:00 | `WEEKLY_REPORT_DAY`/`WEEKLY_REPORT_HOUR` |
+| Informe diario | 07:00 | cron `report_diario` |
+| Informe semanal (PDF) | Lunes 08:00 | cron `report_semanal` |
+| Informe mensual | Día 1, 09:00 | cron `report_mensual` |
+| Informe trimestral | 1° de ene/abr/jul/oct 10:00 | cron `report_trimestral` |
+| Informe semestral | 1° de ene/jul 11:00 | cron `report_semestral` |
+| Informe anual | 1° de enero 12:00 | cron `report_anual` |
 
-> El scheduler (APScheduler en `main.py`) ya registra los jobs de mercado, encuestas, noticias e informe semanal.
+> El scheduler (APScheduler en `main.py`) ya registra los jobs de mercado, encuestas, noticias, informe semanal e informes periódicos (MD + PDF).
 
 ## 📈 Métricas del Dashboard
 
@@ -279,6 +292,7 @@ economia-venezuela/
 | **Índice de Nerviosismo** | Volatilidad GARCH | Binance P2P | ⏳ |
 | **Sentimiento** | Análisis léxico español + filtro relevancia económica | RSS/Reddit | ✅ En vivo |
 | **Informe Semanal** | Markdown + resumen IA (cadena de 4 LLMs) | Todo el sistema | ✅ Semanal |
+| **Informes Periódicos PDF** | Diario→anual: carátula, resumen IA, gráficos, tablas de mercado/inflación/encuestas/sentimiento/noticias/fiscal/macro | Todo el sistema | ✅ 6 cadencias |
 | **Pronóstico Inflación** | SARIMA | Modelo econométrico | ⏳ |
 
 ## 🤝 Contribuciones
