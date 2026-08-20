@@ -343,8 +343,30 @@ google-auth-oauthlib==1.2.0
 29. 🔄 **Datos macro**: ✅ `unsceb` (`unsceb.org/data-download`) — ⏳ FMI `data.imf.org` (bloqueado 403 local; SDMX IFS ya integrado)
 30. ✅ **Informes económicos en PDF** — diario/semanal/mensual/trimestral/semestral/anual con gráficos, tablas, datos y resumen IA (`generate_report.py`, scheduler)
 
+### Fase 6: Análisis Macro Avanzado (NUEVO)
+
+31. ✅ **Nowcasting** — `analyzers/nowcasting.py` (RandomForest + XGBoost para PIB/inflación en tiempo real)
+32. ✅ **Sistema de Alertas** — `alerts/manager.py` (umbrales automáticos: brecha, inflación, IBC, volatilidad)
+33. ✅ **Comparaciones Regionales** — `analyzers/regional.py` (Venezuela vs LatAm via World Bank)
+34. ✅ **Gráficos Avanzados** — `dashboard/components/advanced_charts.py` (heatmaps, fan charts, waterfall)
+35. ✅ **IAE** — `analyzers/iae.py` (Índice de Actividad Económica en tiempo real)
+36. ✅ **Cache Macro en DB** — tabla `macro_indicators` + `scripts/refresh_macro.py`
+
+### Pendientes del Análisis Macro
+
+37. ⏳ **SVAR** — Modelo Estructural de Vectores Autorregresivos para shocks estructurales
+38. ⏳ **Curva de Phillips** — Relación inflación vs brecha del producto
+39. ⏳ **Balanza de Pagos** — Dinámica de reservas internacionales
+40. ⏳ **Riesgo País** — EMBI+ o índice propio de riesgo
+41. ⏳ **Deuda Pública desglosada** — Bonos, deuda externa/interna, China/Rusia
+42. ⏳ **ENCOVI** — Encuesta de Condiciones de Vida (cuando se publique)
+43. ⏳ **Integrar Nowcasting/Alertas/IAE en el dashboard**
+44. ⏳ **Tests para nuevos módulos** (nowcasting, alerts, regional, iae)
+
 ### Nice to have
 - ⏳ **Redes sociales**: Facebook e Instagram (requiere tokens de Graph API o scraping frágil)
+- ⏳ **Notebooks Jupyter**: Análisis exploratorio con visualizaciones interactivas
+- ⏳ **Glosario macroeconómico**: Términos y definiciones para audiencias no técnicas
 
 ---
 
