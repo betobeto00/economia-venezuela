@@ -1151,8 +1151,8 @@ with tab_macro:
         # Verificar alertas con datos actuales
         if metrics["oficial"] and metrics["paralelo"]:
             alerts = alert_mgr.check_exchange_rate(
-                parallel_rate=metrics["paralelo"],
-                official_rate=metrics["oficial"],
+                parallel_rate=metrics["paralelo"].rate if metrics["paralelo"] else 0,
+                official_rate=metrics["oficial"].rate if metrics["oficial"] else 0,
             )
 
             if alerts:
