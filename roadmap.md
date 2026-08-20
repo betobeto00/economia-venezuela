@@ -220,7 +220,125 @@ Fecha (Index)  |  PIB/Actividad  |  Inflación IPC  |  Tipo de Cambio  |  Petró
 
 ---
 
+## 📦 Fase 8: Infraestructura de Datos & Caché 🆕
+
+### Objetivo
+Evitar re-descargas y re-procesamiento. Todo dato descargado se cachea en disco, se deduplica y se persiste como .md identificable.
+
+### 8.1 Caché de PDFs (Gacetas, BVC, Documentos)
+
+| # | Tarea | Descripción | Prioridad | Estado |
+|---|-------|-------------|-----------|--------|
+| 114 | **Directorio `data/pdfs/`** — estructura por fuente y fecha | `data/pdfs/gacetas/2026/08/43432.pdf`, `data/pdfs/bvc/historical/*.pdf` | Alta | ⏳ |
+| 115 | **Manifest de descargas** — `data/pdfs/manifest.json` con hash SHA256, fecha, fuente | Evita re-descargar el mismo archivo | Alta | ⏳ |
+| 116 | **Dedup por hash** — antes de descargar, calcular hash y verificar si ya existe | Si existe → skip, si no → descargar + guardar | Alta | ⏳ |
+| 117 | **Descarga incremental de BVC** — `bolsadecaracas.com/descargas/` poco a poco | PDFs históricos de la Bolsa de Valores | Alta | ⏳ |
+| 118 | **Rate limiting en descargas** — máximo 1 PDF cada 2 segundos | Evitar bloqueos | Media | ⏳ |
+
+### 8.2 Caché de OCR resultados (.md)
+
+| # | Tarea | Descripción | Prioridad | Estado |
+|---|-------|-------------|-----------|--------|
+| 119 | **Directorio `data/ocr/`** — un .md por PDF procesado | `data/ocr/gacetas/2026/08/43432.md` | Alta | ⏳ |
+| 20 | **Frontmatter YAML** — metadata en cada .md (fuente, fecha, hash, categorías, OCR text) | Identificable y consultable | Alta | ⏳ |
+| 121 | **Dedup OCR** — verificar si ya existe .md antes de procesar | Si el PDF no cambió, no re-procesar | Alta | ⏳ |
+| 122 | **Índice de OCR** — `data/ocr/index.json` con lista de archivos procesados | Para búsqueda rápida | Media | ⏳ |
+
+### 8.3 Caché de API responses
+
+| # | Tarea | Descripción | Prioridad | Estado |
+|---|-------|-------------|-----------|--------|
+| 123 | **Caché en disco para APIs** — `data/cache/api/` con TTL configurable | World Bank, IMF, CEPAL, OPEP, etc. | Alta | ⏳ |
+| 124 | **Caché de DB queries** — resultado de queries pesadas guardado en disco | Dashboard carga instantáneamente | Alta | ⏳ |
+| 125 | **Caché de IBC components** — historial de precios en disco | No re-scrapear Investing.com cada vez | Alta | ⏳ |
+| 126 | **Caché de noticias RSS** — artículos descargados con hash | Dedup de noticias | Media | ⏳ |
+
+### 8.4 Google Drive como almacenamiento secundario
+
+| # | Tarea | Descripción | Prioridad | Estado |
+|---|-------|-------------|-----------|--------|
+| 127 | **Google Drive upload** — subir PDFs procesados a Drive | Backup + acceso remoto | Media | ⏳ |
+| 128 | **Google Drive API** — usar `google-api-python-client` para upload/download | Auth vía service account | Media | ⏳ |
+| 129 | **Estructura en Drive** — `EconomiaVE/PDFs/Gacetas/`, `EconomiaVE/PDFs/BVC/` | Organización | Baja | ⏳ |
+| 130 | **Sync local↔Drive** — descargar solo lo que no está en disco | Evitar re-descarga | Media | ⏳ |
+
+### 8.5 Estructura de directorios
+
+```
+data/
+├── pdfs/                          # PDFs descargados (caché)
+│   ├── gacetas/
+│   │   ├── 2026/
+│   │   │   ├── 43432-2026-08-07.pdf
+│   │   │   └── 43431-2026-08-06.pdf
+│   │   └── manifest.json          # hash + metadata
+│   ├── bvc/
+│   │   ├── historical/
+│   │   └── manifest.json
+│   └── other/
+├── ocr/                           # Resultados OCR (.md)
+│   ├── gacetas/
+│   │   ├── 2026/
+│   │   │   ├── 43432.md           # con frontmatter YAML
+│   │   │   └── 43431.md
+│   │   └── index.json
+│   └── bvc/
+├── cache/                         # Caché de APIs
+│   ├── api/
+│   │   ├── worldbank.json
+│   │   ├── imf.json
+│   │   └── cepal.json
+│   └── queries/
+│       ├── market_summary.json
+│       └── ibc_components.json
+└── raw/                           # Datos crudos sin procesar
+    ├── exchange_rates/
+    └── news/
+```
+
+### 8.6 Template de .md con OCR
+
+```markdown
+---
+source: gaceta_oficial
+number: 43432
+date: 2026-08-07
+type: ORDINARIA
+categories: [impuestos, presupuesto, comercial]
+pdf_hash: sha256:abc123...
+ocr_method: pdfplumber
+ocr_chars: 22920
+pdf_url: http://www.gacetaoficial.gob.ve/storage/2026/43432-2026-08-07-ORDINARIA.pdf
+---
+
+# Gaceta Oficial N° 43.432
+
+## Sumario
+...
+
+## Texto completo (OCR)
+...
+```
+
+### 8.7 Commander: `python -m src.scripts.cache_manager`
+
+| Comando | Descripción |
+|---------|-------------|
+| `cache_manager scan` | Escanear directorios y reconstruir manifest |
+| `cache_manager gc` | Eliminar archivos con más de N días |
+| `cache_manager stats` | Mostrar estadísticas del caché |
+| `cache_manager sync-drive` | Subir a Google Drive lo que falte |
+| `cache_manager verify` | Verificar integridad de hashes |
+
+---
+
 ## 📋 Orden de Ejecución Recomendado
+
+### Sprint 0: Infraestructura de Datos (ANTES de todo)
+0. #114-116 — Directorio PDFs + manifest + dedup
+0. #119-121 — Directorio OCR + frontmatter + dedup
+0. #123-124 — Caché de APIs y DB queries
+0. #117 — Descarga incremental BVC
 
 ### Sprint 1: Datos IBC + Gacetas (Urgente)
 1. #47 — Componentes IBC 6 meses (Playwright)
@@ -406,5 +524,5 @@ Fecha (Index)  |  PIB/Actividad  |  Inflación IPC  |  Tipo de Cambio  |  Petró
 ---
 
 **Roadmap actualizado: Agosto 2026**
-**Versión: 9.0**
-**Incluye: 28 collectors + Dashboard 8 tabs + 341 tests + 8 modelos macro + 113 tareas pendientes**
+**Versión: 10.0**
+**Incluye: 28 collectors + Dashboard 8 tabs + 341 tests + 8 modelos macro + 130 tareas pendientes + Fase 8 (Infraestructura de Datos)**
