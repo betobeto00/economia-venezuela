@@ -847,7 +847,7 @@ with tab_macro:
     with macro_tab1:
         st.markdown("### 🚨 Índice de Riesgo Soberano")
         risk = SovereignRiskIndex()
-        inflation_rate = metrics["inflacion"].annual_rate if metrics.get("inflacion") else 0
+        inflation_rate = (metrics["inflacion"].annual_rate or 0) if metrics.get("inflacion") else 0
         risk_result = risk.calculate(
             spread_pct=brecha if brecha else 0,
             annual_inflation=inflation_rate,

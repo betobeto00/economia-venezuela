@@ -142,6 +142,8 @@ class SovereignRiskIndex:
 
         En hiperinflación (>= 1,000% anual), la función se satura suavemente.
         """
+        if annual_inflation is None:
+            annual_inflation = 0
         if annual_inflation < 0:
             return 0
         elif annual_inflation < 10:
