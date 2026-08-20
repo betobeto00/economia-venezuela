@@ -178,6 +178,21 @@ def _collect_macro(days: int) -> List[Dict]:
     return points
 
 
+def _collect_bancos() -> List[Dict]:
+    """Tasas de bancos venezolanos + BCV oficial via pyDolarVenezuela."""
+    try:
+        from src.collectors.market.dolar_paralelo_collector import fetch_bancos
+
+        rates = fetch_bancos()
+        return [
+            {"source": r.source, "rate": r.rate, "date": r.date.isoformat()}
+            for r in rates
+        ]
+    except Exception as exc:  # noqa: BLE001 - sección opcional
+        logger.warning("Dólar paralelo no disponible para el informe: %s", exc)
+        return []
+
+
 def _ai_resumen(markdown: str) -> str:
     """Resumen ejecutivo por IA con fallback silencioso."""
     if not settings.llm_providers():
@@ -338,6 +353,7 @@ def collect_snapshot(
         "articles": (base.get("articles") or [])[:TOP_ARTICLES],
         "fiscal_docs": _collect_fiscal_docs(days) if with_fiscal else [],
         "macro": _collect_macro(days) if with_macro else [],
+        "bancos": _collect_bancos(),
         "resumen": "",
         "proyeccion": "",
         "proyeccion_rows": _projection_rows(market_series),
@@ -389,6 +405,28 @@ def fiscal_docs_block(docs: List[Dict]) -> List[str]:
     return lines
 
 
+def bancos_block(bancos: List[Dict]) -> List[str]:
+    lines = ["## Cotizaciones Bancarias (Bs/USD)", ""]
+    if not bancos:
+        lines += ["_Sin tasas bancarias disponibles._", ""]
+        return lines
+    # Separar BCV oficial del resto
+    bcv = [b for b in bancos if b.get("source") == "bcv"]
+    others = [b for b in bancos if b.get("source") != "bcv"]
+    if bcv:
+        lines += [f"**BCV oficial:** {_fmt(bcv[0].get('rate'))} Bs/USD", ""]
+    if others:
+        lines += ["| Banco | Tasa (Bs/USD) | Fecha |",
+                  "|---|---|---|"]
+        for b in sorted(others, key=lambda x: x.get("rate", 0)):
+            lines.append(
+                f"| {b.get('source', '?')} | {_fmt(b.get('rate'))} | "
+                f"{b.get('date', '—')[:10]} |"
+            )
+    lines.append("")
+    return lines
+
+
 def macro_block(points: List[Dict]) -> List[str]:
     lines = ["## Indicadores Macroeconómicos", ""]
     if not points:
@@ -431,6 +469,7 @@ def build_markdown(snapshot: Dict) -> str:
     lines += surveys_block(snapshot.get("surveys") or {})
     lines += sentiment_block(snapshot.get("sentiment") or {})
     lines += articles_block(snapshot.get("articles") or [])
+    lines += bancos_block(snapshot.get("bancos") or [])
     lines += fiscal_docs_block(snapshot.get("fiscal_docs") or [])
     lines += macro_block(snapshot.get("macro") or [])
     base = "\n".join(lines)

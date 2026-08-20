@@ -9,6 +9,7 @@ import pytest
 
 from src.analyzers.reports.periodic import (
     CADENCES,
+    bancos_block,
     build_markdown,
     collect_snapshot,
     fiscal_docs_block,
@@ -128,6 +129,20 @@ class TestMarkdown:
         ]))
         assert "94,368.60" in text
         assert "cepal" in text
+
+    def test_bancos_block_vacio(self):
+        text = "\n".join(bancos_block([]))
+        assert "Sin tasas bancarias" in text
+
+    def test_bancos_block_con_datos(self):
+        text = "\n".join(bancos_block([
+            {"source": "bcv", "rate": 777.42, "date": "2026-08-20"},
+            {"source": "banesco", "rate": 787.69, "date": "2026-08-19"},
+        ]))
+        assert "BCV oficial" in text
+        assert "777.42" in text
+        assert "banesco" in text
+        assert "787.69" in text
 
     def test_build_markdown_vacio(self):
         out = build_markdown({

@@ -430,6 +430,38 @@ def _mercado(story, snapshot: Dict) -> None:
         story.append(chart)
 
 
+def _bancos(story, snapshot: Dict) -> None:
+    _section(story, "Cotizaciones Bancarias (Bs/USD)")
+    bancos = snapshot.get("bancos") or []
+    if not bancos:
+        story.append(_p("_Sin tasas bancarias disponibles._", styles["Body"]))
+        return
+    # BCV oficial
+    bcv = [b for b in bancos if b.get("source") == "bcv"]
+    if bcv:
+        story.append(_p(
+            f"BCV oficial: {_fmt_currency(bcv[0].get('rate'))} Bs/USD",
+            styles["Body"],
+        ))
+        story.append(Spacer(1, 4))
+    # Bancos
+    others = sorted(
+        [b for b in bancos if b.get("source") != "bcv"],
+        key=lambda x: x.get("rate", 0),
+    )
+    if others:
+        headers = ["Banco", "Tasa (Bs/USD)", "Fecha"]
+        rows = [
+            [b.get("source", "?"),
+             _fmt_currency(b.get("rate")),
+             str(b.get("date", "—"))[:10]]
+            for b in others
+        ]
+        t = _data_table(headers, rows, widths=[6 * cm, 4 * cm, 4 * cm])
+        if t:
+            story.append(t)
+
+
 def _inflacion(story, snapshot: Dict) -> None:
     _section(story, "Inflación")
     points = snapshot.get("inflation") or []
@@ -662,6 +694,7 @@ def render_pdf(snapshot: Dict, output_path: str) -> str:
 
     _resumen(story, snapshot)
     _mercado(story, snapshot)
+    _bancos(story, snapshot)
     _inflacion(story, snapshot)
     story.append(PageBreak())
     _encuestas(story, snapshot)
