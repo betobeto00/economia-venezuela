@@ -50,35 +50,29 @@ def backfill_tickers_for_date(session, target_date: datetime) -> int:
 
 
 def backfill_ibc_current(session) -> dict:
-    """Guarda el IBC actual ( Investing.com solo da datos en tiempo real)."""
-    from src.collectors.market.ibc_components_collector import fetch_ibc_from_investing
+    """Guarda el IBC actual (Yahoo Finance + Playwright fallback)."""
+    from src.collectors.market.ibc_collector import fetch_ibc_current
     from src.db.repositories import IBCIndexRepository
 
     repo = IBCIndexRepository(session)
     summary = {"ibc_index": 0, "ibc_components": 0}
 
     try:
-        ibc = fetch_ibc_from_investing()
-        if ibc and ibc.value > 0:
+        ibc = fetch_ibc_current()
+        if ibc and ibc.get("value", 0) > 0:
             date = datetime.now(timezone.utc).replace(
                 hour=0, minute=0, second=0, microsecond=0
             )
-            saved = repo.save_index(date, ibc.value, ibc.change, ibc.change_pct)
+            saved = repo.save_index(
+                date, ibc["value"], ibc.get("change", 0), ibc.get("change_pct", 0)
+            )
             if saved:
                 summary["ibc_index"] = 1
 
-            if ibc.components:
-                comps = [
-                    {
-                        "ticker": c.ticker,
-                        "name": c.name,
-                        "price": c.price,
-                        "change_pct": c.change_pct,
-                        "volume": c.volume,
-                    }
-                    for c in ibc.components
-                ]
-                n = repo.save_components(date, comps)
+            # Componentes (solo si vienen del scraper)
+            components = ibc.get("components", [])
+            if components:
+                n = repo.save_components(date, components)
                 summary["ibc_components"] = n
     except Exception as exc:  # noqa: BLE001
         logger.warning("Error IBC: %s", exc)
