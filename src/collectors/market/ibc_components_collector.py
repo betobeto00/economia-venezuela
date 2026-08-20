@@ -1,11 +1,12 @@
 """
-Collector de componentes del IBC vía Investing.com
-====================================================
+Collector de componentes del IBC vía Investing.com (Playwright)
+================================================================
 
-Scrapea la página del IBC en Investing.com para obtener las 9 acciones
-componentes del índice con sus precios, variaciones y volumen.
+Scrapea la página del IBC en Investing.com con Playwright para obtener
+las 9 acciones componentes del índice con precios, variaciones y volumen.
 
 Yahoo Finance NO tiene estas acciones, por eso se usa Investing.com.
+Playwright evita el bloqueo 403 de httpx.
 """
 
 import logging
@@ -13,26 +14,24 @@ import re
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
-import httpx
-
 logger = logging.getLogger(__name__)
 
 IBC_URL = "https://es.investing.com/indices/bursatil"
 
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-    ),
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
-    "Accept-Encoding": "gzip, deflate",
+KNOWN_COMPONENTS = {
+    "BPV": "Banco Provincial",
+    "MPA": "Manufacturas de Papel",
+    "CRMa": "Corimon",
+    "TDVd": "Nacional Teléfonos de Venezuela",
+    "MVZb": "Mercantil Servicios Fin B",
+    "MVZa": "Mercantil Servicios Fin A",
+    "ENV": "Envases Venezolanos",
+    "FVIb": "FVI SACA B",
 }
 
 
 @dataclass
 class IBCComponent:
-    """Componente del índice IBC."""
     ticker: str
     name: str
     price: float
@@ -45,7 +44,6 @@ class IBCComponent:
 
 @dataclass
 class IBCIndex:
-    """Índice IBC completo."""
     value: float
     change: float
     change_pct: float
@@ -55,8 +53,8 @@ class IBCIndex:
     losers: List[IBCComponent]
 
 
-def _parse_number(text: str) -> float:
-    """Parsea un número con formato español (1.234,56) a float."""
+def _parse_es_number(text: str) -> float:
+    """Parsea numero espanol (1.234,56) a float."""
     if not text:
         return 0.0
     cleaned = text.strip().replace(".", "").replace(",", ".")
@@ -86,220 +84,134 @@ def _parse_volume(text: str) -> int:
 
 
 def fetch_ibc_from_investing() -> Optional[IBCIndex]:
-    """Obtiene datos del IBC y sus componentes desde Investing.com.
-
-    Returns:
-        IBCIndex con todos los datos, o None si falla el scraping.
-    """
+    """Obtiene datos del IBC y sus componentes desde Investing.com usando Playwright."""
     try:
-        resp = httpx.get(IBC_URL, headers=HEADERS, follow_redirects=True, timeout=30)
-        if resp.status_code != 200:
-            logger.warning("Investing.com responded %d", resp.status_code)
-            return None
-        text = resp.text
-    except Exception as exc:
-        logger.warning("Error fetching Investing.com: %s", exc)
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        logger.warning("Playwright no instalado: pip install playwright && playwright install chromium")
         return None
 
-    # Extract main IBC value
-    # Pattern: "5.562,55" followed by change info
-    ibc_match = re.search(
-        r'"lastPrice"[:\s]*"?([\d.,]+)"?', text
-    )
-    ibc_value = 0.0
-    if ibc_match:
-        ibc_value = _parse_number(ibc_match.group(1))
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+            )
+            page.goto(IBC_URL, wait_until="domcontentloaded", timeout=30000)
+            page.wait_for_timeout(8000)
 
-    # Try alternative patterns
-    if ibc_value == 0:
-        # Look for the main price display
-        price_patterns = [
-            r'"last"[:\s]*"?([\d.,]+)"?',
-            r'"close"[:\s]*"?([\d.,]+)"?',
-            r'data-test="lastPrice"[^>]*>([\d.,]+)<',
-        ]
-        for pat in price_patterns:
-            m = re.search(pat, text)
-            if m:
-                ibc_value = _parse_number(m.group(1))
-                if ibc_value > 0:
+            # Extract IBC value from body text
+            body = page.inner_text("body")
+            ibc_value = 0.0
+            for line in body.split("\n"):
+                line = line.strip()
+                m = re.match(r"^[\d.]+,\d{2}$", line)
+                if m:
+                    ibc_value = _parse_es_number(line)
+                    if ibc_value > 100:
+                        break
+
+            # Extract tables
+            tables = page.query_selector_all("table")
+            components = []
+            gainers = []
+            losers = []
+
+            # Table 1: IBC components (Nombre, Ultimo, Anterior, Maximo, Minimo, % Var., Vol., Fecha)
+            if len(tables) > 1:
+                rows = tables[1].query_selector_all("tr")
+                for row in rows[1:]:  # skip header
+                    cells = row.query_selector_all("td")
+                    if len(cells) >= 7:
+                        cell_text = [c.inner_text().strip() for c in cells]
+                        # Parse: BPV\nBanco Provincial SA | 61,45 | 3,81 | 62,17 | 59,00 | 0,00% | 0 | 19/08
+                        name_raw = cell_text[0]
+                        ticker = ""
+                        comp_name = ""
+                        for t, n in KNOWN_COMPONENTS.items():
+                            if t in name_raw:
+                                ticker = t
+                                comp_name = n
+                                break
+                        if not ticker:
+                            continue
+
+                        price = _parse_es_number(cell_text[1])
+                        prev_close = _parse_es_number(cell_text[2])
+                        high = _parse_es_number(cell_text[3])
+                        low = _parse_es_number(cell_text[4])
+                        change_pct = _parse_es_number(cell_text[5])
+                        vol = _parse_volume(cell_text[6])
+
+                        comp = IBCComponent(
+                            ticker=ticker,
+                            name=comp_name,
+                            price=price,
+                            change_pct=change_pct,
+                            prev_close=prev_close,
+                            high=high,
+                            low=low,
+                            volume=vol,
+                        )
+                        components.append(comp)
+
+            # Table 2: Ganadores, Table 3: Perdedores
+            if len(tables) > 2:
+                gainers = _extract_gainers_losers(tables[2], is_gainers=True)
+            if len(tables) > 3:
+                losers = _extract_gainers_losers(tables[3], is_gainers=False)
+
+            browser.close()
+
+            return IBCIndex(
+                value=ibc_value,
+                change=0.0,
+                change_pct=0.0,
+                date="",
+                components=components,
+                gainers=gainers if gainers else sorted(components, key=lambda x: x.change_pct, reverse=True)[:5],
+                losers=losers if losers else sorted(components, key=lambda x: x.change_pct)[:5],
+            )
+
+    except Exception as exc:
+        logger.warning("Playwright error: %s", exc)
+        return None
+
+
+def _extract_gainers_losers(table, is_gainers: bool = True) -> List[IBCComponent]:
+    """Extrae tabla de ganadores/perdedores."""
+    components = []
+    rows = table.query_selector_all("tr")
+    for row in rows[1:]:  # skip header
+        cells = row.query_selector_all("td")
+        if len(cells) >= 2:
+            name_raw = cells[0].inner_text().strip()
+            price_data = cells[1].inner_text().strip()
+
+            ticker = ""
+            comp_name = ""
+            for t, n in KNOWN_COMPONENTS.items():
+                if t in name_raw or n.split()[0].lower() in name_raw.lower():
+                    ticker = t
+                    comp_name = n
                     break
 
-    # Extract change percentage
-    change_pct = 0.0
-    change_patterns = [
-        r'"changePercent"[:\s]*"?([\d.,\-+]+)"?',
-        r'"percentChange"[:\s]*"?([\d.,\-+]+)"?',
-    ]
-    for pat in change_patterns:
-        m = re.search(pat, text)
-        if m:
-            change_pct = _parse_number(m.group(1))
-            break
+            if not ticker:
+                continue
 
-    # Extract change value
-    change_val = 0.0
-    change_val_patterns = [
-        r'"change"[:\s]*"?([\d.,\-+]+)"?',
-    ]
-    for pat in change_val_patterns:
-        m = re.search(pat, text)
-        if m:
-            change_val = _parse_number(m.group(1))
-            break
+            lines = price_data.split("\n")
+            price = _parse_es_number(lines[0]) if lines else 0
+            change_pct = _parse_es_number(lines[2]) if len(lines) > 2 else 0
 
-    # Extract components from the table
-    components = _extract_components_from_html(text)
-
-    # Sort into gainers/losers
-    gainers = sorted(
-        [c for c in components if c.change_pct > 0],
-        key=lambda x: x.change_pct,
-        reverse=True,
-    )
-    losers = sorted(
-        [c for c in components if c.change_pct < 0],
-        key=lambda x: x.change_pct,
-    )
-
-    # Extract date
-    date_match = re.search(r'"lastUpdate"[:\s]*"?(\d{2}/\d{2}/\d{4})', text)
-    date_str = date_match.group(1) if date_match else ""
-
-    return IBCIndex(
-        value=ibc_value,
-        change=change_val,
-        change_pct=change_pct,
-        date=date_str,
-        components=components,
-        gainers=gainers,
-        losers=losers,
-    )
-
-
-def _extract_components_from_html(html: str) -> List[IBCComponent]:
-    """Extrae componentes del IBC del HTML de Investing.com."""
-    components = []
-
-    # Known IBC components (9 total)
-    known_components = {
-        "BPV": "Banco Provincial",
-        "MPA": "Manufacturas de Papel",
-        "CRMa": "Corimon",
-        "TDVd": "Nacional Teléfonos de Venezuela",
-        "MVZb": "Mercantil Servicios Fin B",
-        "MVZa": "Mercantil Servicios Fin A",
-        "ENV": "Envases Venezolanos",
-        "FVIb": "FVI SACA B",
-    }
-
-    # Try to find component data in __NEXT_DATA__ or inline JSON
-    next_data_match = re.search(
-        r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL
-    )
-    if next_data_match:
-        import json
-        try:
-            data = json.loads(next_data_match.group(1))
-            props = data.get("props", {}).get("pageProps", {})
-            # Navigate to find table data
-            table_data = _find_components_in_json(props)
-            if table_data:
-                return table_data
-        except (json.JSONDecodeError, KeyError):
-            pass
-
-    # Fallback: extract from HTML table rows
-    # Look for table rows with stock data
-    row_pattern = re.compile(
-        r'<tr[^>]*>.*?</tr>', re.DOTALL
-    )
-    rows = row_pattern.findall(html)
-
-    for row in rows:
-        cells = re.findall(r'<td[^>]*>(.*?)</td>', row, re.DOTALL)
-        if len(cells) >= 5:
-            clean_cells = [re.sub(r'<[^>]+>', '', c).strip() for c in cells]
-            # Check if first cell looks like a ticker
-            ticker = clean_cells[0] if clean_cells else ""
-            if ticker in known_components:
-                price = _parse_number(clean_cells[1]) if len(clean_cells) > 1 else 0
-                change_pct = _parse_number(clean_cells[4]) if len(clean_cells) > 4 else 0
-                vol = _parse_volume(clean_cells[5]) if len(clean_cells) > 5 else 0
-                components.append(IBCComponent(
-                    ticker=ticker,
-                    name=known_components.get(ticker, ticker),
-                    price=price,
-                    change_pct=change_pct,
-                    prev_close=0.0,
-                    high=0.0,
-                    low=0.0,
-                    volume=vol,
-                ))
-
-    # If no components found from HTML, return empty (will need manual update)
-    if not components:
-        logger.info(
-            "No se pudieron extraer componentes del HTML. "
-            "Usando datos de fallback."
-        )
-
-    return components
-
-
-def _find_components_in_json(data, depth=0) -> Optional[List[IBCComponent]]:
-    """Busca recursivamente datos de componentes en JSON anidado."""
-    if depth > 5:
-        return None
-
-    if isinstance(data, dict):
-        # Check if this dict has component-like data
-        if "symbol" in data and ("last" in data or "price" in data):
-            return None  # Would need to build component
-
-        for key, val in data.items():
-            if isinstance(val, list) and len(val) > 0:
-                # Check if list items have component-like structure
-                first = val[0]
-                if isinstance(first, dict) and any(
-                    k in first for k in ["symbol", "ticker", "name"]
-                ):
-                    return _parse_components_list(val)
-            result = _find_components_in_json(val, depth + 1)
-            if result:
-                return result
-
-    return None
-
-
-def _parse_components_list(items: List[Dict]) -> List[IBCComponent]:
-    """Parsea una lista de dicts en componentes IBC."""
-    known_names = {
-        "BPV": "Banco Provincial",
-        "MPA": "Manufacturas de Papel",
-        "CRMa": "Corimon",
-        "TDVd": "Nacional Teléfonos de Venezuela",
-        "MVZb": "Mercantil Servicios Fin B",
-        "MVZa": "Mercantil Servicios Fin A",
-        "ENV": "Envases Venezolanos",
-        "FVIb": "FVI SACA B",
-    }
-
-    components = []
-    for item in items:
-        ticker = item.get("symbol") or item.get("ticker") or ""
-        if ticker in known_names:
-            price = float(item.get("last") or item.get("price") or 0)
-            change_pct = float(item.get("changePercent") or item.get("percentChange") or 0)
-            vol = int(item.get("volume") or 0)
             components.append(IBCComponent(
                 ticker=ticker,
-                name=known_names.get(ticker, ticker),
+                name=comp_name,
                 price=price,
                 change_pct=change_pct,
-                prev_close=float(item.get("prevClose") or 0),
-                high=float(item.get("high") or 0),
-                low=float(item.get("low") or 0),
-                volume=vol,
+                prev_close=0.0,
+                high=0.0,
+                low=0.0,
+                volume=0,
             ))
+
     return components
