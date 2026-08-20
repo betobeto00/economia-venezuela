@@ -7,18 +7,21 @@ Este documento describe la arquitectura técnica del sistema de monitoreo econó
 ## ✅ Estado de Implementación
 
 > Secciones de este documento con `**DISEÑO**` describen el estado objetivo. Lo que sigue
-> ya está **implementado y testeado** (158 tests):
+> ya está **implementado y testeado** (299 tests):
 
 | Componente | Estado |
 |------------|--------|
-| Collectors Fase A | ✅ BCV, OVF, BVC, Binance, INE, OPEP, ONAPRE, CGR, World Bank, RSS, Reddit |
+| Collectors Fase A | ✅ BCV, OVF, BVC, Binance, Bybit, INE, OPEP, ONAPRE, CGR, World Bank, RSS, Reddit, IBC components, IBC stocks, dolar paralelo bancos |
+| Collectors Fiscales | ✅ SENIAT, MPPEF, Gaceta Oficial, AN |
+| Collectors Internacionales | ✅ FMI (SDMX), CEPAL, UNSCEB, PDVSA |
 | Integración econométrica | ✅ `analyzers/market_integration.py` (ARIMA/SARIMA sobre collectors) |
 | Encuestas (código) | ✅ Collector gspread idempotente, modelos, KPIs, contraste, dashboard |
 | Encuestas (manual) | 🟡 Formularios Google + service account pendientes |
-| Persistencia | ✅ `db/` con ORMs, repositorios y migraciones SQL (encuestas + mercado) |
-| Dashboard Streamlit | ✅ Tabs Inicio/Encuestas, métricas de mercado desde DB |
-| Scheduler | ✅ APScheduler: jobs de encuestas (60 min) y mercado (30 min) |
-| CLIs | ✅ `src/scripts/collect_surveys.py` y `collect_market.py` |
+| Persistencia | ✅ `db/` con ORMs (9 tablas), repositorios y migraciones SQL |
+| Dashboard Streamlit | ✅ 3 tabs (Inicio, Noticias, Encuestas), métricas desde DB, gráficos Plotly |
+| Scheduler | ✅ APScheduler: 11 jobs (mercado, encuestas, noticias, informe semanal, 6 informes periódicos) |
+| Informes | ✅ Semanal (IA) + periódicos diario→anual (MD + PDF) |
+| CLIs | ✅ collect_market, collect_news, collect_surveys, backfill_rates, backfill_ibc, generate_report |
 
 ---
 
@@ -525,46 +528,40 @@ class SurveyAnalyzer:
 Interfaz de usuario para explorar datos e informes.
 
 #### 4.1 Streamlit Dashboard
+
+El dashboard tiene 3 tabs:
+- **🏠 Inicio**: Tarjetas de dólar oficial/paralelo/Bybit, inflación, brecha cambiaria, gráfico 6 meses
+- **📰 Noticias**: Sentimiento de noticias/posts, distribución, últimos titulares
+- **📋 Encuestas**: KPIs por segmento, serie temporal, contraste percepción vs realidad, informe ejecutivo
+
 ```python
-# src/dashboard/app.py
+# src/dashboard/app.py (fragmento)
 
 import streamlit as st
 
-def main():
-    """Dashboard principal de Economía Venezuela"""
-    
-    st.set_page_config(
-        page_title="Economía Venezuela",
-        page_icon="🇻🇪",
-        layout="wide"
-    )
-    
-    # Sidebar con filtros
-    with st.sidebar:
-        st.header("🔍 Filtros")
-        date_range = st.date_input("Rango de fechas")
-        metrics = st.multiselect("Métricas", get_available_metrics())
-    
-    # Dashboard principal
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.metric("Dólar Oficial", f" Bs {get_official_rate()}")
-    
-    with col2:
-        st.metric("Dólar Paralelo", f" Bs {get_parallel_rate()}")
-    
-    with col3:
-        st.metric("Inflación Mensual", f"{get_monthly_inflation()}%")
-    
-    # Gráficos interactivos
-    st.plotly_chart(create_exchange_rate_chart())
-    st.plotly_chart(create_inflation_chart())
-    st.plotly_chart(create_sentiment_chart())
-    
-    # Último informe
-    st.subheader("📋 Último Informe Semanal")
-    st.markdown(get_latest_report())
+# Page config
+st.set_page_config(
+    page_title="Economía Venezuela",
+    page_icon="🇻🇪",
+    layout="wide"
+)
+
+# Tabs
+tab_inicio, tab_noticias, tab_encuestas = st.tabs(
+    ["🏠 Inicio", "📰 Noticias", "📋 Encuestas"]
+)
+
+with tab_inicio:
+    metrics = dashboard_metrics()
+    brecha = brecha_porcentaje(metrics["oficial"], metrics["paralelo"])
+    # 4 métricas: Oficial, Binance, Bybit, Inflación
+    # + 2 tarjetas de brecha + gráfico Plotly 6 meses
+
+with tab_noticias:
+    render_news_section()  # Sentimiento + titulares
+
+with tab_encuestas:
+    render_survey_section(survey_segment)  # KPIs + serie + contraste + informe
 ```
 
 #### 4.2 Componentes del Dashboard
@@ -686,148 +683,205 @@ class TaskScheduler:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                         BASE DE DATOS                               │
+│                         BASE DE DATOS (9 tablas)                    │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                      │
 │  ┌──────────────────┐      ┌──────────────────┐                     │
-│  │   dollar_rates   │      │      news        │                     │
+│  │ exchange_rates   │      │  inflation_points│                     │
 │  │──────────────────│      │──────────────────│                     │
-│  │ id (PK)          │      │ id (PK)          │                     │
-│  │ timestamp        │      │ title            │                     │
-│  │ official_rate    │      │ content          │                     │
-│  │ parallel_rate    │      │ source           │                     │
-│  │ binance_p2p      │      │ published_at     │                     │
-│  │ spread           │      │ category         │                     │
-│  │ source           │      │ url              │                     │
+│  │ id (BIGINT PK)   │      │ id (BIGINT PK)   │                     │
+│  │ source           │      │ source           │                     │
+│  │ currency         │      │ period (YYYY-MM) │                     │
+│  │ rate             │      │ monthly_rate     │                     │
+│  │ date             │      │ annual_rate      │                     │
+│  │ variation_pct    │      │ index            │                     │
 │  └──────────────────┘      └──────────────────┘                     │
-│           │                         │                                │
-│           │                         │                                │
-│  ┌────────┴────────┐      ┌────────┴────────┐                       │
-│  │   inflation     │      │   sentiment     │                       │
-│  │─────────────────│      │─────────────────│                       │
-│  │ id (PK)         │      │ id (PK)         │                       │
-│  │ timestamp       │      │ timestamp       │                       │
-│  │ monthly_rate    │      │ source          │                       │
-│  │ annual_rate     │      │ text            │                       │
-│  │ cumulative      │      │ score           │                       │
-│  │ source          │      │ label           │                       │
-│  └─────────────────┘      └─────────────────┘                       │
 │                                                                      │
 │  ┌──────────────────┐      ┌──────────────────┐                     │
-│  │   products       │      │    reports       │                     │
+│  │  news_articles   │      │   social_posts   │                     │
 │  │──────────────────│      │──────────────────│                     │
-│  │ id (PK)          │      │ id (PK)          │                     │
-│  │ name             │      │ generated_at     │                     │
-│  │ category         │      │ type             │                     │
-│  │ price            │      │ content          │                     │
-│  │ currency         │      │ metrics          │                     │
-│  │ timestamp        │      │ status           │                     │
-│  │ source           │      └──────────────────┘                     │
-│  └──────────────────┘                                                │
-│                                                                      │
-│  ┌──────────────────┐      ┌──────────────────┐   (NUEVO)           │
-│  │     surveys      │◄─────│ survey_responses │                     │
-│  │──────────────────│      │──────────────────│                     │
-│  │ id (PK)          │      │ id (PK)          │                     │
-│  │ survey_type      │      │ survey_id (FK)   │                     │
-│  │ form_id          │      │ submitted_at     │                     │
-│  │ sheet_id         │      │ respondent_seg.  │                     │
-│  │ form_version     │      │ raw_answers JSONB│                     │
-│  │ active           │      │ kpis JSONB       │                     │
-│  └──────────────────┘      │ quality_score    │                     │
+│  │ id (BIGINT PK)   │      │ id (BIGINT PK)   │                     │
+│  │ source           │      │ source (reddit)  │                     │
+│  │ title            │      │ channel          │                     │
+│  │ url              │      │ title            │                     │
+│  │ published        │      │ url              │                     │
+│  │ summary          │      │ text             │                     │
+│  └──────────────────┘      │ score / comments │                     │
+│                            │ published        │                     │
 │                            └──────────────────┘                     │
+│                                                                      │
+│  ┌──────────────────┐      ┌──────────────────┐                     │
+│  │ sentiment_scores │      │     surveys      │                     │
+│  │──────────────────│      │──────────────────│                     │
+│  │ id (BIGINT PK)   │      │ id (INT PK)      │                     │
+│  │ item_type        │      │ survey_type      │                     │
+│  │ item_id (FK)     │      │ form_id          │                     │
+│  │ text             │      │ sheet_id         │                     │
+│  │ score            │      │ form_version     │                     │
+│  │ label            │      │ name             │                     │
+│  │ analyzed_at      │      │ active           │                     │
+│  └──────────────────┘      └────────┬─────────┘                     │
+│                                     │                                │
+│                            ┌────────┴─────────┐                     │
+│                            │ survey_responses │                     │
+│                            │──────────────────│                     │
+│                            │ id (BIGINT PK)   │                     │
+│                            │ survey_id (FK)   │                     │
+│                            │ submitted_at     │                     │
+│                            │ respondent_seg.  │                     │
+│                            │ raw_answers JSONB│                     │
+│                            │ kpis JSONB       │                     │
+│                            │ quality_score    │                     │
+│                            └──────────────────┘                     │
+│                                                                      │
+│  ┌──────────────────┐      ┌──────────────────┐                     │
+│  │   ibc_index      │      │  ibc_components  │                     │
+│  │──────────────────│      │──────────────────│                     │
+│  │ id (BIGINT PK)   │      │ id (BIGINT PK)   │                     │
+│  │ date             │      │ date             │                     │
+│  │ value            │      │ ticker           │                     │
+│  │ change           │      │ name             │                     │
+│  │ change_pct       │      │ price            │                     │
+│  │ fetched_at       │      │ change_pct       │                     │
+│  └──────────────────┘      │ volume           │                     │
+│                            │ fetched_at       │                     │
+│                            └──────────────────┘                     │
+│                                                                      │
+│  ┌──────────────────────────────────┐                                │
+│  │    venezuelan_tickers            │                                │
+│  │──────────────────────────────────│                                │
+│  │ id (BIGINT PK)                   │                                │
+│  │ date / ticker / name             │                                │
+│  │ close / change_pct / avg_volume  │                                │
+│  │ fetched_at                       │                                │
+│  └──────────────────────────────────┘                                │
 │                                                                      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### Esquemas SQL
+### Esquemas SQL (ORMs SQLAlchemy)
+
+Los ORMs están en `src/db/models.py`. Tablas principales:
 
 ```sql
--- Tabla de tasas de cambio (TimescaleDB hypertable)
-CREATE TABLE dollar_rates (
-    time TIMESTAMPTZ NOT NULL,
-    official_rate DECIMAL(10,2),
-    parallel_rate DECIMAL(10,2),
-    binance_p2p DECIMAL(10,2),
-    spread DECIMAL(5,2),
-    source VARCHAR(50)
+-- Tasas de cambio (por fuente y moneda)
+CREATE TABLE exchange_rates (
+    id BIGSERIAL PRIMARY KEY,
+    source VARCHAR(20) NOT NULL,        -- bcv, ovf, binance, bybit, bancos...
+    currency VARCHAR(10) NOT NULL,      -- usd, usdt...
+    rate DECIMAL(18,6) NOT NULL,
+    date TIMESTAMPTZ NOT NULL,
+    variation_pct DECIMAL(10,4),
+    UNIQUE (source, currency, date)
 );
 
--- Convertir a hypertable para series temporales
-SELECT create_hypertable('dollar_rates', 'time');
-
--- Tabla de inflación
-CREATE TABLE inflation (
-    time TIMESTAMPTZ NOT NULL,
-    monthly_rate DECIMAL(5,2),
-    annual_rate DECIMAL(10,2),
-    cumulative DECIMAL(10,2),
-    source VARCHAR(50)
+-- Inflación mensual por emisor y período
+CREATE TABLE inflation_points (
+    id BIGSERIAL PRIMARY KEY,
+    source VARCHAR(20) NOT NULL,        -- bcv, ovf, world_bank
+    period VARCHAR(7) NOT NULL,         -- YYYY-MM
+    monthly_rate DECIMAL(10,4),
+    annual_rate DECIMAL(10,4),
+    index DECIMAL(18,6),
+    UNIQUE (source, period)
 );
 
--- Tabla de noticias
-CREATE TABLE news (
-    id SERIAL PRIMARY KEY,
-    title VARCHAR(500) NOT NULL,
-    content TEXT,
-    source VARCHAR(100),
-    published_at TIMESTAMPTZ,
-    category VARCHAR(50),
-    url VARCHAR(1000),
-    created_at TIMESTAMPTZ DEFAULT NOW()
+-- Artículos de noticias (RSS)
+CREATE TABLE news_articles (
+    id BIGSERIAL PRIMARY KEY,
+    source VARCHAR(100) NOT NULL,
+    title VARCHAR(300) NOT NULL,
+    url VARCHAR(1000) NOT NULL,
+    published TIMESTAMPTZ,
+    summary VARCHAR(500),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (source, url)
 );
 
--- Tabla de sentimiento
-CREATE TABLE sentiment (
-    time TIMESTAMPTZ NOT NULL,
-    source VARCHAR(50),
-    text TEXT,
-    score DECIMAL(3,2),
-    label VARCHAR(20)
+-- Publicaciones sociales (Reddit)
+CREATE TABLE social_posts (
+    id BIGSERIAL PRIMARY KEY,
+    source VARCHAR(20) NOT NULL,        -- reddit
+    channel VARCHAR(100) NOT NULL,      -- subreddit
+    title VARCHAR(300) NOT NULL,
+    url VARCHAR(1000) NOT NULL,
+    text VARCHAR(1000),
+    score INTEGER,
+    num_comments INTEGER,
+    published TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (source, url)
 );
 
--- Tabla de productos
-CREATE TABLE products (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(200) NOT NULL,
-    category VARCHAR(100),
-    price DECIMAL(10,2),
-    currency VARCHAR(3),
-    timestamp TIMESTAMPTZ,
-    source VARCHAR(50)
+-- Puntajes de sentimiento (por ítem)
+CREATE TABLE sentiment_scores (
+    id BIGSERIAL PRIMARY KEY,
+    item_type VARCHAR(20) NOT NULL,     -- news | social
+    item_id BIGINT NOT NULL,
+    text VARCHAR(500) NOT NULL,
+    score DECIMAL(5,4) NOT NULL,
+    label VARCHAR(10) NOT NULL,         -- positive | neutral | negative
+    analyzed_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (item_type, item_id)
 );
 
--- Tabla de informes
-CREATE TABLE reports (
-    id SERIAL PRIMARY KEY,
-    generated_at TIMESTAMPTZ NOT NULL,
-    type VARCHAR(50),
-    content TEXT,
-    metrics JSONB,
-    status VARCHAR(20)
+-- Índice IBC (Bolsa de Valores de Caracas)
+CREATE TABLE ibc_index (
+    id BIGSERIAL PRIMARY KEY,
+    date TIMESTAMPTZ NOT NULL UNIQUE,
+    value DECIMAL(12,2) NOT NULL,
+    "change" DECIMAL(12,2) DEFAULT 0,
+    change_pct DECIMAL(8,4) DEFAULT 0,
+    fetched_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Tablas de encuestas (NUEVO)
+-- Componentes del IBC (acciones individuales)
+CREATE TABLE ibc_components (
+    id BIGSERIAL PRIMARY KEY,
+    date TIMESTAMPTZ NOT NULL,
+    ticker VARCHAR(10) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    price DECIMAL(12,2) NOT NULL,
+    change_pct DECIMAL(8,4) DEFAULT 0,
+    volume BIGINT DEFAULT 0,
+    fetched_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (date, ticker)
+);
+
+-- Tickers venezolanos relevantes (fuera del IBC)
+CREATE TABLE venezuelan_tickers (
+    id BIGSERIAL PRIMARY KEY,
+    date TIMESTAMPTZ NOT NULL,
+    ticker VARCHAR(10) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    close DECIMAL(12,2) NOT NULL,
+    change_pct DECIMAL(8,4) DEFAULT 0,
+    avg_volume BIGINT DEFAULT 0,
+    fetched_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (date, ticker)
+);
+
+-- Encuestas (Google Forms)
 CREATE TABLE surveys (
     id SERIAL PRIMARY KEY,
-    survey_type VARCHAR(50) NOT NULL,   -- persona_comun | comerciante | ...
-    form_id VARCHAR(100) NOT NULL,      -- ID del Google Form
-    sheet_id VARCHAR(100) NOT NULL,     -- ID de la Google Sheet vinculada
+    survey_type VARCHAR(50) NOT NULL,   -- persona_comun | comerciante
+    form_id VARCHAR(100) NOT NULL,
+    sheet_id VARCHAR(100) NOT NULL,
     form_version INT NOT NULL DEFAULT 1,
     name VARCHAR(200),
     active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Respuestas de encuestas (JSONB flexible para preguntas variables)
+-- Respuestas de encuestas (JSONB flexible)
 CREATE TABLE survey_responses (
     id BIGSERIAL PRIMARY KEY,
     survey_id INT REFERENCES surveys(id),
     submitted_at TIMESTAMPTZ NOT NULL,
     respondent_segment VARCHAR(50),
     timezone VARCHAR(50),
-    raw_answers JSONB,                  -- Respuestas crudas (pregunta → valor)
-    kpis JSONB,                         -- KPIs derivados normalizados
+    raw_answers JSONB,
+    kpis JSONB,
     quality_score DECIMAL(3,2),
     source VARCHAR(20) DEFAULT 'google_forms',
     UNIQUE (survey_id, submitted_at, raw_answers)
@@ -1232,16 +1286,17 @@ settings = Settings()
 
 | Aspecto | Descripción |
 |---------|-------------|
-| **Tipo** | Microservicios + Event-Driven |
+| **Tipo** | Modular monolith + Scheduler |
 | **Lenguaje** | Python 3.10+ |
-| **Base de Datos** | PostgreSQL + TimescaleDB |
-| **Cache** | Redis |
-| **IA** | DeepSeek V4-Pro |
-| **Dashboard** | Streamlit |
+| **Base de Datos** | PostgreSQL (9 tablas ORMs) |
+| **Cache** | Redis (opcional) |
+| **IA** | Cadena de 8 LLMs con fallback (LLM1..LLM8) |
+| **Dashboard** | Streamlit (3 tabs: Inicio, Noticias, Encuestas) |
 | **Encuestas** | Google Forms + Google Sheets API (gspread) |
+| **Informes** | Semanal (IA) + periódicos diario→anual (MD + PDF) |
 | **Despliegue** | Docker + Docker Compose |
-| **CI/CD** | GitHub Actions |
-| **Monitoreo** | Prometheus + Grafana |
+| **Scheduler** | APScheduler (11 jobs) |
+| **Tests** | 299 tests (pytest) |
 
 ---
 

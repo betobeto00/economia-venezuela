@@ -277,37 +277,43 @@ Dada la dependencia venezolana del petróleo, es un sector crítico.
 
 ## 🔧 ESTRATEGIA DE INTEGRACIÓN
 
-### Arquitectura Modular de Collectors
+### Arquitectura Modular de Collectors (24 implementados)
 
 ```
 src/collectors/
-├── oficial/                    # Fuentes oficiales
-│   ├── bcv_collector.py       # Banco Central
-│   ├── ine_collector.py       # Instituto Nacional de Estadística
+├── market/                    # Mercados financieros (7)
+│   ├── bcv_collector.py       # BCV (dolarapi.com, IPC)
+│   ├── ovf_collector.py       # Observatorio de Finanzas (inflación)
+│   ├── bvc_collector.py       # Bolsa de Valores (yfinance)
+│   ├── binance_collector.py   # Binance P2P (USDT/VES)
+│   ├── ibc_components_collector.py  # IBC + 8 componentes (Investing.com)
+│   ├── ibc_stocks_collector.py      # Tickers venezolanos (Yahoo Finance)
+│   └── dolar_paralelo_collector.py  # Tasas bancarias (pyDolarVenezuela)
+├── fiscal/                    # Fuentes fiscales (6)
+│   ├── onapre_collector.py    # Oficina Nacional de Presupuesto
+│   ├── cgr_collector.py       # Contraloría General
+│   ├── seniat_collector.py    # SENIAT (fiscal)
 │   ├── mppef_collector.py     # Ministerio de Economía
-│   └── seniat_collector.py    # SENIAT (fiscal)
-├── internacional/              # Organismos internacionales
-│   ├── worldbank_collector.py # Banco Mundial
-│   ├── imf_collector.py       # FMI
-│   └── cepal_collector.py     # CEPAL
-├── independiente/              # Fuentes independientes
-│   ├── ovf_collector.py       # Observatorio de Finanzas
-│   ├── ove_collector.py       # Observatorio Venezolano
-│   └── ucab_collector.py      # UCAB IIES
-├── mercado/                    # Mercados financieros
-│   ├── bvc_collector.py       # Bolsa de Valores
-│   ├── dolar_collector.py     # Monitores de dólar
-│   └── binance_collector.py   # Binance P2P
-├── energetico/                 # Sector petrolero
-│   ├── pdvsa_collector.py     # PDVSA
+│   ├── gaceta_collector.py    # Gaceta Oficial (índice + PDFs)
+│   ├── an_collector.py        # Asamblea Nacional (leyes + actos)
+│   └── documents.py           # Helper: catálogo de documentos fiscales
+├── international/             # Organismos internacionales (6)
+│   ├── worldbank_collector.py # Banco Mundial (API REST)
+│   ├── imf_collector.py       # FMI (SDMX-JSON)
+│   ├── cepal_collector.py     # CEPAL (CEPALSTAT)
+│   ├── unsceb_collector.py    # UNSCEB (gasto ONU por país)
 │   ├── opec_collector.py      # OPEP
-│   └── eia_collector.py       # EIA (EE.UU.)
-├── noticias/                   # Prensa
-│   ├── rss_collector.py       # RSS feeds
-│   └── scraper_collector.py   # Scraping
-└── social/                     # Redes sociales
-    ├── reddit_collector.py    # Reddit
-    └── twitter_collector.py   # Twitter/X
+│   └── pdvsa_collector.py     # PDVSA (cesta venezolana)
+├── official/                  # Fuentes oficiales (1)
+│   └── ine_collector.py       # Instituto Nacional de Estadística
+├── news/                      # Prensa (1)
+│   └── rss_collector.py       # RSS feeds (Diario Las Américas, Cocuyo, etc.)
+├── social/                    # Redes sociales (1)
+│   └── reddit_collector.py    # Reddit r/vzla (API OAuth2)
+└── surveys/                   # Encuestas Google (3)
+    ├── survey_collector.py    # Lee Google Sheets (gspread)
+    ├── form_registry.py       # Catálogo de formularios
+    └── utils.py               # Normalización y validación
 ```
 
 ### Lógica de Contraste y Validación
@@ -385,16 +391,19 @@ si se mantiene la política monetaria actual.
 
 ### Tabla Resumen de Fuentes por Indicador
 
-| Indicador | BCV | OVF | FMI | BM | CEPAL | OPEP |
-|-----------|-----|-----|-----|----|-------|------|
-| Inflación (IPC) | ✅ | ✅ | ✅ | ✅ | ✅ | - |
-| Tipo de Cambio | ✅ | ✅ | - | - | - | - |
-| PIB | ✅ | ✅ | ✅ | ✅ | ✅ | - |
-| Reservas | ✅ | - | ✅ | ✅ | - | - |
-| Producción Petrolera | ✅ | - | - | ✅ | - | ✅ |
-| Deuda Pública | ✅ | - | ✅ | ✅ | - | - |
-| Empleo | ✅ | ✅ | - | ✅ | ✅ | - |
-| Balanza Comercial | ✅ | - | ✅ | ✅ | ✅ | - |
+| Indicador | BCV | OVF | FMI | BM | CEPAL | OPEP | UNSCEB |
+|-----------|-----|-----|-----|----|-------|------|--------|
+| Inflación (IPC) | ✅ | ✅ | ✅ | ✅ | ✅ | - | - |
+| Tipo de Cambio | ✅ | ✅ | - | - | - | - | - |
+| PIB | ✅ | ✅ | ✅ | ✅ | ✅ | - | - |
+| Reservas | ✅ | - | ✅ | ✅ | - | - | - |
+| Producción Petrolera | ✅ | - | - | ✅ | - | ✅ | - |
+| Deuda Pública | ✅ | - | ✅ | ✅ | - | - | - |
+| Empleo | ✅ | ✅ | - | ✅ | ✅ | - | - |
+| Balanza Comercial | ✅ | - | ✅ | ✅ | ✅ | - | - |
+| Gasto ONU Venezuela | - | - | - | - | - | - | ✅ |
+| IBC + Acciones | ✅ (BVC) | - | - | - | - | - | - |
+| Documentos Fiscales | ✅ (ONAPRE, CGR, SENIAT, MPPEF, Gaceta, AN) |
 
 ---
 
@@ -571,27 +580,42 @@ Pipeline:
 
 ### Fase 1: Fundamentos
 - [x] Configurar proyecto base
-- [x] Implementar modelos de datos
+- [x] Implementar modelos de datos (9 tablas ORMs)
 - [x] Módulo econométrico
 
-### Fase 2: Recolección
+### Fase 2: Recolección (24 collectors implementados)
 - [x] Collector BCV (DolarAPI oficial + IPC)
 - [x] Collector BVC (yfinance)
 - [x] Collector OVF (scraping)
 - [x] Collector Banco Mundial (API REST)
 - [x] Collector OPEP
 - [x] Collector Binance P2P (paralelo digital)
+- [x] Collector Bybit P2P (alternativo)
 - [x] Collector ONAPRE (ejecución presupuestaria)
 - [x] Collector CGR (contraloría)
+- [x] Collector SENIAT (fiscal)
+- [x] Collector MPPEF (ministerio)
+- [x] Collector Gaceta Oficial (índice + PDFs)
+- [x] Collector AN (Asamblea Nacional)
 - [x] Collector INE
+- [x] Collector FMI (SDMX-JSON)
+- [x] Collector CEPAL (CEPALSTAT)
+- [x] Collector UNSCEB (gasto ONU)
+- [x] Collector PDVSA (cesta venezolana)
+- [x] Collector IBC Components (Investing.com)
+- [x] Collector IBC Stocks (Yahoo Finance)
+- [x] Collector Dólar Paralelo Bancos (pyDolarVenezuela)
 - [x] Collector RSS (noticias)
 - [x] Collector Reddit (sentimiento)
-- [ ] Collector Dólar Paralelo (pydolarvenezuela)
+- [ ] Collector Caracas (alcaldía) — pendiente
+- [ ] Collector Twitter/X — pendiente
 - [x] **Formulario Persona Común (Google Forms)** ✅ activo
 - [x] **Formulario Comerciante (Google Forms)** ✅ activo
 - [x] **Collector de Encuestas (gspread)** ✅ pipeline end-to-end
 - [x] **Ingesta noticias/RSS + análisis de sentimiento** ✅ pipeline + dashboard
 - [x] **Filtro de relevancia económica** ✅ `analyzers/relevance.py` (léxico fuerte/débil)
+- [x] **Backfill IBC + tickers venezolanos** — `scripts/backfill_ibc.py`
+- [x] **Backfill histórico de tasas** — `scripts/backfill_rates.py` (usdt.com.ve CSV, CC-BY-4.0)
 
 ### Fase 3: Análisis
 - [x] Módulo econométrico
@@ -603,18 +627,20 @@ Pipeline:
 - [x] **Análisis de encuestas (percepción vs datos oficiales)**
 - [x] **Clima de negocios**
 
-### Fase 4: Visualización
-- [x] Dashboard con métricas en vivo (dólar oficial/paralelo, inflación)
-- [x] **Sección de encuestas en el dashboard**
-- [x] **Sección de noticias y sentimiento en el dashboard**
+### Fase 4: Visualización (Dashboard 3 tabs)
+- [x] Dashboard con métricas en vivo (dólar oficial/paralelo/Bybit, inflación)
+- [x] **Tab 🏠 Inicio**: tarjetas + brecha cambiaria + gráfico Plotly 6 meses
+- [x] **Tab 📰 Noticias**: sentimiento, distribución, últimos titulares
+- [x] **Tab 📋 Encuestas**: KPIs por segmento, serie temporal, contraste, informe ejecutivo
 - [ ] Dashboard con dispersión de fuentes
 - [ ] Sistema de alertas
 
-### Fase 5: Automatización (Informe semanal)
-- [x] **Cadena de LLMs con fallback** — `analyzers/llm.py` (LLM1..LLM8, estilo `dev/ds`)
+### Fase 5: Automatización (11 jobs scheduler)
+- [x] **Cadena de LLMs con fallback** — `analyzers/llm.py` (LLM1..LLM8)
 - [x] **Informe semanal automatizado** — `analyzers/reports/weekly.py` → `data/reports/`
-- [x] **Job semanal** (cron `WEEKLY_REPORT_DAY`/`WEEKLY_REPORT_HOUR`) → 4 jobs totales
-- [x] **Backfill histórico de tasas** — `scripts/backfill_rates.py` (usdt.com.ve CSV, CC-BY-4.0)
+- [x] **Informes periódicos (MD + PDF)** — `analyzers/reports/periodic.py` + `pdf_report.py`
+- [x] **CLI generate_report** — `--cadence`, `--since/--until`, `--format md,pdf`, `--no-ai`
+- [x] **11 jobs**: mercado (30min), encuestas (60min), noticias (6h), semanal (dom), 6 periódicos (cron)
 
 > **Nota histórico:** el CSV de usdt.com.ve (`/data/usdt-ves-historical.csv`, ~10MB,
 > snapshots 5 min de Binance/Bybit/BCV) cubre desde 2026-01-17. El backfill agrega a

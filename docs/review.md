@@ -83,34 +83,55 @@ El roadmap prioriza correctamente:
 
 ---
 
-## 🔧 Áreas de Oportunidad
+## 🔧 Estado Actual (Actualizado Agosto 2026)
 
-### 1. Colectores Implementados vs. Planificados
+### 1. Colectores Implementados
 
-**Estado Actual:** Fase 2 al 20%
+**Estado Actual:** Fase 2 al 95% — 24 collectors implementados y testeados.
 
-| Collector | Estado | Prioridad |
-|-----------|--------|-----------|
-| BCV | ⏳ Pendiente | 1️⃣ |
-| OVF | ⏳ Pendiente | 1️⃣ |
-| Banco Mundial | ⏳ Pendiente | 1️⃣ |
-| BVC | ⏳ Pendiente | 1️⃣ |
-| Binance | ⏳ Pendiente | 1️⃣ |
-| INE | ⏳ Pendiente | 2️⃣ |
-| OPEP | ⏳ Pendiente | 2️⃣ |
-| Noticias | ⏳ Pendiente | 2️⃣ |
-
-**Recomendación:** Priorizar colectores de prioridad 1.
+| Collector | Estado | Fuente |
+|-----------|--------|--------|
+| BCV | ✅ Implementado | dolarapi.com (oficial + IPC) |
+| OVF | ✅ Implementado | observatoriodefinanzas.com |
+| Banco Mundial | ✅ Implementado | API REST wbgapi |
+| BVC | ✅ Implementado | yfinance |
+| Binance P2P | ✅ Implementado | API P2P |
+| Bybit P2P | ✅ Implementado | API P2P |
+| INE | ✅ Implementado | Web scraping |
+| OPEP | ✅ Implementado | API |
+| Noticias RSS | ✅ Implementado | Diario Las Américas, Cocuyo, El Tiempo, Primicia |
+| Reddit | ✅ Implementado | API OAuth2 |
+| IBC Components | ✅ Implementado | Investing.com |
+| IBC Stocks | ✅ Implementado | Yahoo Finance |
+| Dólar Paralelo Bancos | ✅ Implementado | pyDolarVenezuela |
+| SENIAT | ✅ Implementado | Web scraping |
+| MPPEF | ✅ Implementado | Web scraping |
+| ONAPRE | ✅ Implementado | Web + PDF |
+| CGR | ✅ Implementado | Web scraping |
+| Gaceta Oficial | ✅ Implementado | API + HTML |
+| AN | ✅ Implementado | Web scraping |
+| FMI | ✅ Implementado | SDMX-JSON |
+| CEPAL | ✅ Implementado | CEPALSTAT |
+| UNSCEB | ✅ Implementado | CSV |
+| PDVSA | ✅ Implementado | pdvsa-adhoc.com |
+| Caracas (Alcaldía) | ⏳ Pendiente | Web scraping |
+| Twitter/X | ⏳ Pendiente | API v2 |
 
 ### 2. Pruebas Unitarias
 
-**Estado:** Tests existentes pero insuficientes.
+**Estado:** 299 tests (pytest) con buena cobertura.
 
-**Mejoras necesarias:**
-- Validación de entradas (series vacías, NaNs)
-- Comparación con valores conocidos
-- Tests de integración con datos mockeados
-- Tests de cada collector
+**Cobertura actual:**
+- Tests de econometría (ADF, SARIMA, VECM, GARCH, Newey-West, diagnósticos)
+- Tests de collectors (BCV, OVF, WorldBank, BVC, Binance, ONAPRE, CGR, IBC, encuestas, etc.)
+- Tests de DB (surveys, exchange_rates, inflation, idempotencia)
+- Tests de dashboard (market_data, surveys_data, news_section)
+- Tests de informes (periódicos, PDF, scheduler)
+- Tests de LLM (fallback, cadena, resumen)
+
+**Áreas pendientes de cobertura:**
+- Tests de integración con datos mockeados para collectors fiscales restantes
+- Tests de rendimiento para series temporales grandes
 
 ### 3. Manejo de Errores y Resiliencia
 
@@ -151,12 +172,16 @@ class Settings(BaseSettings):
 
 ### 5. Visualización (Fase 4)
 
-**Estado:** 0% - Pendiente de desarrollo.
+**Estado:** 55% — Dashboard funcional con 3 tabs.
 
-**Dashboard mínimo sugerido:**
-- Tasas de cambio (oficial y paralelo)
-- Gráfico de evolución del IBC
-- Tabla de indicadores macroeconómicos
+**Implementado:**
+- **Tab 🏠 Inicio**: 4 métricas (Oficial, Binance, Bybit, Inflación), 2 tarjetas de brecha, gráfico Plotly 6 meses
+- **Tab 📰 Noticias**: Sentimiento léxico español, distribución, últimos titulares
+- **Tab 📋 Encuestas**: KPIs por segmento, serie temporal, contraste percepción vs realidad, informe ejecutivo con IA
+
+**Pendiente:**
+- Dashboard con dispersión de fuentes
+- Sistema de alertas
 
 ---
 
@@ -266,61 +291,54 @@ ingesta idempotente en el scheduler.
 
 ---
 
-## 📊 Evaluación Resumen
+## 📊 Evaluación Resumen (Actualizado Agosto 2026)
 
 | Dimensión | Evaluación | Comentario |
 |-----------|------------|------------|
 | **Arquitectura** | ⭐⭐⭐⭐⭐ | Excelente, profesional y escalable |
-| **Documentación** | ⭐⭐⭐⭐⭐ | De las mejores en proyectos open-source |
-| **Módulo Econométrico** | ⭐⭐⭐⭐ | Muy bien implementado, falta integración con datos reales |
-| **Colectores** | ⭐⭐ | Estructura definida, pendiente de implementación |
-| **Visualización** | ⭐ | Pendiente de desarrollo |
-| **Pruebas** | ⭐⭐ | Existen, pero insuficientes |
-| **Potencial General** | ⭐⭐⭐⭐⭐ | Proyecto con enorme potencial |
+| **Documentación** | ⭐⭐⭐⭐⭐ | Actualizada, refleja el estado real del código |
+| **Módulo Econométrico** | ⭐⭐⭐⭐⭐ | Completo: ADF, SARIMA, VECM, GARCH, Newey-West, diagnósticos |
+| **Colectores** | ⭐⭐⭐⭐⭐ | 24 implementados (fiscales, internacionales, mercado, noticias, encuestas) |
+| **Dashboard** | ⭐⭐⭐⭐ | 3 tabs funcionales con gráficos Plotly, pendiente dispersión de fuentes |
+| **Pruebas** | ⭐⭐⭐⭐ | 299 tests con buena cobertura, pendiente integración fiscal |
+| **Informes** | ⭐⭐⭐⭐⭐ | Semanal (IA) + 6 cadencias periódicas (MD + PDF) |
+| **Potencial General** | ⭐⭐⭐⭐⭐ | Proyecto maduro con enorme potencial |
 
 ---
 
-## 🎯 Prioridades de Implementación
+## 🎯 Próximos Pasos (Agosto 2026)
 
-### Inmediato (Próximas 2 semanas)
-1. **Collector BCV** con pyDolarVenezuela
-2. **Collector OVF** (scraping)
-3. **Collector Banco Mundial** con wbgapi
-4. **Tests básicos** para colectores
+### Completar Fase 4 (Visualización)
+1. **Dashboard con dispersión de fuentes** — comparar BCV vs OVF vs FMI en una vista
+2. **Sistema de alertas** — notificaciones por cambios significativos
 
-### Corto Plazo (1 mes)
-5. **Collector BVC** con yfinance
-6. **Collector Binance P2P**
-7. **Sistema de confiabilidad de fuentes**
-8. **Manejo de errores robusto**
+### Completar Fase 5 (Automatización)
+3. **Despliegue en Railway** — configurar scheduler para que corra 24/7
+4. **Collector Caracas (Alcaldía)** — informes municipales
+5. **Collector Twitter/X** — sentimiento extendido
 
-### Mediano Plazo (2 meses)
-9. **Dashboard Streamlit** básico
-10. **Informe ejecutivo** con DeepSeek
-11. **Detección de quiebres estructurales**
-12. **Sistema de alertas**
-
-### Fase B: Encuestas Google (NUEVO)
-13. **Formulario Persona Común + Formulario Comerciante** (Google Forms)
-14. **Service account Google + vinculación Forms → Sheets**
-15. **`survey_collector.py`** (gspread, ingesta idempotente)
-16. **Tablas `surveys` / `survey_responses`** + normalizador
-17. **`analyzers/surveys/`**: KPIs por segmento + contraste con datos oficiales
-18. **Sección de encuestas en el dashboard** + resumen ejecutivo con IA
-19. **Tests del pipeline de encuestas**
+### Mejoras de Calidad
+6. **Sistema de confiabilidad de fuentes** — pesos por credibilidad
+7. **Detección de quiebres estructurales** — CUSUM/Chow
+8. **Tests de integración** — mockeados para collectors fiscales restantes
 
 ---
 
 ## 📝 Conclusión
 
-El proyecto tiene una **arquitectura excepcional** y **documentación de primer nivel**. El módulo econométrico está bien implementado. El área principal de mejora es la **implementación de colectores** para obtener datos reales.
+El proyecto ha evolucionado significativamente desde la revisión inicial. Ahora cuenta con:
 
-**Sin datos, el mejor módulo econométrico del mundo no sirve de nada.**
+- **24 collectors** implementados y testeados (fiscales, internacionales, mercado, noticias, encuestas)
+- **299 tests** con buena cobertura
+- **Dashboard funcional** con 3 tabs (Inicio, Noticias, Encuestas)
+- **Informes automatizados** semanal (IA) + 6 cadencias periódicas (MD + PDF)
+- **Scheduler robusto** con 11 jobs (APScheduler)
+- **Cadena de LLMs** con 8 proveedores fallback
 
-Una vez que estén funcionando los colectores de BCV, OVF y BVC, el resto del sistema cobrará vida. Las encuestas Google (Fase B) aportarán además los datos primarios de percepción que ningún otro colector puede dar.
+El área principal de mejora ahora es la **completar la visualización** (dispersión de fuentes, alertas) y el **despliegue 24/7** en Railway.
 
 ---
 
 **Review creado: Agosto 2025**
-**Versión: 2.0**
-**Actualización: Incorporado el sistema de encuestas Google (Fase B)**
+**Versión: 3.0**
+**Actualización: Estado actual del proyecto (24 collectors, 299 tests, 3 tabs dashboard, 11 jobs scheduler)**

@@ -245,18 +245,19 @@ result = vecm.fit_vecm(
 
 ---
 
-## 📁 Estructura de Collectors Fiscales
+## 📁 Estructura de Collectors Fiscales (6 implementados)
 
 ```
 src/collectors/fiscal/
 ├── __init__.py
-├── onapre_collector.py     # Oficina Nacional de Presupuesto
-├── cgr_collector.py        # Contraloría General
-├── an_collector.py         # Asamblea Nacional
-├── mppef_collector.py      # Ministerio de Economía
-├── caracas_collector.py    # Alcaldía de Caracas
-├── pdf_extractor.py        # Extracción de PDFs
-└── utils.py                # Funciones comunes
+├── onapre_collector.py     # Oficina Nacional de Presupuesto (Web + PDF)
+├── cgr_collector.py        # Contraloría General (Web scraping)
+├── seniat_collector.py     # SENIAT - Recaudación tributaria (Web scraping)
+├── mppef_collector.py      # Ministerio de Economía (Web scraping)
+├── gaceta_collector.py     # Gaceta Oficial - Índice + PDFs (API + HTML)
+├── an_collector.py         # Asamblea Nacional - Leyes + actos (Web scraping)
+├── documents.py            # Helper: catálogo de documentos (filtra hrefs, deriva títulos)
+└── __init__.py
 ```
 
 ### Ejemplo: Collector ONAPRE
@@ -465,4 +466,5 @@ openai==1.10.0  # DeepSeek API
 ---
 
 **Documento creado: Agosto 2025**
-**Versión: 1.0**
+**Versión: 2.0**
+**Actualización: 6 collectors fiscales implementados (ONAPRE, CGR, SENIAT, MPPEF, Gaceta, AN)**

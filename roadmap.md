@@ -8,12 +8,12 @@
 
 ```
 FASE 1: Fundamentos    ████████████████████ 100% ✅
-FASE 2: Recolección    ██████████████████░░  90% ✅
+FASE 2: Recolección    ████████████████████  95% ✅
 FASE 3: Análisis       ████████████████████ 100% ✅
-FASE 4: Visualización  ███████░░░░░░░░░░░░░  35% 🟡
-FASE 5: Automatización ████████░░░░░░░░░░░░  40% 🟡
+FASE 4: Visualización  ███████████░░░░░░░░░  55% ✅
+FASE 5: Automatización ████████████████░░░░  80% ✅
 
-TOTAL: 73%
+TOTAL: 86%
 ```
 
 ---
@@ -86,7 +86,9 @@ src/collectors/fiscal/
 |-----------|--------|-------|--------|-----------|--------|
 | `bvc_collector.py` | BVC/Yahoo | IBC, Acciones | yfinance | 1️⃣ | ✅ |
 | `binance_collector.py` | Binance | Precio USDT/VES | API P2P | 1️⃣ | ✅ |
-| `dolar_collector.py` | Monitores | Tasa paralelo | pydolarvenezuela | 1️⃣ | ⏳ |
+| `dolar_paralelo_collector.py` | BCV Bancos | Tasas 12 bancos + BCV | pyDolarVenezuela | 1️⃣ | ✅ |
+| `ibc_components_collector.py` | Investing.com | 8 componentes IBC | Web scraping | 1️⃣ | ✅ |
+| `ibc_stocks_collector.py` | Yahoo Finance | Tickers venezolanos | yfinance | 2️⃣ | ✅ |
 
 #### 📰 2.7 Noticias y Redes Sociales
 
@@ -350,18 +352,19 @@ google-auth-oauthlib==1.2.0
 
 | KPI | Meta | Actual | Estado |
 |-----|------|--------|--------|
-| Collectors implementados | 20 | 20 ✅ | ✅ |
-| Collectors fiscales | 4 | 4 ✅ | ✅ |
+| Collectors implementados | 20 | 24 ✅ | ✅ |
+| Collectors fiscales | 4 | 6 ✅ (SENIAT, MPPEF, ONAPRE, CGR, Gaceta, AN) | ✅ |
+| Collectors internacionales | 3 | 6 ✅ (WorldBank, IMF, CEPAL, UNSCEB, OPEC, PDVSA) | ✅ |
 | Formularios de encuesta activos | 2+ | 2 ✅ | ✅ |
 | Respuestas de encuesta procesadas | 500+ | 2 | ⏳ |
-| Tests unitarios | > 80% | ~250 tests ✅ | 🟡 |
-| Cobertura de fuentes | 15+ | 16 | 🟡 |
-| Dashboard con métricas en vivo | — | ✅ Inicio + Encuestas + Noticias + Bybit/brecha | ✅ |
+| Tests unitarios | > 80% | 299 tests ✅ | ✅ |
+| Cobertura de fuentes | 15+ | 24+ | ✅ |
+| Dashboard con métricas en vivo | — | ✅ 3 tabs (Inicio + Noticias + Encuestas) | ✅ |
 | Informes PDF automáticos | 6 cadencias | ✅ diario a anual (MD + PDF) | ✅ |
-| Scheduler automático | — | ✅ 4 jobs (encuestas, mercado, noticias, informe semanal) + informes periódicos | ✅ |
+| Scheduler automático | — | ✅ 11 jobs (mercado, encuestas, noticias, semanal, 6 periódicos) | ✅ |
 
-**Código implementado**: Fases 2 (recolección), 3 (análisis), dashboard Fase 4 y scheduler
-Fase 5. Pendiente: collectors de menor prioridad y pasos de despliegue (Railway).
+**Código implementado**: Fases 2 (recolección: 24 collectors), 3 (análisis), dashboard Fase 4 (3 tabs) y scheduler
+Fase 5 (11 jobs: mercado, encuestas, noticias, informe semanal + 6 informes periódicos). Pendiente: collectors de menor prioridad (caracas, twitter) y pasos de despliegue (Railway).
 
 ---
 
@@ -390,5 +393,5 @@ Fase 5. Pendiente: collectors de menor prioridad y pasos de despliegue (Railway)
 ---
 
 **Roadmap actualizado: Agosto 2026**
-**Versión: 7.0**
-**Incluye: Fuentes fiscales gubernamentales + Encuestas Google (Fase B) + Loop de mercado persistido**
+**Versión: 8.0**
+**Incluye: 24 collectors (fiscales + internacionales + IBC + bancos) + Dashboard 3 tabs + 11 jobs scheduler + 299 tests**
