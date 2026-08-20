@@ -190,7 +190,8 @@ def _ai_resumen(markdown: str) -> str:
                 "Eres un economista jefe para Venezuela. Redacta un resumen "
                 "ejecutivo de máximo 5 frases del informe para un lector no "
                 "técnico: contexto general, cifras clave y tendencias del "
-                "período. Termina cada frase con un punto final."
+                "período. Termina cada frase con un punto final. "
+                "Responde siempre en español."
             ),
             markdown,
             max_tokens=1200,
@@ -218,7 +219,8 @@ def _ai_proyeccion(markdown: str) -> str:
                 "Responde SOLO con la proyección final (sin introducciones, "
                 "sin repetir las instrucciones, sin comentarios meta). "
                 "Termina cada frase con un punto final. "
-                "No inventes cifras que no estén en el informe."
+                "No inventes cifras que no estén en el informe. "
+                "Responde siempre en español."
             ),
             markdown,
             max_tokens=900,
