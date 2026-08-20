@@ -11,8 +11,9 @@ a partir de múltiples indicadores:
 4. Cobertura de reservas (solvencia externa)
 5. Deuda/PIB (sostenibilidad fiscal)
 6. Producción petrolera (ingresos)
-7. Riesgo político (nuevo)
-8. Índice de incertidumbre (nuevo)
+7. Riesgo político
+8. Índice de incertidumbre
+9. Capitalización del mercado bursátil BVC (nuevo)
 
 Funcionalidades adicionales:
 - Ponderaciones dinámicas vía PCA
@@ -47,14 +48,15 @@ class SovereignRiskIndex:
     def __init__(self):
         # Ponderaciones por defecto (se pueden hacer dinámicas)
         self.default_weights = {
-            "spread": 0.20,
-            "volatility": 0.12,
-            "inflation": 0.22,
-            "reserves": 0.12,
+            "spread": 0.18,
+            "volatility": 0.10,
+            "inflation": 0.18,
+            "reserves": 0.10,
             "debt": 0.10,
-            "oil": 0.08,
+            "oil": 0.07,
             "political": 0.08,
-            "uncertainty": 0.08,
+            "uncertainty": 0.07,
+            "market_cap": 0.12,
         }
         self.weights = dict(self.default_weights)
         self._previous_score: Optional[float] = None
@@ -185,6 +187,52 @@ class SovereignRiskIndex:
         ratio = production_mbd / baseline
         return min(100, (1 - ratio) * 100)
 
+    def _score_market_cap(
+        self,
+        market_cap_bs: float = 0.0,
+        market_cap_change_pct: float = 0.0,
+        months_available: int = 0,
+    ) -> float:
+        """Score de riesgo por capitalización del mercado bursátil (0-100).
+
+        Una capitalización baja y en declive indica desconfianza del mercado.
+        Una capitalización creciente indica estabilidad y confianza.
+
+        Args:
+            market_cap_bs: Capitalización total en Bs. (o equivalente).
+            market_cap_change_pct: Cambio mensual de capitalización (%).
+            months_available: Meses de datos disponibles (para confianza).
+
+        Returns:
+            Score de riesgo (0=bajo, 100=extremo).
+        """
+        if market_cap_bs <= 0 or months_available < 2:
+            # Sin datos suficientes → riesgo neutro
+            return 50.0
+
+        # Base: capitalización baja = mayor riesgo
+        # Normalizar contra un umbral (ej. 100B Bs. como "sano")
+        cap_score = max(0, 100 - (market_cap_bs / 1e9) * 2)  # Ajustar escala
+        cap_score = min(100, max(0, cap_score))
+
+        # Tendencia: caída fuerte = mayor riesgo
+        trend_score = 50.0  # Neutro
+        if market_cap_change_pct < -20:
+            trend_score = 90  # Caída fuerte
+        elif market_cap_change_pct < -10:
+            trend_score = 75
+        elif market_cap_change_pct < -5:
+            trend_score = 60
+        elif market_cap_change_pct > 10:
+            trend_score = 20  # Subida fuerte = bajo riesgo
+        elif market_cap_change_pct > 5:
+            trend_score = 30
+        elif market_cap_change_pct > 0:
+            trend_score = 40
+
+        # Combinar: 60% tendencia, 40% nivel
+        return trend_score * 0.6 + cap_score * 0.4
+
     def _score_political(
         self,
         sanctions_level: int = 0,
@@ -243,6 +291,9 @@ class SovereignRiskIndex:
         sentiment_volatility: float = 0.0,
         survey_dispersion: float = 0.0,
         forecast_error: float = 0.0,
+        market_cap_bs: float = 0.0,
+        market_cap_change_pct: float = 0.0,
+        market_cap_months: int = 0,
     ) -> RiskResult:
         """Calcula el índice de riesgo soberano.
 
@@ -259,6 +310,9 @@ class SovereignRiskIndex:
             sentiment_volatility: Volatilidad del sentimiento (0-1).
             survey_dispersion: Dispersión de encuestas (0-100).
             forecast_error: Error de pronóstico (%).
+            market_cap_bs: Capitalización total del mercado BVC en Bs.
+            market_cap_change_pct: Cambio mensual de capitalización (%).
+            market_cap_months: Meses de datos de capitalización disponibles.
 
         Returns:
             RiskResult con el índice y desglose.
@@ -272,6 +326,7 @@ class SovereignRiskIndex:
             "oil": self._score_oil(oil_production_mbd),
             "political": self._score_political(sanctions_level, social_unrest, governance_score),
             "uncertainty": self._score_uncertainty(sentiment_volatility, survey_dispersion, forecast_error),
+            "market_cap": self._score_market_cap(market_cap_bs, market_cap_change_pct, market_cap_months),
         }
 
         # Score compuesto (promedio ponderado)
@@ -313,6 +368,7 @@ class SovereignRiskIndex:
             "oil": "baja producción petrolera",
             "political": "riesgo político",
             "uncertainty": "incertidumbre macroeconómica",
+            "market_cap": "debilidad del mercado bursátil",
         }
 
         top_risks = [k for k, v in sorted_components if v > 50]

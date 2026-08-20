@@ -484,6 +484,8 @@ def _collect_macro_analytics() -> Dict:
     result = {}
     try:
         from src.analyzers.sovereign_risk import SovereignRiskIndex
+        from src.dashboard.bvc_capitalization import get_capitalization_summary
+        cap = get_capitalization_summary()
         risk = SovereignRiskIndex()
         risk_result = risk.calculate(
             spread_pct=30,  # Estimado
@@ -491,6 +493,9 @@ def _collect_macro_analytics() -> Dict:
             reserves_months=2.5,
             debt_gdp_pct=253,
             oil_production_mbd=1.08,
+            market_cap_bs=cap.get("total_bs", 0),
+            market_cap_change_pct=cap.get("total_change_pct", 0),
+            market_cap_months=cap.get("months_available", 0),
         )
         result["sovereign_risk"] = {
             "score": risk_result.score,

@@ -1015,10 +1015,20 @@ with tab_macro:
         st.markdown("### 🚨 Índice de Riesgo Soberano")
         risk = SovereignRiskIndex()
         inflation_rate = (metrics["inflacion"].annual_rate or 0) if metrics.get("inflacion") else 0
+        # Load capitalization data for risk calculation
+        cap_for_risk = {}
+        try:
+            from src.dashboard.bvc_capitalization import get_capitalization_summary
+            cap_for_risk = get_capitalization_summary()
+        except Exception:
+            pass
         risk_result = risk.calculate(
             spread_pct=brecha if brecha else 0,
             annual_inflation=inflation_rate,
             oil_production_mbd=1.08,
+            market_cap_bs=cap_for_risk.get("total_bs", 0),
+            market_cap_change_pct=cap_for_risk.get("total_change_pct", 0),
+            market_cap_months=cap_for_risk.get("months_available", 0),
         )
 
         rc1, rc2 = st.columns([1, 3])
@@ -1057,6 +1067,7 @@ with tab_macro:
                     "oil": "Petróleo",
                     "political": "Riesgo político",
                     "uncertainty": "Incertidumbre",
+                    "market_cap": "Mercado bursátil",
                 }.get(factor, factor)
                 st.progress(min(value / 100, 1.0), text=f"{label}: {value:.0f}/100")
 
