@@ -60,22 +60,50 @@ def _load_macro_cache() -> dict:
 
 
 def _get_cached(indicator: str) -> Optional[dict]:
-    """Obtiene un indicador del cache en DB."""
+    """Obtiene un indicador del cache (archivo → DB → None)."""
+    # 1. Intentar cache en archivo (más rápido)
+    try:
+        from src.cache.manager import get_cached_api
+        file_data = get_cached_api(f"macro_{indicator}")
+        if file_data:
+            logger.debug("Cache HIT (archivo): %s", indicator)
+            # Ensure fetched_at is datetime
+            if isinstance(file_data.get("fetched_at"), str):
+                file_data["fetched_at"] = datetime.fromisoformat(file_data["fetched_at"])
+            return file_data
+    except Exception:
+        pass
+
+    # 2. Intentar cache en DB
     cache = _load_macro_cache()
     result = cache.get(indicator)
-    if result is None:
-        return None
-    # Verificar si no está stale
-    age_hours = (
-        datetime.now(timezone.utc) - result["fetched_at"]
-    ).total_seconds() / 3600
-    if age_hours > CACHE_MAX_AGE_HOURS:
-        return None
-    return result
+    if result is not None:
+        age_hours = (
+            datetime.now(timezone.utc) - result["fetched_at"]
+        ).total_seconds() / 3600
+        if age_hours <= CACHE_MAX_AGE_HOURS:
+            # Populate file cache for next time
+            try:
+                from src.cache.manager import cache_api_response
+                cache_api_response(f"macro_{indicator}", result, ttl_hours=24)
+            except Exception:
+                pass
+            return result
+
+    return None
 
 
 def _save_cached(source: str, indicator: str, value: float, period: str, unit: str = None):
-    """Guarda un indicador en el cache de DB."""
+    """Guarda un indicador en cache (DB + archivo)."""
+    result = {
+        "value": value,
+        "period": period,
+        "unit": unit,
+        "source": source,
+        "fetched_at": datetime.now(timezone.utc),
+    }
+
+    # 1. Guardar en DB
     try:
         from src.db.repositories import MacroRepository
         from src.db.session import session_scope
@@ -84,7 +112,14 @@ def _save_cached(source: str, indicator: str, value: float, period: str, unit: s
             repo = MacroRepository(session)
             repo.save_indicator(source, indicator, value, period, unit)
     except Exception as exc:
-        logger.debug("No se pudo guardar en cache: %s", exc)
+        logger.debug("No se pudo guardar en DB: %s", exc)
+
+    # 2. Guardar en archivo (TTL 24h)
+    try:
+        from src.cache.manager import cache_api_response
+        cache_api_response(f"macro_{indicator}", result, ttl_hours=24)
+    except Exception as exc:
+        logger.debug("No se pudo guardar en archivo: %s", exc)
 
 
 def _safe_fetch(fetch_fn, *args, **kwargs):
@@ -277,7 +312,10 @@ def gasto_onu() -> Optional[dict]:
 
 
 def macro_summary() -> dict:
-    """Resumen de todos los indicadores macro (con cache en DB)."""
+    """Resumen de todos los indicadores macro (con cache en DB + archivo)."""
+    # Pre-load DB cache once (evita múltiples queries)
+    _load_macro_cache()
+
     return {
         "pib": pib_latest(),
         "pib_crecimiento": pib_crecimiento(),

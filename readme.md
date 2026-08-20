@@ -402,6 +402,87 @@ El proyecto usa **PostgreSQL** con 9 tablas principales. El esquema completo est
 | `surveys` | Formularios de encuesta |
 | `survey_responses` | Respuestas de encuestas (JSONB flexible) |
 
+## 💾 Sistema de Caché de Datos
+
+El proyecto implementa un sistema de caché para evitar re-descargas y re-procesamiento innecesario.
+
+### Estructura de directorios
+
+```
+data/
+├── pdfs/                          # PDFs descargados (caché)
+│   ├── gacetas/2026/              # Gacetas Oficiales por año
+│   ├── bvc/historical/            # PDFs históricos de la BVC
+│   └── manifest.json              # Hash SHA256 + metadata de cada PDF
+├── ocr/                           # Resultados OCR (.md)
+│   ├── gacetas/2026/              # Un .md por gaceta procesada
+│   └── index.json                 # Índice de archivos procesados
+├── cache/                         # Caché de APIs
+│   └── api/*.json                 # Respuestas de APIs con TTL
+└── raw/                           # Datos crudos
+```
+
+### Comandos del Cache Manager
+
+```bash
+# Ver estadísticas del caché
+python -m src.scripts.cache_manager stats
+
+# Escanear directorios y reconstruir manifest
+python -m src.scripts.cache_manager scan
+
+# Eliminar archivos con más de 90 días
+python -m src.scripts.cache_manager gc --days 90
+
+# Verificar integridad de hashes
+python -m src.scripts.cache_manager verify
+```
+
+### Cómo funciona el dedup
+
+1. **Descarga**: Antes de descargar un PDF, se verifica el manifest.json
+2. **Hash**: Cada archivo tiene un hash SHA256 único
+3. **Cache HIT**: Si el hash ya existe → retorna el path local (0.3s vs 50s)
+4. **OCR**: Los resultados se guardan como `.md` con frontmatter YAML
+5. **Re-procesamiento**: Si el PDF no cambió, el OCR no se repite
+
+### Template de .md con OCR
+
+```markdown
+---
+source: gacetas
+pdf_url: http://www.gacetaoficial.gob.ve/storage/2026/43432-...
+pdf_hash: sha256:6f3ec7d7911a8bbc
+date: 2026-08-07
+number: 43432
+type: ORDINARIA
+categories: ["comercial"]
+ocr_method: pdfplumber
+ocr_chars: 22920
+confidence: 0.87
+---
+
+# Gaceta Oficial N° 43432
+## Texto extraído (OCR)
+...
+```
+
+### Caché de API responses
+
+Las respuestas de APIs externas (World Bank, IMF, CEPAL, OPEP) se cachean en `data/cache/api/` con un TTL configurable. Esto evita llamadas repetidas a APIs que pueden ser lentas o tener rate limits.
+
+```python
+from src.cache import cache_api_response, get_cached_api
+
+# Guardar con TTL de 24 horas
+cache_api_response("worldbank_gdp_venezuela", data, ttl_hours=24)
+
+# Obtener del caché (None si expiró)
+data = get_cached_api("worldbank_gdp_venezuela")
+```
+
+---
+
 ## 🤝 Contribuciones
 
 Lee [CONTRIBUTING.md](CONTRIBUTING.md) para instrucciones detalladas. En resumen:
