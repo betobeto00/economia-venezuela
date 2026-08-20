@@ -230,6 +230,22 @@ def get_capitalization_summary() -> Dict:
         })
     sector_breakdown.sort(key=lambda x: x["capitalization"], reverse=True)
 
+    # Sector history: each sector's cap across months
+    all_sectors = set()
+    for h in history:
+        all_sectors.update(h.get("sectors", {}).keys())
+
+    sector_history = {}
+    for sname in all_sectors:
+        series = []
+        for h in history:
+            sdata = h.get("sectors", {}).get(sname, {})
+            series.append({
+                "month": h["month"],
+                "capitalization": sdata.get("capitalization", 0),
+            })
+        sector_history[sname] = series
+
     return {
         "available": True,
         "latest_month": latest["month"],
@@ -240,4 +256,5 @@ def get_capitalization_summary() -> Dict:
         "months_available": len(history),
         "history": [{"month": h["month"], "total": h["total"]} for h in history],
         "sector_breakdown": sector_breakdown,
+        "sector_history": sector_history,
     }

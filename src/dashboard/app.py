@@ -766,6 +766,40 @@ with tab_ibc:
                         hide_index=True,
                         width="stretch",
                     )
+
+            # Historical sector trend (stacked bar)
+            sector_hist = cap.get("sector_history", {})
+            if sector_hist and len(history) > 1:
+                st.markdown("#### 📈 Evolución por Sector")
+                months_list = [h["month"] for h in history]
+                # Sort sectors by latest month value (largest first)
+                latest_month = months_list[-1]
+                sorted_sectors = sorted(
+                    sector_hist.keys(),
+                    key=lambda s: max(
+                        (d["capitalization"] for d in sector_hist[s] if d["month"] == latest_month),
+                        default=0,
+                    ),
+                    reverse=True,
+                )
+                fig_stack = go.Figure()
+                for sname in sorted_sectors:
+                    cap_values = [d["capitalization"] for d in sector_hist[sname]]
+                    fig_stack.add_trace(go.Bar(
+                        x=months_list,
+                        y=cap_values,
+                        name=sname[:30],
+                    ))
+                fig_stack.update_layout(
+                    barmode="stack",
+                    template=theme.plotly_template(),
+                    height=420,
+                    margin=dict(l=10, r=10, t=10, b=10),
+                    yaxis_title="Bs.",
+                    xaxis_title="Mes",
+                    legend=dict(font=dict(size=9), orientation="h", y=-0.2),
+                )
+                st.plotly_chart(fig_stack, width="stretch")
         else:
             st.info("Datos de capitalización no disponibles. Procesa los PDFs de BVC con OCR.")
     except Exception as e:
