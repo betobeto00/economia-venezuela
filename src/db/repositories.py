@@ -23,6 +23,7 @@ from src.db.models import (
     IBCComponentORM,
     IBCIndexORM,
     InflationPointORM,
+    MacroIndicatorORM,
     NewsArticleORM,
     SentimentScoreORM,
     SocialPostORM,
@@ -685,3 +686,82 @@ class VenezuelanTickerRepository:
              "avg_volume": orm.avg_volume}
             for orm in self.session.scalars(stmt)
         ]
+
+
+# ---------------------------------------------------------------------------
+# Macro Indicators Cache Repository
+# ---------------------------------------------------------------------------
+
+class MacroRepository:
+    """Persistencia de indicadores macroeconómicos cacheados."""
+
+    def __init__(self, session: Session):
+        self.session = session
+
+    def save_indicator(self, source: str, indicator: str, value: float,
+                       period: str, unit: str = None) -> bool:
+        """Guarda o actualiza un indicador macro (idempotente)."""
+        existing = self.session.execute(
+            select(MacroIndicatorORM).where(
+                MacroIndicatorORM.source == source,
+                MacroIndicatorORM.indicator == indicator,
+            )
+        ).scalar_one_or_none()
+
+        if existing:
+            existing.value = value
+            existing.period = period
+            existing.unit = unit
+            existing.fetched_at = datetime.now(timezone.utc)
+            return False
+        else:
+            self.session.add(MacroIndicatorORM(
+                source=source, indicator=indicator, value=value,
+                period=period, unit=unit,
+            ))
+            return True
+
+    def get_indicator(self, source: str, indicator: str) -> Optional[dict]:
+        """Obtiene un indicador cacheado."""
+        orm = self.session.execute(
+            select(MacroIndicatorORM).where(
+                MacroIndicatorORM.source == source,
+                MacroIndicatorORM.indicator == indicator,
+            )
+        ).scalar_one_or_none()
+        if orm is None:
+            return None
+        return {
+            "value": float(orm.value),
+            "period": orm.period,
+            "unit": orm.unit,
+            "source": orm.source,
+            "fetched_at": orm.fetched_at,
+        }
+
+    def get_all_indicators(self) -> dict:
+        """Obtiene todos los indicadores cacheados agrupados por indicador."""
+        stmt = select(MacroIndicatorORM).order_by(MacroIndicatorORM.indicator)
+        result = {}
+        for orm in self.session.scalars(stmt):
+            result[orm.indicator] = {
+                "value": float(orm.value),
+                "period": orm.period,
+                "unit": orm.unit,
+                "source": orm.source,
+                "fetched_at": orm.fetched_at,
+            }
+        return result
+
+    def is_stale(self, source: str, indicator: str, max_age_hours: int = 24) -> bool:
+        """Verifica si un indicador está desactualizado."""
+        orm = self.session.execute(
+            select(MacroIndicatorORM).where(
+                MacroIndicatorORM.source == source,
+                MacroIndicatorORM.indicator == indicator,
+            )
+        ).scalar_one_or_none()
+        if orm is None:
+            return True
+        age = datetime.now(timezone.utc) - orm.fetched_at
+        return age.total_seconds() > max_age_hours * 3600

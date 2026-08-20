@@ -179,6 +179,29 @@ class SentimentScoreORM(Base):
 
 
 # ---------------------------------------------------------------------------
+# Macro Indicators Cache
+# ---------------------------------------------------------------------------
+
+class MacroIndicatorORM(Base):
+    """Indicador macroeconómico cacheado (World Bank, IMF, CEPAL, etc.)."""
+
+    __tablename__ = "macro_indicators"
+    __table_args__ = (
+        UniqueConstraint("source", "indicator", name="uq_macro_source_indicator"),
+    )
+
+    id: Mapped[int] = mapped_column(BIGINT_ID, primary_key=True)
+    source: Mapped[str] = mapped_column(String(30), nullable=False)  # world_bank, imf, cepal, opec, unsceb
+    indicator: Mapped[str] = mapped_column(String(50), nullable=False)  # pib, pib_crecimiento, inflacion, petroleo, gasto_onu
+    value: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
+    period: Mapped[str] = mapped_column(String(20), nullable=False)  # 2025, 2026-Q1
+    unit: Mapped[Optional[str]] = mapped_column(String(30))
+    fetched_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
+    )
+
+
+# ---------------------------------------------------------------------------
 # IBC Index & Components (Investing.com)
 # ---------------------------------------------------------------------------
 
