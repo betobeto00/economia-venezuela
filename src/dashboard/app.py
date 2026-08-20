@@ -742,8 +742,8 @@ with tab_fiscal:
     st.markdown("### ⚖️ Asamblea Nacional")
     if fs["leyes"]:
         for l in fs["leyes"]:
-            title = l.get("title", "")
-            url = l.get("url", "")
+            title = getattr(l, "title", None) or (l.get("title", "") if hasattr(l, "get") else str(l))
+            url = getattr(l, "url", None) or (l.get("url", "") if hasattr(l, "get") else "")
             if url:
                 st.markdown(f"- [{title}]({url})")
             else:

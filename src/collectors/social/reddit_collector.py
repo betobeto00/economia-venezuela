@@ -25,7 +25,38 @@ from src.models.news import SocialPost
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_SUBREDDITS = ("vzla", "venezuela", "vzlaconomics")
+DEFAULT_SUBREDDITS = (
+    # Subreddits principales de Venezuela
+    "vzla",
+    "venezuela",
+    "vzlaconomics",
+    # Economía y finanzas
+    "latam",
+    "latinamerica",
+    # Búsqueda por keyword (se hacen como search en subreddits grandes)
+)
+
+# Subreddits donde se busca "venezuela" + economía
+_SEARCH_SUBREDDITS = (
+    "economics",
+    "finance",
+    "stocks",
+    "investing",
+    "worldnews",
+    "latinamerica",
+    "GlobalMarkets",
+)
+
+_SEARCH_KEYWORDS = (
+    "venezuela economia",
+    "venezuela inflation",
+    "venezuela dollar",
+    "venezuela oil",
+    "venezuela gdp",
+    "venezuela economy",
+    "bolivar exchange rate",
+    "Venezuela crisis economica",
+)
 
 REDDIT_UA = (
     "EconomiaVenezuela/0.1.0 (dashboard economico venezolano; "
@@ -236,18 +267,40 @@ class RedditCollector:
             logger.warning("Reddit PRAW fallo en r/%s: %s", subreddit, exc)
             return []
 
+    def _search_reddit(self, query: str, subreddit: str = "all", limit: int = 10) -> List[SocialPost]:
+        """Busca en Reddit usando la API de búsqueda JSON pública.
+
+        Usa ``/r/{subreddit}/search.json?q=...`` para encontrar posts
+        que mencionen economía venezolana en subreddits grandes.
+        """
+        import time
+        url = (
+            f"https://www.reddit.com/r/{subreddit}/search.json"
+            f"?q={query}&restrict_sr=1&sort=new&limit={min(limit, 25)}"
+        )
+        data = _public_json_fetch(url)
+        if data:
+            return _extract_posts_from_json(data, subreddit)
+        return []
+
     def fetch_posts(
         self,
         subreddits: Optional[List[str]] = None,
         limit: int = 25,
     ) -> List[SocialPost]:
-        """Publicaciones recientes de los subreddits indicados.
+        """Publicaciones recientes de los subreddits indicados + búsqueda por keyword.
 
-        Flujo: JSON público → PRAW → Zernio (cada uno como fallback del anterior).
+        Flujo:
+        1. Fetch directo de subreddits (RSS → JSON → PRAW → Zernio)
+        2. Búsqueda por keyword en subreddits grandes (economics, worldnews, etc.)
         """
+        import time
+
         targets = subreddits or list(DEFAULT_SUBREDDITS)
         all_posts: List[SocialPost] = []
+        seen_urls: set = set()
 
+        # 1. Fetch directo de subreddits
         for subreddit_name in targets:
             subreddit_name = subreddit_name.strip().lstrip("r/")
             if not subreddit_name:
@@ -255,27 +308,46 @@ class RedditCollector:
 
             posts = []
 
-            # 1. Intentar RSS (gratis, más tolerante que JSON)
+            # 1a. RSS
             posts = self._fetch_rss(subreddit_name, limit)
 
-            # 2. Fallback: JSON público
+            # 1b. JSON público
             if not posts:
                 posts = self._fetch_public_json(subreddit_name, limit)
 
-            # 3. Fallback: PRAW (si hay credenciales)
+            # 1c. PRAW
             if not posts:
                 posts = self._fetch_praw(subreddit_name, limit)
 
-            # 4. Fallback: Zernio (pago)
+            # 1d. Zernio
             if not posts:
                 posts = _zernio_fetch(subreddit_name, limit)
 
-            if posts:
-                all_posts.extend(posts)
-                logger.info(
-                    "Reddit r/%s: %d posts obtenidos", subreddit_name, len(posts)
-                )
-            else:
-                logger.warning("Reddit r/%s: sin datos de ninguna fuente", subreddit_name)
+            for p in posts:
+                if p.url not in seen_urls:
+                    seen_urls.add(p.url)
+                    all_posts.append(p)
 
+            if posts:
+                logger.info("Reddit r/%s: %d posts obtenidos", subreddit_name, len(posts))
+            else:
+                logger.warning("Reddit r/%s: sin datos", subreddit_name)
+
+            time.sleep(2)  # Rate limit: 2s entre subreddits
+
+        # 2. Búsqueda por keyword en subreddits grandes
+        #    Se limita a 2 keywords por subreddit para evitar rate limits
+        for sr in _SEARCH_SUBREDDITS:
+            for kw in _SEARCH_KEYWORDS[:2]:  # Máximo 2 queries por subreddit
+                try:
+                    results = self._search_reddit(kw, subreddit=sr, limit=5)
+                    for p in results:
+                        if p.url not in seen_urls:
+                            seen_urls.add(p.url)
+                            all_posts.append(p)
+                    time.sleep(3)  # Rate limit más agresivo para search
+                except Exception as exc:
+                    logger.debug("Search r/%s '%s' falló: %s", sr, kw, exc)
+
+        logger.info("Reddit total: %d posts (incluyendo búsqueda)", len(all_posts))
         return all_posts

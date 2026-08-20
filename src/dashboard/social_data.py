@@ -18,7 +18,7 @@ def social_posts_with_sentiment(limit: int = 50) -> List[dict]:
     """Posts de Reddit con sentimiento asociado (si existe).
 
     Returns:
-        Lista de dicts con: id, channel, title, url, text, score,
+        Lista de dicts con: channel, title, url, text, score,
         num_comments, published, sentiment_score, sentiment_label.
     """
     try:
@@ -28,16 +28,24 @@ def social_posts_with_sentiment(limit: int = 50) -> List[dict]:
         with session_scope() as session:
             repo = NewsRepository(session)
             posts = repo.list_posts(limit=limit)
-            sentiments = {
-                s.item_id: s
-                for s in repo.list_sentiment(item_type="social", limit=limit)
-            }
+            # SocialPost no tiene id; usar ORM directamente para sentimental mapping
+            from src.db.models import SocialPostORM, SentimentScoreORM
+            from sqlalchemy import select
+
+            posts_orm = session.scalars(
+                select(SocialPostORM).order_by(SocialPostORM.published.desc()).limit(limit)
+            ).all()
+            # Map sentiment by item_id (ORM id)
+            sent_map = {}
+            for s in session.scalars(
+                select(SentimentScoreORM).where(SentimentScoreORM.item_type == "social")
+            ).all():
+                sent_map[s.item_id] = s
 
         result = []
-        for p in posts:
-            sent = sentiments.get(p.id)
+        for p in posts_orm:
+            sent = sent_map.get(p.id)
             result.append({
-                "id": p.id,
                 "channel": p.channel,
                 "title": p.title,
                 "url": p.url,
@@ -45,7 +53,7 @@ def social_posts_with_sentiment(limit: int = 50) -> List[dict]:
                 "score": p.score,
                 "num_comments": p.num_comments,
                 "published": p.published,
-                "sentiment_score": sent.score if sent else None,
+                "sentiment_score": float(sent.score) if sent else None,
                 "sentiment_label": sent.label if sent else None,
             })
         return result
@@ -94,10 +102,9 @@ def social_summary() -> Dict[str, object]:
         sentiment_mean, posts_per_channel.
     """
     try:
-        from src.db.repositories import NewsRepository
-        from src.db.session import session_scope
         from sqlalchemy import func, select
         from src.db.models import SocialPostORM, SentimentScoreORM
+        from src.db.session import session_scope
 
         with session_scope() as session:
             # Posts stats
