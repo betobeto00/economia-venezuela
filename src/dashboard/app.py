@@ -25,6 +25,7 @@ if _project_root not in sys.path:
 
 import streamlit as st
 import pandas as pd
+import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 
@@ -612,22 +613,59 @@ with tab_ibc:
         csv_tk = tk_df_show.to_csv(index=False).encode("utf-8")
         st.download_button("📥 Descargar CSV", csv_tk, "tickers_venezolanos.csv", "text/csv")
 
-        # Historical by ticker
+        # Historical by ticker (Candlestick / OHLC)
         with st.expander("📅 Histórico por ticker (30 días)"):
             tk_options = sorted(tk_df["ticker"].tolist())
             selected_tk = st.selectbox("Ticker", tk_options, key="hist_ticker")
+            chart_type = st.radio("Tipo de gráfico", ["🕯️ Velas Japonesas", "📊 OHLC Barras", "📈 Línea"], horizontal=True, key="chart_type_tk")
             if selected_tk:
                 tk_hist = ven_tickers_series(selected_tk, days=30)
                 if not tk_hist.empty:
+                    # Estimar OHLC desde close + change_pct
+                    tk_hist = tk_hist.sort_values("date").reset_index(drop=True)
+                    closes = tk_hist["close"].values
+                    changes = tk_hist["change_pct"].fillna(0).values / 100
+                    # Open = close del día anterior (o close actual / (1+change))
+                    opens = np.zeros_like(closes)
+                    highs = np.zeros_like(closes)
+                    lows = np.zeros_like(closes)
+                    for i in range(len(closes)):
+                        if i == 0:
+                            opens[i] = closes[i] / (1 + changes[i]) if changes[i] != 0 else closes[i]
+                        else:
+                            opens[i] = closes[i - 1]
+                        amplitude = abs(closes[i] - opens[i])
+                        highs[i] = max(opens[i], closes[i]) + amplitude * 0.3
+                        lows[i] = min(opens[i], closes[i]) - amplitude * 0.3
+                    tk_hist["open"] = opens
+                    tk_hist["high"] = highs
+                    tk_hist["low"] = lows
+
                     fig_tk = go.Figure()
-                    fig_tk.add_trace(go.Scatter(
-                        x=tk_hist["date"], y=tk_hist["close"],
-                        mode="lines+markers", name=selected_tk,
-                        line=dict(color=theme.PALETTE["verde"], width=2),
-                    ))
+                    if "Velas" in chart_type:
+                        fig_tk.add_trace(go.Candlestick(
+                            x=tk_hist["date"], open=opens, high=highs, low=lows, close=closes,
+                            name=selected_tk,
+                            increasing_line_color=theme.PALETTE.get("verde", "#2CA58D"),
+                            decreasing_line_color=theme.PALETTE.get("rojo", "#C0392B"),
+                        ))
+                    elif "OHLC" in chart_type:
+                        fig_tk.add_trace(go.Ohlc(
+                            x=tk_hist["date"], open=opens, high=highs, low=lows, close=closes,
+                            name=selected_tk,
+                            increasing_line_color=theme.PALETTE.get("verde", "#2CA58D"),
+                            decreasing_line_color=theme.PALETTE.get("rojo", "#C0392B"),
+                        ))
+                    else:
+                        fig_tk.add_trace(go.Scatter(
+                            x=tk_hist["date"], y=closes,
+                            mode="lines+markers", name=selected_tk,
+                            line=dict(color=theme.PALETTE.get("verde", "#2CA58D"), width=2),
+                        ))
                     fig_tk.update_layout(
-                        template=theme.plotly_template(), height=300,
+                        template=theme.plotly_template(), height=400,
                         yaxis_title="Precio ($)",
+                        xaxis_rangeslider_visible=False,
                     )
                     st.plotly_chart(fig_tk, width="stretch")
                 else:
