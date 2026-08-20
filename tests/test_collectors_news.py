@@ -97,16 +97,27 @@ class FakeReddit:
 
 
 class TestReddit:
-    def _collector(self, posts_by_sub):
-        return RedditCollector(reddit=FakeReddit(posts_by_sub))
+    def _collector(self, posts_by_sub, monkeypatch=None):
+        collector = RedditCollector(reddit=FakeReddit(posts_by_sub))
+        if monkeypatch:
+            # Forzar fallback a PRAW mockeando RSS/JSON para que fallen
+            monkeypatch.setattr(
+                "src.collectors.social.reddit_collector._rss_fetch",
+                lambda *a, **kw: [],
+            )
+            monkeypatch.setattr(
+                "src.collectors.social.reddit_collector._public_json_fetch",
+                lambda *a, **kw: None,
+            )
+        return collector
 
-    def test_fetch_posts(self):
+    def test_fetch_posts(self, monkeypatch):
         posts = [
             FakeSubmission("El dólar sube", "https://reddit.com/a", "texto",
                            120, 30, 1780000000),
         ]
-        collector = self._collector({"vzla": posts})
-        result = collector.fetch_posts(limit=10)
+        collector = self._collector({"vzla": posts}, monkeypatch=monkeypatch)
+        result = collector.fetch_posts(subreddits=["vzla"], limit=10)
         assert len(result) == 1
         post = result[0]
         assert post.source == "reddit"
@@ -117,8 +128,11 @@ class TestReddit:
         assert post.published is not None
 
     def test_fetch_posts_sin_credenciales(self):
-        with pytest.raises(RuntimeError):
-            RedditCollector(client_id=None, client_secret=None).fetch_posts()
+        # Ahora funciona sin credenciales (RSS/JSON público)
+        # Solo retorna vacío si todas las fuentes fallan
+        collector = RedditCollector(client_id=None, client_secret=None)
+        result = collector.fetch_posts(subreddits=["test_nonexistent_sub"])
+        assert isinstance(result, list)
 
     def test_fetch_posts_sub_roto_no_rompe(self, monkeypatch):
         class BoomSub:

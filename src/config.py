@@ -57,11 +57,14 @@ class Settings(BaseSettings):
     LLM8_BASE_URL: Optional[str] = None
     LLM8_MODEL: Optional[str] = None
     
-    # Reddit API
+    # Reddit API (opcional; JSON público funciona sin credenciales)
     REDDIT_CLIENT_ID: Optional[str] = None
     REDDIT_CLIENT_SECRET: Optional[str] = None
     REDDIT_USER_AGENT: str = "EconomiaVenezuela/0.1.0"
-    
+
+    # Zernio (fallback de pago para Reddit, como Automaton)
+    ZERNIO_API_KEY: Optional[str] = None
+
     # Twitter API
     TWITTER_BEARER_TOKEN: Optional[str] = None
     
