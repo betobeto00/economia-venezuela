@@ -49,16 +49,33 @@ def _period_label(cadence: str, now: datetime) -> str:
     return f"Año {now.year}"
 
 
-def _collect_fiscal_docs() -> List[Dict]:
-    """Documentos fiscales recientes (gaceta + AN) recogidos en vivo."""
+def _collect_fiscal_docs(days: int) -> List[Dict]:
+    """Documentos fiscales del período con impacto económico (gaceta + AN).
+
+    Gacetas: se buscan por palabras clave, se conservan solo las publicadas
+    dentro del período y se enriquecen con sus sumarios; se descartan las que
+    no tienen trámites con impacto económico.
+    """
+    from datetime import timedelta
+
+    cutoff = datetime.now(timezone.utc).date() - timedelta(days=days)
     docs: List[Dict] = []
     try:
         from src.collectors.fiscal.gaceta_collector import GacetaOficialCollector
 
-        gaceta = GacetaOficialCollector().fetch_documentos(["presupuesto"])
+        gaceta = GacetaOficialCollector()
+        catalog = gaceta.fetch_documentos(
+            ["presupuesto", "endeudamiento", "economía", "finanzas"]
+        )
+        recent = [d for d in catalog if d.date and d.date >= cutoff]
+        enriched = gaceta.enrich_con_sumarios(recent, max_docs=8)
         docs += [
-            {"source": "gaceta", "title": d.title, "url": d.url, "year": d.year}
-            for d in gaceta[:10]
+            {
+                "source": "gaceta", "title": d.title, "url": d.url,
+                "year": d.year, "date": d.date,
+                "description": d.description,
+            }
+            for d in enriched
         ]
     except Exception as exc:  # noqa: BLE001 - sección opcional
         logger.warning("Gaceta Oficial no disponible para el informe: %s", exc)
@@ -69,53 +86,95 @@ def _collect_fiscal_docs() -> List[Dict]:
             keywords=list(FISCAL_KEYWORDS), max_pages=2
         )
         docs += [
-            {"source": "an", "title": d.title, "url": d.url, "year": d.year}
-            for d in an[:10]
+            {
+                "source": "an", "title": d.title, "url": d.url,
+                "year": d.year, "date": d.date, "description": "",
+            }
+            for d in an if d.date and d.date >= cutoff
         ]
     except Exception as exc:  # noqa: BLE001 - sección opcional
         logger.warning("AN no disponible para el informe: %s", exc)
     return docs
 
 
-def _collect_macro() -> List[Dict]:
-    """Indicadores macroeconómicos internacionales recogidos en vivo."""
+# Cómo impacta cada indicador macro en el corto plazo (semana/mes).
+_MACRO_IMPACT = {
+    ("cepal", "pib"): "Contexto estructural: fija el nivel de actividad anual; "
+                      "no mueve la semana, sí el riesgo soberano.",
+    ("world_bank", "pib_usd"): "Referencia anual de tamaño de la economía.",
+    ("imf", "crecimiento_pib"): "Señal de corto plazo de actividad; incide en "
+                                "la percepción de riesgo cambiario.",
+    ("imf", "inflacion"): "Ancla de referencia para política monetaria y "
+                          "expectativas de devaluación.",
+    ("unsceb", "gasto_onu_venezuela"): "Flujo externo de divisas del sistema "
+                                        "ONU; aporta liquidez marginal al dólar.",
+}
+
+
+def _collect_macro(days: int) -> List[Dict]:
+    """Indicadores macro: última observación por indicador con nota de impacto.
+
+    Solo se conserva el valor más reciente de cada indicador (no la serie
+    histórica completa) y se explica por qué importa en el corto plazo.
+    """
     points: List[Dict] = []
     try:
         from src.collectors.international.cepal_collector import CEPALCollector
 
-        points += [
-            p.model_dump() for p in CEPALCollector().fetch_gdp()[-5:]
-        ]
+        gdp = CEPALCollector().fetch_gdp()
+        if gdp:
+            p = gdp[-1]
+            points.append({"source": "cepal", "indicator": "pib",
+                           "value": p.value, "period": p.period,
+                           "unit": p.unit})
     except Exception as exc:  # noqa: BLE001 - sección opcional
         logger.warning("CEPAL no disponible para el informe: %s", exc)
     try:
         from src.collectors.international.imf_collector import IMFCollector
 
         imf = IMFCollector()
-        points += [p.model_dump() for p in imf.fetch_gdp_growth()[-3:]]
-        points += [p.model_dump() for p in imf.fetch_inflation()[-3:]]
+        growth = imf.fetch_gdp_growth()
+        if growth:
+            p = growth[-1]
+            points.append({"source": "imf", "indicator": "crecimiento_pib",
+                           "value": p.value, "period": p.period,
+                           "unit": p.unit})
+        infl = imf.fetch_inflation()
+        if infl:
+            p = infl[-1]
+            points.append({"source": "imf", "indicator": "inflacion",
+                           "value": p.value, "period": p.period,
+                           "unit": p.unit})
     except Exception as exc:  # noqa: BLE001 - sección opcional
         logger.warning("FMI no disponible para el informe: %s", exc)
     try:
         from src.collectors.international.unsceb_collector import UNSCEBCollector
 
-        points += [
-            p.model_dump()
-            for p in UNSCEBCollector().fetch_venezuela_expenses()[-3:]
-        ]
+        gasto = UNSCEBCollector().fetch_venezuela_expenses()
+        if gasto:
+            p = gasto[-1]
+            points.append({"source": "unsceb", "indicator": "gasto_onu_venezuela",
+                           "value": p.value, "period": p.period,
+                           "unit": p.unit})
     except Exception as exc:  # noqa: BLE001 - sección opcional
         logger.warning("UNSCEB no disponible para el informe: %s", exc)
     try:
         from src.collectors.international.worldbank_collector import WorldBankCollector
 
-        wb = WorldBankCollector()
-        points += [
-            {"source": "world_bank", "indicator": "pib_usd", "value": p.value,
-             "period": str(p.year), "unit": "USD"}
-            for p in wb.fetch_gdp()[-3:]
-        ]
+        wb = WorldBankCollector().fetch_gdp()
+        if wb:
+            p = wb[-1]
+            points.append({"source": "world_bank", "indicator": "pib_usd",
+                           "value": p.value, "period": str(p.year),
+                           "unit": "USD"})
     except Exception as exc:  # noqa: BLE001 - sección opcional
         logger.warning("Banco Mundial no disponible para el informe: %s", exc)
+
+    for p in points:
+        p["impact"] = _MACRO_IMPACT.get(
+            (p["source"], p["indicator"]),
+            "Dato de contexto macroeconómico.",
+        )
     return points
 
 
@@ -126,18 +185,97 @@ def _ai_resumen(markdown: str) -> str:
     try:
         from src.analyzers.llm import summarize
 
-        return summarize(
+        text = summarize(
             (
                 "Eres un economista jefe para Venezuela. Redacta un resumen "
-                "ejecutivo de 5-8 frases del informe para un lector no técnico: "
-                "contexto general, cifras clave y tendencias del período."
+                "ejecutivo de máximo 5 frases del informe para un lector no "
+                "técnico: contexto general, cifras clave y tendencias del "
+                "período. Termina cada frase con un punto final."
             ),
             markdown,
-            max_tokens=500,
+            max_tokens=1200,
         ) or ""
     except Exception as exc:  # noqa: BLE001 - el informe no debe fallar
         logger.warning("Resumen IA no disponible: %s", exc)
         return ""
+    return _ensure_complete(text)
+
+
+def _ai_proyeccion(markdown: str) -> str:
+    """Proyección para el próximo período generada por IA (fallback silencioso)."""
+    if not settings.llm_providers():
+        return ""
+    try:
+        from src.analyzers.llm import summarize
+
+        text = summarize(
+            (
+                "Eres un economista jefe para Venezuela. Con base en el "
+                "informe del período, escribe una PROYECCIÓN para la próxima "
+                "semana en 3-5 frases: hacia dónde apuntan el tipo de cambio "
+                "(por fuente), la inflación y el sentimiento del mercado; "
+                "menciona los riesgos al alza y a la baja. "
+                "Responde SOLO con la proyección final (sin introducciones, "
+                "sin repetir las instrucciones, sin comentarios meta). "
+                "Termina cada frase con un punto final. "
+                "No inventes cifras que no estén en el informe."
+            ),
+            markdown,
+            max_tokens=900,
+        ) or ""
+    except Exception as exc:  # noqa: BLE001 - el informe no debe fallar
+        logger.warning("Proyección IA no disponible: %s", exc)
+        return ""
+    return _clean_proyeccion(text)
+
+
+_META_PREFIXES = (
+    "we need", "we must", "you are", "instructions",
+    "to produce", "must not invent", "we can",
+    "let me", "i need", "i must", "the user", "to respond", "i will",
+)
+
+
+def _clean_proyeccion(text: str) -> str:
+    """Quita prefacios meta que algunos LLMs añaden (razonamiento en voz alta)."""
+    lines = text.splitlines()
+    out: List[str] = []
+    started = False
+    for ln in lines:
+        low = ln.strip().lower()
+        if not started and (low.startswith(_META_PREFIXES) or not ln.strip()):
+            continue
+        started = True
+        out.append(ln)
+    cleaned = _ensure_complete("\n".join(out).strip())
+    return cleaned
+
+
+def _ensure_complete(text: str) -> str:
+    """Recorta al último punto/sentencia terminada si el LLM cortó a media frase."""
+    t = text.strip()
+    if not t:
+        return ""
+    if t[-1] in ".!?…":
+        return t
+    for sep in (".", "!", "?"):
+        idx = t.rfind(sep)
+        if idx >= 1 and idx > len(t) * 0.3:
+            return t[: idx + 1]
+    return t
+
+
+def _projection_rows(market: List[Dict]) -> List[Dict]:
+    """Proyección heurística de tasas: última tasa × (1 + variación semanal)."""
+    rows = []
+    for m in market:
+        var = m.get("variation_pct")
+        rate = m.get("rate")
+        if var is None or not rate:
+            continue
+        rows.append({"source": m.get("source", "?"),
+                     "rate": rate * (1 + var / 100.0)})
+    return rows
 
 
 def collect_snapshot(
@@ -186,19 +324,23 @@ def collect_snapshot(
         "surveys": base.get("surveys") or {},
         "sentiment": base.get("sentiment") or {},
         "articles": (base.get("articles") or [])[:TOP_ARTICLES],
-        "fiscal_docs": _collect_fiscal_docs() if with_fiscal else [],
-        "macro": _collect_macro() if with_macro else [],
+        "fiscal_docs": _collect_fiscal_docs(days) if with_fiscal else [],
+        "macro": _collect_macro(days) if with_macro else [],
         "resumen": "",
+        "proyeccion": "",
+        "proyeccion_rows": _projection_rows(market_series),
     }
 
     if with_ai:
         md = build_markdown(snapshot)
         snapshot["resumen"] = _ai_resumen(md)
+        snapshot["proyeccion"] = _ai_proyeccion(md)
     return snapshot
 
 
 def _market_series(session, days: int) -> List[Dict]:
-    """Serie completa de tasas del período (para gráficos)."""
+    """Serie completa de tasas del período (para gráficos), sin outliers."""
+    from src.analyzers.reports.weekly import _clean_rates
     from src.db.repositories import MarketRepository
 
     since = datetime.now(timezone.utc) - timedelta(days=days)
@@ -206,7 +348,7 @@ def _market_series(session, days: int) -> List[Dict]:
     return [
         {"source": r.source, "currency": r.currency, "rate": float(r.rate),
          "date": r.date.isoformat()}
-        for r in rates
+        for r in _clean_rates(rates)
     ]
 
 
@@ -221,28 +363,35 @@ def _fmt(v) -> str:
 def fiscal_docs_block(docs: List[Dict]) -> List[str]:
     lines = ["## Marco Fiscal y Legislativo Reciente", ""]
     if not docs:
-        lines += ["_Sin documentos fiscales en el período._", ""]
+        lines += ["_Sin trámites fiscales con impacto económico en el período._", ""]
         return lines
-    lines += ["| Fuente | Año | Documento | URL |", "|---|---|---|---|"]
+    lines += ["| Fuente | Año | Fecha | Documento / Trámite |", "|---|---|---|---|"]
     for d in docs:
+        desc = d.get("description") or d.get("title") or ""
         lines.append(f"| {d.get('source', '?')} | {d.get('year', '—')} | "
-                     f"{d.get('title', '')} | {d.get('url', '')} |")
-    lines.append("")
+                     f"{d.get('date') or '—'} | {desc} |")
+    lines += ["",
+              "_Solo se listan los trámites con posible impacto económico "
+              "(presupuesto, endeudamiento, impuestos, comercio, ...)._",
+              ""]
     return lines
 
 
 def macro_block(points: List[Dict]) -> List[str]:
     lines = ["## Indicadores Macroeconómicos", ""]
     if not points:
-        lines += ["_Sin indicadores macroeconómicos en el período._", ""]
+        lines += ["_Sin indicadores macroeconómicos disponibles._", ""]
         return lines
-    lines += ["| Fuente | Indicador | Período | Valor | Unidad |",
-              "|---|---|---|---|---|"]
+    lines += ["| Fuente | Indicador | Período | Valor | Unidad | Por qué importa |",
+              "|---|---|---|---|---|---|"]
     for p in points:
         lines.append(f"| {p.get('source', '?')} | {p.get('indicator', '')} | "
                      f"{p.get('period', '—')} | {_fmt(p.get('value'))} | "
-                     f"{p.get('unit', '')} |")
-    lines.append("")
+                     f"{p.get('unit', '')} | {p.get('impact', '')} |")
+    lines += ["",
+              "_Última observación disponible; los datos anuales son contexto "
+              "estructural, no impulsores de la semana._",
+              ""]
     return lines
 
 
@@ -252,6 +401,7 @@ def build_markdown(snapshot: Dict) -> str:
         articles_block,
         inflation_block,
         market_block,
+        projection_block,
         sentiment_block,
         surveys_block,
     )
@@ -271,6 +421,10 @@ def build_markdown(snapshot: Dict) -> str:
     lines += articles_block(snapshot.get("articles") or [])
     lines += fiscal_docs_block(snapshot.get("fiscal_docs") or [])
     lines += macro_block(snapshot.get("macro") or [])
+    lines += projection_block(
+        snapshot.get("proyeccion") or "",
+        snapshot.get("proyeccion_rows") or [],
+    )
     base = "\n".join(lines)
 
     resumen = snapshot.get("resumen") or ""

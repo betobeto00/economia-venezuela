@@ -44,6 +44,31 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+class TestLimpiarTasas:
+    def test_filtra_picos_anomalos(self):
+        from src.analyzers.reports.weekly import _clean_rates
+        from src.models.market import ExchangeRate
+
+        rates = [
+            ExchangeRate(source="binance", currency="usdt", rate=900,
+                         date=_now() - timedelta(hours=3)),
+            ExchangeRate(source="binance", currency="usdt", rate=915,
+                         date=_now() - timedelta(hours=2)),
+            ExchangeRate(source="binance", currency="usdt", rate=1500,
+                         date=_now() - timedelta(hours=1)),
+        ]
+        clean = _clean_rates(rates)
+        assert [r.rate for r in clean] == [900, 915]
+
+    def test_sin_datos_limpiables_devuelve_original(self):
+        from src.analyzers.reports.weekly import _clean_rates
+        from src.models.market import ExchangeRate
+
+        rates = [ExchangeRate(source="bcv", currency="usd", rate=36.5,
+                              date=_now())]
+        assert _clean_rates(rates) == rates
+
+
 class TestBloquesMarkdown:
     def test_market_block_vacio(self):
         lines = market_block([])
@@ -70,6 +95,36 @@ class TestBloquesMarkdown:
     def test_sentiment_block_vacio(self):
         text = "\n".join(sentiment_block({}))
         assert "Sin análisis de sentimiento" in text
+
+    def test_inflation_fuente_entre_parentesis(self):
+        from src.analyzers.reports.weekly import inflation_block
+
+        text = "\n".join(inflation_block([
+            {"source": "ovf", "period": "2026-07", "monthly_rate": 1.8,
+             "annual_rate": 45.2},
+        ]))
+        assert "(OVF)" in text
+
+    def test_articles_fuente_y_resumen(self):
+        from src.analyzers.reports.weekly import articles_block
+
+        text = "\n".join(articles_block([
+            {"title": "Dólar sube", "source": "Primicia",
+             "published": _now(), "summary": "El paralelo escaló a 930."},
+        ]))
+        assert "Primicia" in text
+        assert "El paralelo escaló a 930." in text
+
+    def test_projection_block(self):
+        from src.analyzers.reports.weekly import projection_block
+
+        text = "\n".join(projection_block(
+            "Se espera un dólar estable.",
+            [{"source": "bcv", "rate": 780.5}],
+        ))
+        assert "Proyección para la próxima semana" in text
+        assert "Se espera un dólar estable." in text
+        assert "| bcv | 780.50 |" in text
 
 
 class TestBuildWeeklyReport:

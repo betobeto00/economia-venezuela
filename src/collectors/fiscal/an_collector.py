@@ -135,6 +135,7 @@ class ANCollector:
                         title=c["title"],
                         url=c["url"],
                         year=c["date"].year,
+                        date=c["date"],
                     )
                 )
             logger.info(
@@ -161,6 +162,7 @@ class ANCollector:
                 title=r["title"],
                 url=r["url"],
                 year=r["date"].year,
+                date=r["date"],
             )
             for r in rows
             if _matches(r["title"], keywords)

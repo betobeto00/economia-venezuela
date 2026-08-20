@@ -8,6 +8,7 @@ internacionales. Diseño:
 - Fechas como ``datetime`` y períodos como ``YYYY-MM`` para facilitar series.
 """
 
+from datetime import date as _date
 from datetime import datetime
 from typing import Optional
 
@@ -126,16 +127,20 @@ class IndicatorPoint(BaseModel):
 
 
 class FiscalDocument(BaseModel):
-    """Documento/informe fiscal localizado (CGR, AN, MPPEF).
+    """Documento/informe fiscal localizado (CGR, AN, MPPEF, gaceta).
 
     Atributos:
-        source: Emisor (``cgr``, ``an``, ``mppef``, ...).
+        source: Emisor (``cgr``, ``an``, ``mppef``, ``gaceta``, ...).
         title: Título del documento.
         url: URL del documento.
         year: Año del documento (opcional).
+        date: Fecha del documento (opcional).
+        description: Resumen/contenido de impacto del documento (opcional).
     """
 
     source: str
     title: str
     url: str
     year: Optional[int] = None
+    date: Optional[_date] = None
+    description: Optional[str] = None

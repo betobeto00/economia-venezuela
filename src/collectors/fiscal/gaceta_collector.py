@@ -33,10 +33,26 @@ _CALENDAR_DAY_RE = re.compile(
 )
 _ATTR_RE = re.compile(r'data-(year|month|day)="(\d+)"')
 _DETAIL_LINK_RE = re.compile(r"/gacetas/(\d+)")
+_SUMARIO_ROW_RE = re.compile(r"<tr>(.*?)</tr>", re.S)
+_SUMARIO_CELL_RE = re.compile(r"<td[^>]*>(.*?)</td>", re.S)
+
+# Palabras clave para determinar el impacto económico de un sumario
+ECONOMIC_HINTS = (
+    "presupuesto", "deuda", "crédito", "credito", "impuesto", "tributo",
+    "arancel", "gasto", "financ", "econom", "bolívar", "bolivar", "tasa",
+    "bonos", "petróleo", "petroleo", "dólar", "dolar", "moneda", "fiscal",
+    "recaudaci", "subsidio", "salario", "pensión", "pension", "comercio",
+    "inversión", "inversion", "tarifa", "precio",
+)
 
 
 def _strip(html: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html)).strip()
+
+
+def _economically_relevant(title: str) -> bool:
+    low = title.lower()
+    return any(hint in low for hint in ECONOMIC_HINTS)
 
 
 class GacetaOficialCollector:
@@ -128,10 +144,63 @@ class GacetaOficialCollector:
                         title=f"Gaceta N° {numero} ({g['tipo']})",
                         url=self._pdf_url(numero, g["fecha"], g["tipo"]),
                         year=g["fecha"].year,
+                        date=g["fecha"],
                     )
                 )
         logger.info("Gaceta: %d gacetas con keywords %s", len(docs), keywords)
         return docs
+
+    def fetch_detalle(self, numero: int) -> List[dict]:
+        """Sumarios de la gaceta (Órgano + Título de cada decreto/acuerdo)."""
+        html = http_get_text(self.base_url + f"{DETALLE_ENDPOINT}{numero}")
+        return self._parse_sumarios(html)
+
+    def _parse_sumarios(self, html: str) -> List[dict]:
+        """Filas de la tabla ``#sumarios-table`` (Órgano, Ente, Título, págs)."""
+        out: List[dict] = []
+        table = re.search(r"<table[^>]*id=\"sumarios-table\".*?</table>", html, re.S)
+        source = table.group(0) if table else html
+        for tr in _SUMARIO_ROW_RE.finditer(source):
+            cells = [_strip(c) for c in _SUMARIO_CELL_RE.findall(tr.group(1))]
+            if len(cells) < 3 or not cells[2]:
+                continue
+            out.append(
+                {
+                    "organo": cells[0],
+                    "ente": cells[1] if len(cells) > 1 else "",
+                    "titulo": cells[2],
+                    "pagina": cells[3] if len(cells) > 3 else "",
+                }
+            )
+        return out
+
+    def enrich_con_sumarios(
+        self, docs: List[FiscalDocument], max_docs: int = 8
+    ) -> List[FiscalDocument]:
+        """Añade la descripción económica a las gacetas (desde sus sumarios).
+
+        Se priorizan los sumarios con impacto económico; si no hay ninguno,
+        la descripción queda vacía (la gaceta se descarta después del filtro).
+        """
+        out: List[FiscalDocument] = []
+        for doc in docs[:max_docs]:
+            try:
+                sumarios = self.fetch_detalle(int(doc.url.rstrip("/").rsplit("/", 1)[-1]))
+                relevant = [s["titulo"] for s in sumarios if _economically_relevant(s["titulo"])]
+                selected = relevant or [
+                    s["titulo"] for s in sumarios if s["organo"] in (
+                        "MINISTERIO DEL PODER POPULAR DE ECONOMÍA",
+                        "MINISTERIO DEL PODER POPULAR DE FINANZAS",
+                        "PRESIDENCIA DE LA REPÚBLICA",
+                    )
+                ]
+                if selected:
+                    doc.description = selected[0]
+                    out.append(doc)
+            except Exception as exc:  # noqa: BLE001 - sección opcional
+                logger.warning("Gaceta %s sin sumarios: %s", doc.title, exc)
+        logger.info("Gaceta: %d documentos enriquecidos con sumarios", len(out))
+        return out
 
     def fetch_recientes(self, days: int = 30) -> List[FiscalDocument]:
         """Gacetas publicadas en los últimos ``days`` días (por calendario)."""
@@ -147,6 +216,7 @@ class GacetaOficialCollector:
                         title=f"Gaceta N° {numero} ({g.get('categoria', '')})",
                         url=f"{self.base_url}{g['ruta_archivo']}",
                         year=d.year,
+                        date=d,
                     )
                 )
         logger.info("Gaceta: %d gacetas en los últimos %d días", len(docs), days)

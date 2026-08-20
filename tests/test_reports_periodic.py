@@ -74,13 +74,13 @@ class TestCollectSnapshot:
         _populate(session)
         monkeypatch.setattr(
             "src.analyzers.reports.periodic._collect_fiscal_docs",
-            lambda: [{"source": "gaceta", "title": "Gaceta 1", "year": 2026,
-                      "url": "http://g"}],
+            lambda days: [{"source": "gaceta", "title": "Gaceta 1", "year": 2026,
+                           "url": "http://g", "description": "Trámite"}],
         )
         monkeypatch.setattr(
             "src.analyzers.reports.periodic._collect_macro",
-            lambda: [{"source": "cepal", "indicator": "pib", "period": "2025",
-                      "value": 94368.6, "unit": "USD"}],
+            lambda days: [{"source": "cepal", "indicator": "pib", "period": "2025",
+                           "value": 94368.6, "unit": "USD", "impact": "Contexto"}],
         )
         snap = collect_snapshot("semanal", session=session, with_ai=False)
         assert snap["cadence"] == "semanal"
@@ -91,30 +91,35 @@ class TestCollectSnapshot:
         assert snap["fiscal_docs"][0]["source"] == "gaceta"
         assert snap["macro"][0]["source"] == "cepal"
         assert snap["resumen"] == ""
+        assert "proyeccion" in snap
+        assert snap["proyeccion_rows"]
 
     def test_snapshot_sin_datos(self, session, monkeypatch):
         monkeypatch.setattr(
-            "src.analyzers.reports.periodic._collect_fiscal_docs", lambda: [])
+            "src.analyzers.reports.periodic._collect_fiscal_docs", lambda days: [])
         monkeypatch.setattr(
-            "src.analyzers.reports.periodic._collect_macro", lambda: [])
+            "src.analyzers.reports.periodic._collect_macro", lambda days: [])
         snap = collect_snapshot("diario", session=session, with_ai=False)
         assert snap["market"] == []
         assert snap["fiscal_docs"] == []
         assert snap["macro"] == []
+        assert snap["proyeccion_rows"] == []
 
 
 class TestMarkdown:
     def test_fiscal_docs_block_vacio(self):
         text = "\n".join(fiscal_docs_block([]))
-        assert "Sin documentos fiscales" in text
+        assert "Sin trámites fiscales" in text
 
     def test_fiscal_docs_block_con_datos(self):
         text = "\n".join(fiscal_docs_block([
             {"source": "gaceta", "title": "Gaceta N° 43429", "year": 2026,
-             "url": "http://g/43429"},
+             "url": "http://g/43429", "date": "2026-08-04",
+             "description": "Decreto N° 5.405 (nombramiento)"},
         ]))
-        assert "| gaceta | 2026 |" in text
-        assert "http://g/43429" in text
+        assert "| gaceta | 2026 | 2026-08-04 |" in text
+        assert "Decreto N° 5.405" in text
+        assert "impacto económico" in text
 
     def test_macro_block(self):
         text = "\n".join(macro_block([
@@ -149,9 +154,9 @@ class TestGeneracion:
     def test_generate_md_y_pdf(self, session, monkeypatch, tmp_path):
         _populate(session)
         monkeypatch.setattr(
-            "src.analyzers.reports.periodic._collect_fiscal_docs", lambda: [])
+            "src.analyzers.reports.periodic._collect_fiscal_docs", lambda days: [])
         monkeypatch.setattr(
-            "src.analyzers.reports.periodic._collect_macro", lambda: [])
+            "src.analyzers.reports.periodic._collect_macro", lambda days: [])
         result = generate_periodic_report(
             "semanal", output_dir=str(tmp_path), formats=("md", "pdf"),
             session=session, with_ai=False,
@@ -222,3 +227,134 @@ class TestScheduler:
         register_periodic_report_jobs(scheduler)
         jobs = [j.id for j in scheduler.get_jobs()]
         assert jobs.count("report_semanal") == 1
+
+
+class TestEnsureComplete:
+    """_ensure_complete recorta al último punto si el LLM cortó a media frase."""
+
+    def test_texto_completo(self):
+        from src.analyzers.reports.periodic import _ensure_complete
+
+        assert _ensure_complete("Hola mundo.") == "Hola mundo."
+
+    def test_texto_con_signos(self):
+        from src.analyzers.reports.periodic import _ensure_complete
+
+        assert _ensure_complete("¿Qué pasa?") == "¿Qué pasa?"
+        assert _ensure_complete("¡Cuidado!") == "¡Cuidado!"
+
+    def test_corta_a_media_frase(self):
+        from src.analyzers.reports.periodic import _ensure_complete
+
+        result = _ensure_complete("El dólar subió. Pero la inflación sigue")
+        assert result == "El dólar subió."
+
+    def test_texto_vacio(self):
+        from src.analyzers.reports.periodic import _ensure_complete
+
+        assert _ensure_complete("") == ""
+        assert _ensure_complete("   ") == ""
+
+    def test_muy_corto_sin_punto(self):
+        from src.analyzers.reports.periodic import _ensure_complete
+
+        # Si no hay punto significativo, devuelve tal cual
+        result = _ensure_complete("abc")
+        assert result == "abc"
+
+
+class TestCleanProyeccion:
+    """_clean_proyeccion quita prefacios meta del LLM."""
+
+    def test_limpia_meta_inicial(self):
+        from src.analyzers.reports.periodic import _clean_proyeccion
+
+        text = (
+            "We need to produce a projection for the next week.\n"
+            "Based on the current data, the dollar will remain stable."
+        )
+        result = _clean_proyeccion(text)
+        assert "We need" not in result
+        assert "Based on" in result  # contenido válido, no meta
+
+    def test_limpia_lineas_vacias(self):
+        from src.analyzers.reports.periodic import _clean_proyeccion
+
+        text = ("\n\nEl dólar subirá a 950.\n")
+        result = _clean_proyeccion(text)
+        assert result == "El dólar subirá a 950."
+
+    def test_proyeccion_limpia(self):
+        from src.analyzers.reports.periodic import _clean_proyeccion
+
+        text = "El tipo de cambio se mantendrá estable en el rango de 900-920."
+        result = _clean_proyeccion(text)
+        assert result == text
+
+    def test_i_will_prefix(self):
+        from src.analyzers.reports.periodic import _clean_proyeccion
+
+        text = "I will now produce a projection.\nEl dólar sube."
+        result = _clean_proyeccion(text)
+        assert "I will now produce" not in result
+        assert "dólar sube" in result
+
+
+class TestProjectionRows:
+    """_projection_rows genera proyección heurística de tasas."""
+
+    def test_con_variacion(self):
+        from src.analyzers.reports.periodic import _projection_rows
+
+        rows = _projection_rows([
+            {"source": "bcv", "rate": 900.0, "variation_pct": 2.0},
+        ])
+        assert len(rows) == 1
+        assert rows[0]["source"] == "bcv"
+        assert rows[0]["rate"] == pytest.approx(918.0)
+
+    def test_sin_variacion(self):
+        from src.analyzers.reports.periodic import _projection_rows
+
+        rows = _projection_rows([
+            {"source": "bcv", "rate": 900.0, "variation_pct": None},
+        ])
+        assert rows == []
+
+    def test_vacio(self):
+        from src.analyzers.reports.periodic import _projection_rows
+
+        assert _projection_rows([]) == []
+
+
+class TestPdfStripHtml:
+    """El PDF de noticias limpia HTML de los resúmenes RSS."""
+
+    def test_noticias_html_stripped(self, tmp_path):
+        from src.analyzers.reports.pdf_report import render_pdf
+
+        snapshot = {
+            "cadence": "diario",
+            "period": "Día test",
+            "generated_at": _now(),
+            "market_series": [],
+            "market": [],
+            "inflation": [],
+            "surveys": {},
+            "sentiment": {},
+            "articles": [{
+                "title": "Dólar estable",
+                "published": _now(),
+                "source": "Primicia",
+                "summary": "<p>El tipo de cambio <b>sigue</b> estable en 915.</p>",
+            }],
+            "fiscal_docs": [],
+            "macro": [],
+            "resumen": "",
+        }
+        path = str(tmp_path / "test_html.pdf")
+        render_pdf(snapshot, path)
+        data = __import__("pathlib").Path(path).read_text(encoding="latin-1")
+        # El PDF no debe contener etiquetas HTML literales en el contenido
+        assert "<p>" not in data
+        assert "<b>" not in data

@@ -11,7 +11,9 @@ vacía), se documenta con "_Sin datos_", nunca falla la generación.
 """
 
 import logging
+import re
 from datetime import datetime, timedelta, timezone
+from statistics import median
 from typing import Dict, List, Optional
 
 from src.config import settings
@@ -20,6 +22,39 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_DAYS = 7
 TOP_ARTICLES = 5
+# Desviación máxima aceptable de una tasa respecto a la mediana de su fuente.
+# Filtra picos anómalos del P2P (ofertas erróneas de Binance/Bybit).
+MAX_RATE_DEVIATION = 0.30
+
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _strip_html(text: Optional[str]) -> str:
+    """Quita etiquetas HTML de un texto (resúmenes RSS suelen traerlas)."""
+    return _TAG_RE.sub(" ", str(text or "")).strip()
+
+
+def _clean_rates(rates, max_deviation: float = MAX_RATE_DEVIATION) -> List:
+    """Descarta tasas anómalas por fuente (picos > ``max_deviation`` de la mediana).
+
+    El P2P ocasionalmente devuelve ofertas erróneas (p.ej. 1500 Bs cuando el
+    mercado ronda 910). Se filtra por fuente/moneda para que la última tasa y
+    los gráficos no se contaminen con esos picos.
+    """
+    by_key: Dict[tuple, List] = {}
+    for r in rates:
+        by_key.setdefault((r.source, r.currency), []).append(r)
+    clean = []
+    for group in by_key.values():
+        med = median(float(g.rate) for g in group)
+        for r in group:
+            rate = float(r.rate)
+            if med and abs(rate - med) / med > max_deviation:
+                continue
+            clean.append(r)
+    if clean:
+        return clean
+    return list(rates)
 
 
 def _fmt_date(dt: Optional[datetime]) -> str:
@@ -61,8 +96,9 @@ def inflation_block(points: List[Dict]) -> List[str]:
         return lines
     lines += ["| Fuente | Período | Mensual % | Anual % |", "|---|---|---|---|"]
     for row in points:
+        src = row.get("source", "?").upper()
         lines.append(
-            f"| {row.get('source', '?')} | {row.get('period', '—')} | "
+            f"| ({src}) | {row.get('period', '—')} | "
             f"{_fmt_currency(row.get('monthly_rate'), 1)} | "
             f"{_fmt_currency(row.get('annual_rate'), 1)} |"
         )
@@ -116,13 +152,39 @@ def sentiment_block(summary: Dict) -> List[str]:
 
 
 def articles_block(articles: List[Dict]) -> List[str]:
-    """Lista de los artículos más recientes de la semana."""
+    """Lista de los artículos más recientes de la semana (con fuente y resumen)."""
     lines = ["### Noticias destacadas", ""]
     if not articles:
         lines += ["_Sin artículos en el período._", ""]
         return lines
-    lines += ["- " + _fmt_date(a.get("published")) + " — " + a.get("title", "") for a in articles]
+    for a in articles:
+        lines.append(
+            f"- **{a.get('title', '')}** — {a.get('source', '?')} "
+            f"({_fmt_date(a.get('published'))})"
+        )
+        summary = _strip_html(a.get("summary"))
+        if summary:
+            lines.append(f"  - {summary[:220]}")
     lines.append("")
+    return lines
+
+
+def projection_block(projection: str, rows: Optional[List[Dict]] = None) -> List[str]:
+    """Sección de proyección para el próximo período (IA o heurística)."""
+    lines = ["## Proyección para la próxima semana", ""]
+    if projection:
+        lines += ["", str(projection).strip(), ""]
+    if rows:
+        lines += ["", "| Fuente | Proyección (Bs/USD) |",
+                  "|---|---|"]
+        for r in rows:
+            lines.append(f"| {r.get('source', '?')} | {_fmt_currency(r.get('rate'))} |")
+        lines.append("")
+    lines += [
+        "_Proyección a partir de la tendencia del período; no constituye "
+        "asesoría financiera._",
+        "",
+    ]
     return lines
 
 
@@ -239,7 +301,7 @@ def _snapshot_from_session(session, days: int) -> Dict:
         }
 
     # Última tasa por fuente dentro del período, con variación semanal.
-    market = _aggregate_rates(rates)
+    market = _aggregate_rates(_clean_rates(rates))
     return {
         "market": market,
         "inflation": [_to_dict(p) for p in inflation],

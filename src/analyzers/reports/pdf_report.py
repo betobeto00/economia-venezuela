@@ -17,14 +17,18 @@ El renderizador nunca falla: sección sin datos se omite o se documenta con
 
 import logging
 from datetime import datetime
+from html import escape as _esc
 from io import BytesIO
+from src.analyzers.reports.weekly import _strip_html
 from typing import Dict, List, Optional
 
 import matplotlib
 
 matplotlib.use("Agg")
 
+import matplotlib.dates as mdates  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
+import pandas as pd  # noqa: E402
 from reportlab.lib import colors  # noqa: E402
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY  # noqa: E402
 from reportlab.lib.pagesizes import A4  # noqa: E402
@@ -46,6 +50,7 @@ logger = logging.getLogger(__name__)
 
 # ------------------------------------------------------------------ paleta
 NAVY = colors.HexColor("#12355B")
+NAVY_LIGHT = colors.HexColor("#1E4E7B")
 GOLD = colors.HexColor("#C9A227")
 RED = colors.HexColor("#B3392F")
 GREEN = colors.HexColor("#2E7D32")
@@ -55,6 +60,8 @@ BORDER = colors.HexColor("#D8DEE6")
 TEXT = colors.HexColor("#1F2937")
 
 CHART_COLORS = ["#12355B", "#C9A227", "#B3392F", "#2E7D32", "#7C3AED", "#0E7490"]
+
+_SOURCE_LABELS = {"bcv": "BCV", "binance": "Binance", "bybit": "Bybit"}
 
 CADENCE_LABELS = {
     "diario": "Informe Diario",
@@ -125,30 +132,68 @@ def _fig_to_image(fig, width: float, height: float) -> Image:
 
 
 def _rates_chart(rows: List[Dict]) -> Optional[Image]:
-    """Líneas de tasa por fuente a lo largo del período."""
+    """Líneas de tasa por fuente: mediana diaria, etiquetas por día."""
     if not rows:
         return None
-    by_source: Dict[tuple, list] = {}
-    for r in rows:
-        key = (r.get("source"), r.get("currency"))
-        by_source.setdefault(key, []).append((r.get("date"), r.get("rate")))
-    fig, ax = plt.subplots(figsize=(8.6, 3.4))
-    for i, ((source, currency), pts) in enumerate(sorted(by_source.items())):
-        pts = sorted(pts, key=lambda p: p[0] or "")
-        xs = [p[0] for p in pts]
-        ys = [p[1] for p in pts]
-        if not xs:
-            continue
-        ax.plot(xs, ys, marker="o", markersize=3, linewidth=1.6,
-                color=CHART_COLORS[i % len(CHART_COLORS)],
-                label=f"{source}/{currency}")
-    ax.set_title("Tasa de cambio por fuente (Bs/USD)", fontsize=10,
-                 color="#12355B", fontweight="bold")
-    ax.legend(fontsize=7, loc="best")
-    ax.grid(alpha=0.3, linestyle="--")
-    ax.tick_params(labelsize=7)
+
+    def _parse_dt(value):
+        if isinstance(value, datetime):
+            return value
+        try:
+            return datetime.fromisoformat(str(value))
+        except ValueError:
+            return None
+
+    points = [
+        (r.get("source"), r.get("currency"), _parse_dt(r.get("date")), r.get("rate"))
+        for r in rows
+    ]
+    df = pd.DataFrame(points, columns=["source", "currency", "date", "rate"])
+    df = df.dropna(subset=["rate", "date"])
+    df["day"] = pd.to_datetime(df["date"].dt.date)
+    span_days = (df["day"].max() - df["day"].min()).days
+    # Rellenar días faltantes por fuente (forward-fill): un punto por día del
+    # período para que la línea sea continua desde el primer al último día.
+    full_index = pd.date_range(df["day"].min(), df["day"].max(), freq="D")
+    frames = []
+    for (source, currency), grp in df.groupby(["source", "currency"]):
+        series = (
+            grp.drop_duplicates("day", keep="last")
+            .set_index("day")["rate"]
+            .reindex(full_index)
+            .ffill()
+            .dropna()
+        )
+        frames.append(pd.DataFrame({
+            "source": source, "currency": currency,
+            "day": series.index, "rate": series.values,
+        }))
+    daily = pd.concat(frames, ignore_index=True)
+    if daily.empty:
+        return None
+
+    fig, ax = plt.subplots(figsize=(8.8, 3.6))
+    for i, ((source, currency), grp) in enumerate(
+        daily.groupby(["source", "currency"])
+    ):
+        grp = grp.sort_values("day")
+        ax.plot(
+            grp["day"], grp["rate"], marker="o", markersize=4,
+            linewidth=1.8, color=CHART_COLORS[i % len(CHART_COLORS)],
+            label=_SOURCE_LABELS.get(source, source),
+        )
+    ax.set_title("Tasa de cambio por fuente (Bs/USD) — un punto por día",
+                 fontsize=10, color="#12355B", fontweight="bold")
+    fmt = "%d" if span_days <= 15 else "%m-%d"
+    ax.xaxis.set_major_formatter(mdates.DateFormatter(fmt))
+    ax.xaxis.set_major_locator(mdates.DayLocator())
+    ax.legend(fontsize=8, loc="best", frameon=False, ncol=3)
+    ax.grid(alpha=0.3, linestyle="--", axis="y")
+    ax.set_xlim(daily["day"].min() - pd.Timedelta(days=0.5),
+                daily["day"].max() + pd.Timedelta(days=0.5))
+    ax.tick_params(labelsize=8)
     fig.tight_layout()
-    return _fig_to_image(fig, 17 * cm, 6.5 * cm)
+    return _fig_to_image(fig, 17 * cm, 6.8 * cm)
 
 
 def _inflation_chart(points: List[Dict]) -> Optional[Image]:
@@ -201,27 +246,41 @@ def _sentiment_chart(summary: Dict) -> Optional[Image]:
 
 
 def _surveys_chart(surveys: Dict[str, Dict]) -> Optional[Image]:
-    """Barras horizontales del KPI por segmento (media 0-100)."""
+    """Barras horizontales del KPI por segmento (media 0-100), sin deformar."""
     if not surveys:
         return None
-    fig, ax = plt.subplots(figsize=(8.6, max(2.6, len(surveys) * 1.5)))
-    y = 0
-    for segment, info in surveys.items():
-        for name, kpi in (info.get("kpis") or {}).items():
-            mean = kpi.get("mean", 0)
-            ax.barh(y, mean, height=0.5, color=CHART_COLORS[y % len(CHART_COLORS)])
-            ax.text(mean + 0.5, y, f"{mean:.1f}", va="center", fontsize=7)
-            ax.text(0.3, y, f"{info.get('label', segment)} — {kpi.get('label', name)}",
-                    va="center", ha="left", fontsize=7, color="white")
-            y += 1
+    bars = [
+        (info.get("label", segment), kpi.get("label", name))
+        for segment, info in surveys.items()
+        for name, kpi in (info.get("kpis") or {}).items()
+    ]
+    if not bars:
+        return None
+    fig_w, fig_h = 8.8, max(2.4, len(bars) * 0.55 + 0.8)
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
+    for y, (segment_label, kpi_label) in enumerate(bars):
+        for segment, info in surveys.items():
+            for name, kpi in (info.get("kpis") or {}).items():
+                if info.get("label", segment) == segment_label and \
+                        kpi.get("label", name) == kpi_label:
+                    mean = kpi.get("mean", 0)
+                    ax.barh(y, mean, height=0.55,
+                            color=CHART_COLORS[y % len(CHART_COLORS)])
+                    ax.text(mean + 1, y, f"{mean:.1f}", va="center",
+                            fontsize=8, fontweight="bold")
+                    ax.text(0.3, y, f"{segment_label} — {kpi_label}",
+                            va="center", ha="left", fontsize=8,
+                            color="white")
     ax.set_xlim(0, 100)
     ax.set_yticks([])
+    ax.set_ylim(-0.6, len(bars) - 0.4)
     ax.set_title("KPIs de encuestas por segmento (0-100)", fontsize=10,
                  color="#12355B", fontweight="bold")
     ax.grid(alpha=0.3, axis="x", linestyle="--")
-    ax.tick_params(labelsize=7)
+    ax.tick_params(labelsize=8)
     fig.tight_layout()
-    return _fig_to_image(fig, 17 * cm, max(4.5, y * 1.15) * cm)
+    aspect = fig_h / fig_w
+    return _fig_to_image(fig, 17 * cm, 17 * cm * aspect)
 
 
 # ------------------------------------------------------------------ helpers
@@ -297,18 +356,25 @@ def _cover(story, snapshot: Dict) -> None:
     band = Table(
         [[Paragraph(title, styles["CoverTitle"])]],
         colWidths=[17.5 * cm],
-        rowHeights=[2.6 * cm],
+        rowHeights=[3 * cm],
     )
     band.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), NAVY),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LINEBELOW", (0, 0), (-1, 0), 0.35 * cm, GOLD),
     ]))
     story.append(band)
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 10))
     story.append(Paragraph("Economía de Venezuela", styles["CoverSub"]))
     story.append(Spacer(1, 4))
     story.append(Paragraph(
         f"Período: {period}  |  Generado: {now:%Y-%m-%d %H:%M}",
+        styles["CoverMeta"],
+    ))
+    story.append(Spacer(1, 6))
+    story.append(Paragraph(
+        "Mercado cambiario · inflación · encuestas · sentimiento · "
+        "noticias · marco fiscal · indicadores macro · proyección",
         styles["CoverMeta"],
     ))
     story.append(Spacer(1, 10))
@@ -342,7 +408,8 @@ def _mercado(story, snapshot: Dict) -> None:
         return
     headers = ["Fuente", "Moneda", "Última (Bs/USD)", "Variación %", "Fecha"]
     rows = [
-        [r.get("source", "?"), r.get("currency", "usd"),
+        [_SOURCE_LABELS.get(r.get("source"), r.get("source", "?")),
+         r.get("currency", "usd").upper(),
          _fmt_currency(r.get("rate")),
          _fmt_currency(r.get("variation_pct"), 2), _fmt_date(r.get("date"))]
         for r in market
@@ -364,7 +431,7 @@ def _inflacion(story, snapshot: Dict) -> None:
         return
     headers = ["Fuente", "Período", "Mensual %", "Anual %"]
     rows = [
-        [p.get("source", "?"), p.get("period", "—"),
+        [f"({p.get('source', '?').upper()})", p.get("period", "—"),
          _fmt_currency(p.get("monthly_rate"), 1),
          _fmt_currency(p.get("annual_rate"), 1)]
         for p in points
@@ -444,11 +511,23 @@ def _noticias(story, snapshot: Dict) -> None:
     if not articles:
         story.append(_p("_Sin artículos en el período._", styles["Body"]))
         return
+
+    def _cell(a: Dict) -> Paragraph:
+        title = _esc(_strip_html(a.get("title", "")))
+        summary = _strip_html(a.get("summary") or "")[:240]
+        text = f"<b>{title}</b>"
+        if summary:
+            text += f"<br/><font size=7 color='#6B7280'>{_esc(summary)}</font>"
+        return Paragraph(text, styles["Cell"])
+
     rows = [
-        [_fmt_date(a.get("published")), a.get("title", "")]
+        [_fmt_date(a.get("published")),
+         _esc(str(a.get("source", "?"))),
+         _cell(a)]
         for a in articles
     ]
-    t = _data_table(["Fecha", "Título"], rows, widths=[3 * cm, 14 * cm])
+    t = _data_table(["Fecha", "Fuente", "Título y resumen"], rows,
+                    widths=[2.6 * cm, 3 * cm, 11.6 * cm])
     if t:
         story.append(t)
 
@@ -457,38 +536,97 @@ def _marco_fiscal(story, snapshot: Dict) -> None:
     _section(story, "Marco Fiscal y Legislativo Reciente")
     docs = snapshot.get("fiscal_docs") or []
     if not docs:
-        story.append(_p("_Sin documentos fiscales en el período._", styles["Body"]))
+        story.append(_p("_Sin trámites fiscales con impacto económico en el "
+                        "período._", styles["Body"]))
         return
-    rows = []
-    for d in docs[:25]:
-        rows.append([
-            d.get("source", "?"),
-            d.get("year", "—"),
-            d.get("title", ""),
-        ])
-    t = _data_table(["Fuente", "Año", "Documento"],
-                    rows, widths=[2.6 * cm, 1.8 * cm, 13 * cm])
+
+    def _desc_cell(d: Dict) -> Paragraph:
+        text = f"<b>{_esc(_strip_html(d.get('title', '')))}</b>"
+        desc = _strip_html(d.get("description") or "")[:260]
+        if desc and desc != _strip_html(d.get('title')):
+            text += f"<br/><font size=7 color='#374151'>{_esc(desc)}</font>"
+        return Paragraph(text, styles["Cell"])
+
+    rows = [
+        [_fmt_date(d.get("date")),
+         _SOURCE_LABELS.get(d.get("source"), d.get("source", "?")),
+         _desc_cell(d)]
+        for d in docs[:20]
+    ]
+    t = _data_table(["Fecha", "Fuente", "Trámite / Impacto económico"], rows,
+                    widths=[2.4 * cm, 2 * cm, 12.6 * cm])
     if t:
         story.append(t)
+    story.append(_p(
+        "Solo se listan los trámites con posible impacto económico "
+        "(presupuesto, endeudamiento, impuestos, comercio, ...).",
+        styles["Small"],
+    ))
 
 
 def _macro(story, snapshot: Dict) -> None:
     _section(story, "Indicadores Macroeconómicos")
     macro = snapshot.get("macro") or []
     if not macro:
-        story.append(_p("_Sin indicadores macroeconómicos en el período._",
+        story.append(_p("_Sin indicadores macroeconómicos disponibles._",
                         styles["Body"]))
         return
-    headers = ["Fuente", "Indicador", "Período", "Valor", "Unidad"]
+
+    def _impact_cell(m: Dict) -> Paragraph:
+        return Paragraph(
+            _esc(str(m.get("impact") or "")), styles["Cell"],
+        )
+
+    headers = ["Fuente", "Indicador", "Período", "Valor", "Por qué importa"]
     rows = [
-        [m.get("source", "?"), m.get("indicator", ""), m.get("period", "—"),
-         _fmt_currency(m.get("value"), 2), m.get("unit", "")]
+        [_SOURCE_LABELS.get(m.get("source"), m.get("source", "?")),
+         _esc(str(m.get("indicator", ""))),
+         _esc(str(m.get("period", "—"))),
+         _fmt_currency(m.get("value"), 2),
+         _impact_cell(m)]
         for m in macro
     ]
     t = _data_table(headers, rows,
-                    widths=[2.6 * cm, 5.4 * cm, 2.6 * cm, 3.4 * cm, 2.2 * cm])
+                    widths=[2.4 * cm, 3.6 * cm, 2.2 * cm, 2.6 * cm, 6.2 * cm])
     if t:
         story.append(t)
+    story.append(_p(
+        "Última observación disponible; los datos anuales son contexto "
+        "estructural, no impulsores de la semana.",
+        styles["Small"],
+    ))
+
+
+def _proyeccion(story, snapshot: Dict) -> None:
+    _section(story, "Proyección para la próxima semana")
+    proyeccion = snapshot.get("proyeccion") or ""
+    rows = snapshot.get("proyeccion_rows") or []
+    if proyeccion:
+        story.append(_p(proyeccion, styles["Body"]))
+    elif rows:
+        story.append(_p(
+            "Proyección heurística: última tasa × (1 + variación del período).",
+            styles["Small"],
+        ))
+        t = _data_table(
+            ["Fuente", "Proyección (Bs/USD)"],
+            [[_SOURCE_LABELS.get(r.get("source"), r.get("source", "?")),
+              _fmt_currency(r.get("rate"))] for r in rows],
+            widths=[6 * cm, 6 * cm],
+        )
+        if t:
+            story.append(t)
+    else:
+        story.append(_p(
+            "_Sin datos suficientes para proyectar el próximo período._",
+            styles["Body"],
+        ))
+        return
+    story.append(_p(
+        "Proyección a partir de la tendencia del período; no constituye "
+        "asesoría financiera.",
+        styles["Small"],
+    ))
 
 
 def _footer(canvas, doc) -> None:
@@ -525,6 +663,7 @@ def render_pdf(snapshot: Dict, output_path: str) -> str:
     _noticias(story, snapshot)
     _marco_fiscal(story, snapshot)
     _macro(story, snapshot)
+    _proyeccion(story, snapshot)
 
     doc = SimpleDocTemplate(
         output_path,
