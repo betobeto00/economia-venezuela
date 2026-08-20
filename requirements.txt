@@ -60,6 +60,9 @@ matplotlib==3.11.1      # Gráficos para informes PDF
 
 # Reportes PDF
 reportlab==5.0.0        # Generación de informes en PDF
+pytesseract==0.3.13    # OCR para PDFs escaneados (Gaceta Oficial)
+Pillow==11.1.0         # Manipulación de imágenes para OCR
+pdf2image==1.17.0      # Conversión PDF → imágenes para OCR
 
 # Database
 sqlalchemy==2.0.23

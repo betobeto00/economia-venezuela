@@ -96,9 +96,10 @@ vecm_result = vecm.fit_vecm(official_rate, parallel_rate)
 ### 📊 Índice Bursátil Caracas (IBC)
 | Fuente | Tipo | Frecuencia | Datos |
 |--------|------|------------|-------|
-| Investing.com | Web scraping | Diaria (backfill) | Índice IBC + 8 componentes (BPV, MPA, CRMa, TDVd, MVZb, MVZa, ENV, FVIb) |
+| Yahoo Finance (`IBC.CR`) | API | Diaria | Índice IBC (dato actual) |
+| Investing.com (Playwright) | Web scraping | Diaria (backfill) | Índice IBC + 8 componentes (BPV, MPA, CRMa, TDVd, MVZb, MVZa, ENV, FVIb) |
 
-> **Nota:** Yahoo Finance NO tiene las acciones del IBC. Se usa Investing.com para componentes del índice.
+> **Nota:** Yahoo Finance tiene dato actual del IBC. Para componentes e histórico se usa Playwright en Investing.com.
 
 ### 📊 Tickers Venezolanos Relevantes
 | Fuente | Tipo | Frecuencia | Datos |
@@ -114,8 +115,9 @@ vecm_result = vecm.fit_vecm(official_rate, parallel_rate)
 | MPPEF | Web scraping | Mensual | Ejecución presupuestaria |
 | ONAPRE | Web + PDF | Mensual | Presupuesto y ejecución |
 | CGR (Contraloría General) | Web scraping | Trimestral | Informes de gestión |
-| Gaceta Oficial | API + HTML | Diaria | Índice + PDFs de gacetas |
+| Gaceta Oficial | API + HTML + OCR | Diaria | Índice + PDFs + clasificación automática |
 | AN (Asamblea Nacional) | Web scraping | Periódica | Leyes y actos legislativos |
+| Cendas-FVM | Web scraping | Periódica | Canastas alimentarias regionales |
 | INE | Web scraping | Periódica | Empleo, demografía |
 | PDVSA | Web scraping | Periódica | Cesta venezolana, documentos |
 | FMI (IFS/SDMX) | API REST | Mensual | PIB, inflación, indicadores |
@@ -126,7 +128,7 @@ vecm_result = vecm.fit_vecm(official_rate, parallel_rate)
 ### 📰 Noticias y Sentimiento
 | Fuente | Tipo | Frecuencia | Datos |
 |--------|------|------------|-------|
-| Reddit r/vzla | API OAuth2 | Diaria | Sentimiento ciudadano |
+| Reddit r/vzla, r/venezuela | RSS/JSON público (sin credenciales) | Diaria | Sentimiento ciudadano |
 | RSS (Diario Las Américas, Efecto Cocuyo, El Tiempo, Primicia) | RSS | Diaria | Noticias económicas |
 
 ### 📋 Encuestas Ciudadanas y Comerciantes
@@ -224,15 +226,15 @@ economia-venezuela/
 ├── src/
 │   ├── __init__.py
 │   ├── config.py               # Configuración (pydantic-settings, .env)
-│   ├── collectors/             # Módulos de recolección (24 collectors)
+│   ├── collectors/             # Módulos de recolección (28 collectors)
 │   │   ├── http.py             #   Cliente HTTP compartido (GET/POST, retries)
 │   │   ├── errors.py           #   Excepciones del dominio
-│   │   ├── market/             #   bcv, ovf, bvc, binance, ibc_components, ibc_stocks, dolar_paralelo
-│   │   ├── fiscal/             #   onapre, cgr, seniat, mppef, gaceta, an + documents.py
+│   │   ├── market/             #   bcv, ovf, bvc, binance, ibc_components, ibc_stocks, ibc_collector, ibc_history, dolar_paralelo, consumo
+│   │   ├── fiscal/             #   onapre, cgr, seniat, mppef, gaceta, an, cendas + documents.py, gaceta_ocr
 │   │   ├── official/           #   ine
 │   │   ├── international/      #   worldbank, opec, imf, cepal, pdvsa, unsceb
 │   │   ├── news/               #   rss
-│   │   ├── social/             #   reddit
+│   │   ├── social/             #   reddit (RSS/JSON público + Zernio fallback)
 │   │   └── surveys/            #   Encuestas Google (Forms→Sheets): survey_collector, form_registry, utils
 │   ├── models/                 # Modelos Pydantic
 │   │   ├── market.py           #   ExchangeRate, InflationPoint, GDPPoint, BudgetExecution
@@ -243,8 +245,10 @@ economia-venezuela/
 │   │   ├── models.py           #   ORMs: SurveyORM, ExchangeRateORM, IBCIndexORM, IBCComponentORM,
 │   │   │                       #          VenezuelanTickerORM, NewsArticleORM, SocialPostORM,
 │   │   │                       #          SentimentScoreORM, InflationPointORM
-│   │   └── repositories.py     #   SurveyRepository, MarketRepository, IBCIndexRepository,
-│   │                           #   VenezuelanTickerRepository
+│   │   ├── repositories.py     #   SurveyRepository, MarketRepository, IBCIndexRepository,
+│   │   │                       #   VenezuelanTickerRepository
+│   │   ├── migrate_timescale.py #  Migración TimescaleDB (hypertables + índices)
+│   │   └── migrations/         #   timescale_setup.sql
 │   ├── analyzers/              # Análisis e IA
 │   │   ├── llm.py              # Cadena de LLMs con fallback (LLM1..LLM8)
 │   │   ├── sentiment.py        # Análisis de sentimiento (léxico español)

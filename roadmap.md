@@ -352,8 +352,9 @@ google-auth-oauthlib==1.2.0
 
 | KPI | Meta | Actual | Estado |
 |-----|------|--------|--------|
-| Collectors implementados | 20 | 24 ✅ | ✅ |
-| Collectors fiscales | 4 | 6 ✅ (SENIAT, MPPEF, ONAPRE, CGR, Gaceta, AN) | ✅ |
+| Collectors implementados | 20 | 28 ✅ | ✅ |
+| Collectors fiscales | 4 | 7 ✅ (SENIAT, MPPEF, ONAPRE, CGR, Gaceta+OCR, AN, Cendas) | ✅ |
+| Collectors consumo | 2 | 2 ✅ (ANSA, Atenas) | ✅ |
 | Collectors internacionales | 3 | 6 ✅ (WorldBank, IMF, CEPAL, UNSCEB, OPEC, PDVSA) | ✅ |
 | Formularios de encuesta activos | 2+ | 2 ✅ | ✅ |
 | Respuestas de encuesta procesadas | 500+ | 2 | ⏳ |

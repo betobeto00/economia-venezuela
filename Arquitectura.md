@@ -11,9 +11,10 @@ Este documento describe la arquitectura técnica del sistema de monitoreo econó
 
 | Componente | Estado |
 |------------|--------|
-| Collectors Fase A | ✅ BCV, OVF, BVC, Binance, Bybit, INE, OPEP, ONAPRE, CGR, World Bank, RSS, Reddit, IBC components, IBC stocks, dolar paralelo bancos |
-| Collectors Fiscales | ✅ SENIAT, MPPEF, Gaceta Oficial, AN |
+| Collectors Fase A | ✅ BCV, OVF, BVC, Binance, Bybit, INE, OPEP, ONAPRE, CGR, World Bank, RSS, Reddit (RSS/JSON público), IBC components, IBC stocks, dolar paralelo bancos |
+| Collectors Fiscales | ✅ SENIAT, MPPEF, Gaceta Oficial (OCR), AN, Cendas-FVM |
 | Collectors Internacionales | ✅ FMI (SDMX), CEPAL, UNSCEB, PDVSA |
+| Collectors Consumo | ✅ ANSA, Atenas Grupo Consultor |
 | Integración econométrica | ✅ `analyzers/market_integration.py` (ARIMA/SARIMA sobre collectors) |
 | Encuestas (código) | ✅ Collector gspread idempotente, modelos, KPIs, contraste, dashboard |
 | Encuestas (manual) | 🟡 Formularios Google + service account pendientes |
@@ -1288,7 +1289,7 @@ settings = Settings()
 |---------|-------------|
 | **Tipo** | Modular monolith + Scheduler |
 | **Lenguaje** | Python 3.10+ |
-| **Base de Datos** | PostgreSQL (9 tablas ORMs) |
+| **Base de Datos** | PostgreSQL + TimescaleDB (9 tablas ORMs, hypertables) |
 | **Cache** | Redis (opcional) |
 | **IA** | Cadena de 8 LLMs con fallback (LLM1..LLM8) |
 | **Dashboard** | Streamlit (3 tabs: Inicio, Noticias, Encuestas) |
