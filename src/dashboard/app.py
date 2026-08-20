@@ -409,13 +409,16 @@ with tab_macro:
     from src.analyzers.public_debt import PublicDebtAnalyzer
     from src.analyzers.phillips import PhillipsCurveAnalyzer
     from src.analyzers.integrated_forecast import IntegratedForecaster
+    from src.analyzers.nowcasting import InflationNowcaster
+    from src.analyzers.iae import IAEIndex
+    from src.alerts.manager import AlertManager
     from src.dashboard.macro_data import macro_summary
 
     st.subheader("🔬 Análisis Macro Avanzado")
 
     # ── Sub-tabs para Macro ──
-    macro_tab1, macro_tab2, macro_tab3 = st.tabs(
-        ["🚨 Riesgo & Sostenibilidad", "🔮 Pronóstico Integral", "📉 Modelos Econométricos"]
+    macro_tab1, macro_tab2, macro_tab3, macro_tab4, macro_tab5 = st.tabs(
+        ["🚨 Riesgo & Sostenibilidad", "🔮 Pronóstico Integral", "📡 Nowcasting & IAE", "🔔 Alertas", "📉 Modelos Econométricos"]
     )
 
     # ── Sub-tab 1: Riesgo & Sostenibilidad ──
@@ -606,7 +609,101 @@ n                st.metric("Inflación", f"{opt.inflation_forecast:.1f}%")
                         if key != "impact_on_inflation":
                             st.write(f"  - {key}: {val:+.1f} pp")
 
-    # ── Sub-tab 3: Modelos Econométricos ──
+    # ── Sub-tab 3: Nowcasting & IAE ──
+    with macro_tab4:
+        st.markdown("### 📡 Nowcasting & Índice de Actividad Económica")
+
+        # Nowcasting de inflación
+        st.markdown("#### 🎯 Nowcasting de Inflación")
+        nowcaster = InflationNowcaster()
+
+        nc1, nc2 = st.columns(2)
+        with nc1:
+            st.metric("Modelo", "RandomForest + XGBoost")
+            st.caption("Predice inflación mensual con datos de alta frecuencia")
+        with nc2:
+            st.metric("Variables proxy", "TC paralelo, petróleo, sentimiento")
+
+        if metrics["oficial"] and metrics["paralelo"]:
+            brecha_val = (metrics["paralelo"] / metrics["oficial"] - 1) * 100 if metrics["oficial"] > 0 else 0
+            st.metric("Brecha cambiaria actual", f"{brecha_val:.1f}%")
+
+        st.info(
+            "*El nowcasting se activará con datos históricos suficientes. "
+            "Requiere series de TC, petróleo e inflación.*"
+        )
+
+        # IAE
+        st.markdown("#### 📊 Índice de Actividad Económica (IAE)")
+        iae = IAEIndex()
+
+        iae_c1, iae_c2, iae_c3 = st.columns(3)
+        with iae_c1:
+            st.metric("Componentes", "5")
+            st.caption("TC, petróleo, sentimiento, noticias, inflación")
+        with iae_c2:
+            st.metric("Frecuencia", "Tiempo real")
+            st.caption("Proxy del PIB con variables de alta frecuencia")
+        with iae_c3:
+            st.metric("Escala", "0-100+")
+            st.caption(">100 = expansión, <100 = contracción")
+
+        st.info(
+            "*El IAE se calculará cuando se integren los datos de "
+            "tipo de cambio, producción petrolera, sentimiento y noticias.*"
+        )
+
+    # ── Sub-tab 4: Alertas ──
+    with macro_tab5:
+        st.markdown("### 🔔 Sistema de Alertas Económicas")
+
+        alert_mgr = AlertManager()
+
+        # Verificar alertas con datos actuales
+        if metrics["oficial"] and metrics["paralelo"]:
+            alerts = alert_mgr.check_exchange_rate(
+                parallel_rate=metrics["paralelo"],
+                official_rate=metrics["oficial"],
+            )
+
+            if alerts:
+                for alert in alerts:
+                    if alert.level.value == "critical":
+                        st.error(f"🚨 **{alert.title}**: {alert.message}")
+                    elif alert.level.value == "warning":
+                        st.warning(f"⚠️ **{alert.title}**: {alert.message}")
+                    else:
+                        st.info(f"ℹ️ **{alert.title}**: {alert.message}")
+            else:
+                st.success("✅ No hay alertas activas. Todos los indicadores dentro de rangos normales.")
+
+        # Reglas de alerta configuradas
+        st.markdown("#### ⚙️ Reglas Configuradas")
+        rules_df = pd.DataFrame([
+            {"Indicador": r.indicator, "Tipo": r.type.value,
+             "Warning": r.warning_threshold, "Critical": r.critical_threshold,
+             "Descripción": r.description}
+            for r in alert_mgr.rules
+        ])
+        st.dataframe(rules_df, use_container_width=True)
+
+        # Resumen de umbrales
+        st.markdown("#### 📊 Umbrales de Alerta")
+        th_c1, th_c2, th_c3, th_c4 = st.columns(4)
+        with th_c1:
+            st.metric("TC Paralelo", "⚠️ 20%", "🔴 50%")
+            st.caption("Variación diaria")
+        with th_c2:
+            st.metric("Brecha", "⚠️ 30%", "🔴 50%")
+            st.caption("Oficial vs paralelo")
+        with th_c3:
+            st.metric("Inflación", "⚠️ 20%", "🔴 50%")
+            st.caption("Mensual")
+        with th_c4:
+            st.metric("IBC", "⚠️ 5%", "🔴 10%")
+            st.caption("Variación")
+
+    # ── Sub-tab 5: Modelos Econométricos ──
     with macro_tab3:
         st.markdown("### 📉 Modelos Econométricos")
 

@@ -382,7 +382,7 @@ google-auth-oauthlib==1.2.0
 | Collectors internacionales | 3 | 6 ✅ (WorldBank, IMF, CEPAL, UNSCEB, OPEC, PDVSA) | ✅ |
 | Formularios de encuesta activos | 2+ | 2 ✅ | ✅ |
 | Respuestas de encuesta procesadas | 500+ | 2 | ⏳ |
-| Tests unitarios | > 80% | 299 tests ✅ | ✅ |
+| Tests unitarios | > 80% | 341 tests ✅ | ✅ |
 | Cobertura de fuentes | 15+ | 24+ | ✅ |
 | Dashboard con métricas en vivo | — | ✅ 3 tabs (Inicio + Noticias + Encuestas) | ✅ |
 | Informes PDF automáticos | 6 cadencias | ✅ diario a anual (MD + PDF) | ✅ |

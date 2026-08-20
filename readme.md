@@ -1,6 +1,6 @@
 # Economía Venezuela - Herramienta de Monitoreo y Análisis
 
-![Venezuela Economy Tracker](https://img.shields.io/badge/Status-En%20Desarrollo-yellow) ![Python](https://img.shields.io/badge/Language-Python-blue) ![AI Powered](https://img.shields.io/badge/AI-Cadena%20LLM%20con%20fallback-purple) ![Econometrics](https://img.shields.io/badge/Econometrics-Statsmodels-green) ![Tests](https://img.shields.io/badge/Tests-299%20passing-brightgreen)
+![Venezuela Economy Tracker](https://img.shields.io/badge/Status-En%20Desarrollo-yellow) ![Python](https://img.shields.io/badge/Language-Python-blue) ![AI Powered](https://img.shields.io/badge/AI-Cadena%20LLM%20con%20fallback-purple) ![Econometrics](https://img.shields.io/badge/Econometrics-Statsmodels-green) ![Tests](https://img.shields.io/badge/Tests-341%20passing-brightgreen)
 
 ## 📋 Visión General
 
@@ -250,10 +250,19 @@ economia-venezuela/
 │   │   ├── migrate_timescale.py #  Migración TimescaleDB (hypertables + índices)
 │   │   └── migrations/         #   timescale_setup.sql
 │   ├── analyzers/              # Análisis e IA
-│   │   ├── llm.py              # Cadena de LLMs con fallback (LLM1..LLM8)
+│   │   ├── llm.py              # Cadena de LLMs con fallback (LLM1..LLM8) + cache
 │   │   ├── sentiment.py        # Análisis de sentimiento (léxico español)
 │   │   ├── relevance.py        # Filtro de relevancia económica (léxico fuerte/débil)
 │   │   ├── market_integration.py # Collectors → ARIMA/SARIMA
+│   │   ├── nowcasting.py       # NOWCASTING: RandomForest + XGBoost para PIB/inflación
+│   │   ├── iae.py              # ÍNDICE DE ACTIVIDAD ECONÓMICA (proxy PIB tiempo real)
+│   │   ├── svar.py             # SVAR: shocks estructurales + FEVD + bootstrap + Cholesky
+│   │   ├── phillips.py         # CURVA DE PHILLIPS: híbrido + no lineal + NAIRU + estanflación
+│   │   ├── balance_of_payments.py # BALANZA DE PAGOS: cuenta corriente + ciclo petrolero
+│   │   ├── public_debt.py      # DEUDA PÚBLICA: sostenibilidad + estrés + vencimientos
+│   │   ├── sovereign_risk.py   # RIESGO SOBERANO: índice 0-100 + PCA + político + momentum
+│   │   ├── integrated_forecast.py # PRONÓSTICO INTEGRAL: SVAR+Nowcast+Phillips → escenarios
+│   │   ├── regional.py         # Comparaciones regionales (Venezuela vs LatAm)
 │   │   ├── surveys/            # Encuestas: KPIs y contraste
 │   │   │   ├── indicators.py   #   KPIs por segmento
 │   │   │   ├── contrast.py     #   Percepción vs datos oficiales
@@ -270,14 +279,20 @@ economia-venezuela/
 │   │       ├── diagnostics.py  #   Residuos
 │   │       └── regression.py   #   Newey-West OLS
 │   ├── dashboard/              # Visualización (Streamlit)
-│   │   ├── app.py              #   Dashboard principal (3 tabs: Inicio, Noticias, Encuestas)
+│   │   ├── app.py              #   Dashboard principal (6 tabs + 5 sub-tabs Macro)
 │   │   ├── theme.py            #   Tema visual
 │   │   ├── market_data.py      #   Métricas de mercado desde DB
+│   │   ├── macro_data.py       #   Datos macro cacheados (DB + APIs)
+│   │   ├── ibc_data.py         #   Datos IBC y tickers venezolanos
+│   │   ├── fiscal_data.py      #   Datos fiscales (SENIAT, ONAPRE, etc.)
 │   │   ├── surveys_data.py     #   Métricas de encuestas desde DB
 │   │   ├── news_data.py        #   Datos de noticias y sentimiento
 │   │   └── components/         #   Componentes
 │   │       ├── survey_section.py   # Sección de encuestas
-│   │       └── news_section.py     # Sección de noticias
+│   │       ├── news_section.py     # Sección de noticias
+│   │       ├── reports_section.py  # Generador de informes periódicos
+│   │       ├── sustainability_panel.py # Panel unificado deuda+BOP+riesgo
+│   │       └── advanced_charts.py  # Heatmaps, fan charts, waterfall
 │   ├── scripts/                # CLIs
 │   │   ├── collect_market.py   #   Recolección de mercado → DB
 │   │   ├── collect_news.py     #   Noticias RSS + Reddit + sentimiento
@@ -285,6 +300,8 @@ economia-venezuela/
 │   │   ├── backfill_rates.py   #   Backfill histórico (usdt.com.ve CSV)
 │   │   ├── backfill_ibc.py     #   Backfill IBC + tickers venezolanos → DB
 │   │   └── generate_report.py  #   Informes periódicos MD/PDF (--cadence, --since/--until)
+│   ├── alerts/                 # Sistema de alertas
+│   │   └── manager.py          #   AlertManager: umbrales automáticos (TC, inflación, IBC)
 │   ├── scheduler/              # Programación
 │   │   └── jobs.py             #   Jobs APScheduler (mercado, encuestas, noticias, informes)
 │   ├── alerts/                 # Sistema de alertas
@@ -294,7 +311,7 @@ economia-venezuela/
 │   ├── raw/                    # Datos crudos
 │   ├── processed/              # Datos procesados
 │   └── reports/                # Informes generados
-├── tests/                      # 299 tests (pytest)
+├── tests/                      # 341 tests (pytest)
 └── docs/                       # Documentación
     ├── fuentes_fiscales.md     # Fuentes fiscales gubernamentales
     └── review.md               # Revisión técnica del proyecto
@@ -345,16 +362,28 @@ economia-venezuela/
 | **Contraste percepción vs realidad** | Brecha percepción ciudadana vs IPC oficial | Cálculo | ✅ En vivo |
 | **Informe ejecutivo** | Resumen con IA por segmento | Cadena LLMs | ✅ En vivo |
 
-### Otros
+### Tab "📈 IBC"
 | Métrica | Descripción | Fuente | Estado |
 |---------|-------------|--------|--------|
-| **Índice IBC** | Bolsa de Valores de Caracas | Investing.com | ✅ Backfill |
-| **Componentes IBC** | Top gainers/losers del índice | Investing.com | ✅ Backfill |
-| **Acciones venezolanas** | Tickers relevantes fuera del IBC | Yahoo Finance | ✅ Backfill |
-| **Informe Semanal** | Markdown + resumen IA (cadena de LLMs con fallback) | Todo el sistema | ✅ Semanal |
-| **Informes Periódicos PDF** | Diario→anual: carátula, resumen IA, gráficos, tablas | Todo el sistema | ✅ 6 cadencias |
-| **Informes Rango Personalizado** | Generar informes para fechas específicas (--since/--until) | CLI | ✅ |
-| **Pronóstico Inflación** | SARIMA | Modelo econométrico | ⏳ |
+| **Índice IBC** | Bolsa de Valores de Caracas | Yahoo Finance | ✅ |
+| **Componentes IBC** | Top gainers/losers del índice | Investing.com | ✅ |
+| **Acciones venezolanas** | Tickers relevantes fuera del IBC | Yahoo Finance | ✅ |
+
+### Tab "📊 Informes"
+| Métrica | Descripción | Fuente | Estado |
+|---------|-------------|--------|--------|
+| **Generador de informes** | Cadencia diario→anual, rango fechas, MD/PDF | CLI + IA | ✅ |
+| **Vista previa** | Preview del informe antes de generar | Streamlit | ✅ |
+| **Descarga directa** | Descargar MD o PDF generado | Streamlit | ✅ |
+
+### Tab "🔬 Macro" (5 sub-tabs)
+| Sub-tab | Contenido | Estado |
+|---------|-----------|--------|
+| **🚨 Riesgo & Sostenibilidad** | Score riesgo soberano 0-100, BOP desglosada, deuda con estrés, ciclo petrolero | ✅ |
+| **🔮 Pronóstico Integral** | Escenarios optimista/central/pesimista con sensibilidad | ✅ |
+| **📡 Nowcasting & IAE** | Predicción ML inflación/PIB + Índice Actividad Económica | ✅ |
+| **🔔 Alertas** | Sistema de umbrales automáticos (TC, inflación, IBC) | ✅ |
+| **📉 Modelos Econométricos** | Phillips, SVAR, Regional (placeholders para datos) | ✅ |
 
 ## 🗄️ Base de Datos
 

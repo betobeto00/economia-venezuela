@@ -7,7 +7,7 @@ Este documento describe la arquitectura técnica del sistema de monitoreo econó
 ## ✅ Estado de Implementación
 
 > Secciones de este documento con `**DISEÑO**` describen el estado objetivo. Lo que sigue
-> ya está **implementado y testeado** (299 tests):
+> ya está **implementado y testeado** (341 tests):
 
 | Componente | Estado |
 |------------|--------|
