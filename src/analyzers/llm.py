@@ -10,10 +10,14 @@ al siguiente proveedor. Si todos fallan, retorna ``None``.
 Sin dependencias de ``openai``: habla directo con ``/chat/completions`` vía
 ``httpx`` (ya en requirements). Temperatura 0 y timeout por defecto, igual que
 el original.
+
+Cache en memoria con TTL para evitar llamadas duplicadas al mismo prompt.
 """
 
+import hashlib
 import json
 import logging
+import time
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -23,6 +27,47 @@ from src.config import settings
 logger = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT_SECONDS = 60.0
+CACHE_TTL_SECONDS = 3600  # 1 hora
+
+# Cache en memoria: {(hash_messages, temperature, max_tokens): (timestamp, response)}
+_llm_cache: Dict[str, tuple] = {}
+
+
+def _cache_key(
+    messages: List[Dict[str, Any]],
+    temperature: float,
+    max_tokens: Optional[int],
+) -> str:
+    """Genera una clave de cache hasheando los parámetros del prompt."""
+    blob = json.dumps(
+        {"messages": messages, "temperature": temperature, "max_tokens": max_tokens},
+        sort_keys=True,
+        ensure_ascii=True,
+    )
+    return hashlib.sha256(blob.encode()).hexdigest()[:32]
+
+
+def _cache_get(key: str) -> Optional[str]:
+    """Obtiene valor del cache si existe y no expiró."""
+    entry = _llm_cache.get(key)
+    if entry is None:
+        return None
+    ts, value = entry
+    if time.monotonic() - ts > CACHE_TTL_SECONDS:
+        del _llm_cache[key]
+        return None
+    return value
+
+
+def _cache_set(key: str, value: str) -> None:
+    """Almacena valor en el cache."""
+    _llm_cache[key] = (time.monotonic(), value)
+    # Limpiar entradas expiradas periódicamente (máx 100)
+    if len(_llm_cache) > 100:
+        now = time.monotonic()
+        expired = [k for k, (ts, _) in _llm_cache.items() if now - ts > CACHE_TTL_SECONDS]
+        for k in expired:
+            del _llm_cache[k]
 
 
 class LLMError(RuntimeError):
@@ -55,6 +100,13 @@ def chat_completion(
     if not chain:
         logger.warning("Sin proveedores LLM configurados (LLM1_*..LLM8_* o DEEPSEEK_API_KEY)")
         return None
+
+    # Cache: si el mismo prompt ya fue respondido, devolverlo directo
+    key = _cache_key(messages, temperature, max_tokens)
+    cached = _cache_get(key)
+    if cached is not None:
+        logger.debug("[llm] respuesta servida desde cache")
+        return cached
 
     payload: Dict[str, Any] = {
         "model": "",  # se completa por proveedor
@@ -90,6 +142,7 @@ def chat_completion(
             data = resp.json()
             content = data.get("choices", [{}])[0].get("message", {}).get("content")
             if content:
+                _cache_set(key, content)
                 return content
             logger.warning("[llm:%s] respuesta vacía", model)
         except (httpx.HTTPError, json.JSONDecodeError, KeyError, IndexError) as exc:
@@ -131,3 +184,8 @@ def summarize(
         )
     except LLMError:
         return None
+
+
+def clear_cache() -> None:
+    """Limpia el cache de respuestas LLM (útil en tests)."""
+    _llm_cache.clear()

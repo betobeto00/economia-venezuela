@@ -5,6 +5,7 @@ Economía Venezuela - Punto de Entrada Principal
 import sys
 import time
 import logging
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 # Add src to path
@@ -15,14 +16,27 @@ from src import __version__
 
 
 def setup_logging():
-    """Configura el sistema de logging"""
+    """Configura el sistema de logging con rotación de archivos."""
+    log_formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+
+    # Console handler
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(log_formatter)
+
+    # Rotating file handler: max 5 MB por archivo, máximo 5 backups
+    file_handler = RotatingFileHandler(
+        "economia_ve.log",
+        maxBytes=5 * 1024 * 1024,  # 5 MB
+        backupCount=5,
+        encoding="utf-8",
+    )
+    file_handler.setFormatter(log_formatter)
+
     logging.basicConfig(
         level=getattr(logging, settings.LOG_LEVEL),
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.StreamHandler(sys.stdout),
-            logging.FileHandler("economia_ve.log", encoding="utf-8")
-        ]
+        handlers=[console_handler, file_handler],
     )
     return logging.getLogger(__name__)
 
