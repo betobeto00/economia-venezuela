@@ -304,6 +304,32 @@ class MarketRepository:
         orm = self.session.scalar(stmt)
         return _rate_orm_to_model(orm) if orm is not None else None
 
+    def latest_all_sources(self) -> List[ExchangeRate]:
+        """Última tasa por cada source (más reciente de cada fuente)."""
+        from sqlalchemy import func as sa_func
+
+        # Subquery: latest date per source
+        latest_dates = (
+            self.session.query(
+                ExchangeRateORM.source,
+                ExchangeRateORM.currency,
+                sa_func.max(ExchangeRateORM.date).label("max_date"),
+            )
+            .group_by(ExchangeRateORM.source, ExchangeRateORM.currency)
+            .subquery()
+        )
+        stmt = (
+            select(ExchangeRateORM)
+            .join(
+                latest_dates,
+                (ExchangeRateORM.source == latest_dates.c.source)
+                & (ExchangeRateORM.currency == latest_dates.c.currency)
+                & (ExchangeRateORM.date == latest_dates.c.max_date),
+            )
+            .order_by(ExchangeRateORM.source)
+        )
+        return [_rate_orm_to_model(orm) for orm in self.session.scalars(stmt)]
+
     # --- Inflation ---
 
     def save_inflation(self, points: List[InflationPoint]) -> int:
