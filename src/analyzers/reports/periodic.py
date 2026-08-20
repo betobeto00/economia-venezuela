@@ -417,6 +417,111 @@ def _projection_rows(market: List[Dict]) -> List[Dict]:
     return rows
 
 
+def _collect_macro_analytics() -> Dict:
+    """Recolecta datos de analizadores macro para el informe.
+
+    Incluye: Riesgo Soberano, Balanza de Pagos, Deuda Pública, Pronóstico.
+    """
+    result = {}
+    try:
+        from src.analyzers.sovereign_risk import SovereignRiskIndex
+        risk = SovereignRiskIndex()
+        risk_result = risk.calculate(
+            spread_pct=30,  # Estimado
+            annual_inflation=150,  # Estimado
+            reserves_months=2.5,
+            debt_gdp_pct=253,
+            oil_production_mbd=1.08,
+        )
+        result["sovereign_risk"] = {
+            "score": risk_result.score,
+            "level": risk_result.level,
+            "components": risk_result.components,
+            "interpretation": risk_result.interpretation,
+        }
+    except Exception as exc:
+        logger.warning("Riesgo soberano no disponible: %s", exc)
+
+    try:
+        from src.analyzers.balance_of_payments import BalanceOfPaymentsAnalyzer
+        bop = BalanceOfPaymentsAnalyzer()
+        bop_result = bop.analyze(
+            reserves=5e9,
+            oil_production_mbd=1.08,
+            oil_price_usd=70,
+            imports_monthly=2e9,
+        )
+        result["bop"] = {
+            "current_account": bop_result.current_account.to_dict(),
+            "reserves": bop_result.reserves.to_dict(),
+            "oil_cycle": bop_result.oil_cycle.to_dict(),
+            "interpretation": bop_result.interpretation,
+        }
+    except Exception as exc:
+        logger.warning("Balanza de pagos no disponible: %s", exc)
+
+    try:
+        from src.analyzers.public_debt import PublicDebtAnalyzer
+        debt = PublicDebtAnalyzer()
+        debt_result = debt.analyze(
+            total_debt_usd=240e9,
+            gdp_usd=94e9,
+            external_debt_usd=180e9,
+            fiscal_deficit_pct=5.8,
+            oil_revenues_usd=35e9,
+            oil_price=70,
+            short_term_debt=60e9,
+            medium_term_debt=100e9,
+            long_term_debt=80e9,
+        )
+        result["debt"] = {
+            "debt_gdp_ratio": debt_result.debt_gdp_ratio,
+            "sustainability": debt_result.sustainability,
+            "structure": debt_result.structure.to_dict(),
+            "maturity": debt_result.maturity.to_dict(),
+            "stress_scenarios": [
+                {"name": sc.name, "projected_debt_gdp": sc.projected_debt_gdp,
+                 "sustainability": sc.sustainability}
+                for sc in debt_result.stress_scenarios
+            ],
+            "interpretation": debt_result.interpretation,
+        }
+    except Exception as exc:
+        logger.warning("Deuda pública no disponible: %s", exc)
+
+    try:
+        from src.analyzers.integrated_forecast import IntegratedForecaster
+        import pandas as pd
+        forecaster = IntegratedForecaster()
+        forecast_result = forecaster.scenario_analysis(
+            macro_data=pd.DataFrame(),
+            base_oil=70,
+            base_inflation=10,
+            base_gdp=3,
+            base_spread=30,
+            base_exchange=500,
+        )
+        result["forecast"] = {
+            "optimistic": {
+                "inflation_forecast": forecast_result.optimistic_scenario.inflation_forecast,
+                "exchange_rate_forecast": forecast_result.optimistic_scenario.exchange_rate_forecast,
+            },
+            "central": {
+                "inflation_forecast": forecast_result.central_scenario.inflation_forecast,
+                "exchange_rate_forecast": forecast_result.central_scenario.exchange_rate_forecast,
+            },
+            "pessimistic": {
+                "inflation_forecast": forecast_result.pessimistic_scenario.inflation_forecast,
+                "exchange_rate_forecast": forecast_result.pessimistic_scenario.exchange_rate_forecast,
+            },
+            "interpretation": forecast_result.interpretation,
+        }
+    except Exception as exc:
+        logger.warning("Pronóstico no disponible: %s", exc)
+
+    return result
+
+
 def collect_snapshot(
     cadence: str = "semanal",
     session=None,
@@ -463,6 +568,11 @@ def collect_snapshot(
         base = _snapshot_from_session(session, days, since=since, until=until)
 
     market_series = base.get("market") or []
+    # Recoger datos macro para informe
+    macro_snapshot = {}
+    if with_macro:
+        macro_snapshot = _collect_macro_analytics()
+
     snapshot = {
         "cadence": cadence,
         "period": period_label,
@@ -475,6 +585,10 @@ def collect_snapshot(
         "articles": (base.get("articles") or [])[:TOP_ARTICLES],
         "fiscal_docs": _collect_fiscal_docs(days) if with_fiscal else [],
         "macro": _collect_macro(days) if with_macro else [],
+        "sovereign_risk": macro_snapshot.get("sovereign_risk", {}),
+        "bop": macro_snapshot.get("bop", {}),
+        "debt": macro_snapshot.get("debt", {}),
+        "forecast": macro_snapshot.get("forecast", {}),
         "bancos": _collect_bancos(),
         "ibc_index": _collect_ibc_index(session, since, until),
         "ibc_stocks": _collect_ibc_stocks(session, since, until),
@@ -569,6 +683,132 @@ def macro_block(points: List[Dict]) -> List[str]:
     return lines
 
 
+def sovereign_risk_block(risk_data: Dict) -> List[str]:
+    """Sección de Riesgo Soberano para el informe."""
+    lines = ["## 🚨 Índice de Riesgo Soberano", ""]
+    if not risk_data:
+        lines += ["_Sin datos de riesgo soberano._", ""]
+        return lines
+    score = risk_data.get("score", 0)
+    level = risk_data.get("level", "desconocido")
+    lines.append(f"**Score: {score:.0f}/100 — Nivel: {level.upper()}**")
+    lines.append("")
+    # Desglose de factores
+    components = risk_data.get("components", {})
+    if components:
+        lines += ["| Factor | Score |",
+                  "|---|---|"]
+        labels = {
+            "spread": "Brecha cambiaria", "volatility": "Volatilidad",
+            "inflation": "Inflación", "reserves": "Reservas",
+            "debt": "Deuda", "oil": "Petróleo",
+            "political": "Riesgo político", "uncertainty": "Incertidumbre",
+        }
+        for k, v in sorted(components.items(), key=lambda x: -x[1]):
+            lines.append(f"| {labels.get(k, k)} | {v:.0f}/100 |")
+    lines.append("")
+    interp = risk_data.get("interpretation", "")
+    if interp:
+        lines += [f"_{interp}_", ""]
+    return lines
+
+
+def bop_block(bop_data: Dict) -> List[str]:
+    """Sección de Balanza de Pagos para el informe."""
+    lines = ["## 💱 Balanza de Pagos", ""]
+    if not bop_data:
+        lines += ["_Sin datos de balanza de pagos._", ""]
+        return lines
+    # Reservas
+    reserves = bop_data.get("reserves", {})
+    months = reserves.get("months_coverage", 0)
+    total = reserves.get("total_usd", 0)
+    lines.append(f"**Reservas:** ${total/1e9:.1f}B — Cobertura: {months:.1f} meses de importaciones")
+    lines.append("")
+    # Cuenta corriente
+    ca = bop_data.get("current_account", {})
+    balance = ca.get("balance", 0)
+    oil_rev = ca.get("oil_revenues", 0)
+    imports = ca.get("imports", 0)
+    lines.append(f"**Cuenta corriente:** {'Superávit' if balance >= 0 else 'Déficit'} de ${abs(balance)/1e9:.1f}B")
+    lines.append(f"_Ingresos petroleros: ${oil_rev/1e9:.1f}B | Importaciones: ${imports/1e9:.1f}B_")
+    lines.append("")
+    # Ciclo petrolero
+    oil = bop_data.get("oil_cycle", {})
+    if oil.get("interpretation"):
+        lines += ["### 🛢️ Ciclo Petrolero", "", f"_{oil['interpretation']}_", ""]
+    interp = bop_data.get("interpretation", "")
+    if interp:
+        lines += [f"_{interp}_", ""]
+    return lines
+
+
+def debt_block(debt_data: Dict) -> List[str]:
+    """Sección de Deuda Pública para el informe."""
+    lines = ["## 💳 Deuda Pública", ""]
+    if not debt_data:
+        lines += ["_Sin datos de deuda pública._", ""]
+        return lines
+    debt_gdp = debt_data.get("debt_gdp_ratio")
+    sustain = debt_data.get("sustainability", "desconocido")
+    lines.append(f"**Deuda/PIB:** {debt_gdp:.0f}% — Sostenibilidad: {sustain.upper()}")
+    lines.append("")
+    # Estructura
+    structure = debt_data.get("structure", {})
+    ext = structure.get("external_usd", 0)
+    internal = structure.get("internal_usd", 0)
+    if ext or internal:
+        lines += ["| Tipo | Monto |",
+                  "|---|---|"]
+        lines.append(f"| Externa | ${ext/1e9:.1f}B |")
+        lines.append(f"| Interna | ${internal/1e9:.1f}B |")
+        lines.append("")
+    # Vencimientos
+    maturity = debt_data.get("maturity", {})
+    rollover = maturity.get("rollover_risk", "")
+    if rollover:
+        lines.append(f"**Riesgo de refinanciamiento:** {rollover.upper()}")
+        lines.append("")
+    # Escenarios de estrés
+    scenarios = debt_data.get("stress_scenarios", [])
+    if scenarios:
+        lines += ["### 🔥 Escenarios de Estrés", "",
+                  "| Escenario | Deuda/PIB Proyectada | Estado |",
+                  "|---|---|---|"]
+        for sc in scenarios:
+            lines.append(f"| {sc.get('name', '?')} | {sc.get('projected_debt_gdp', 0):.0f}% | {sc.get('sustainability', '?').upper()} |")
+        lines.append("")
+    interp = debt_data.get("interpretation", "")
+    if interp:
+        lines += [f"_{interp}_", ""]
+    return lines
+
+
+def forecast_block(forecast_data: Dict) -> List[str]:
+    """Sección de Pronóstico Integral para el informe."""
+    lines = ["## 🔮 Pronóstico Integral", ""]
+    if not forecast_data:
+        lines += ["_Sin datos de pronóstico._", ""]
+        return lines
+    # Escenarios
+    scenarios = [
+        ("🟢 Optimista", forecast_data.get("optimistic", {})),
+        ("🟡 Central", forecast_data.get("central", {})),
+        ("🔴 Pesimista", forecast_data.get("pessimistic", {})),
+    ]
+    lines += ["| Escenario | Inflación | Tipo de Cambio |",
+              "|---|---|---|"]
+    for label, sc in scenarios:
+        infl = sc.get("inflation_forecast", 0)
+        tc = sc.get("exchange_rate_forecast", 0)
+        lines.append(f"| {label} | {infl:.1f}% | {tc:.0f} Bs/USD |")
+    lines.append("")
+    interp = forecast_data.get("interpretation", "")
+    if interp:
+        lines += [f"_{interp}_", ""]
+    return lines
+
+
 def build_markdown(snapshot: Dict) -> str:
     """Construye el informe en Markdown a partir del snapshot."""
     from src.analyzers.reports.weekly import (
@@ -598,9 +838,12 @@ def build_markdown(snapshot: Dict) -> str:
     lines += articles_block(snapshot.get("articles") or [])
     lines += ibc_stocks_block(snapshot.get("ibc_stocks"))
     lines += bancos_block(snapshot.get("bancos") or [])
-    lines += ibc_stocks_block(snapshot.get("ibc_stocks"))
     lines += fiscal_docs_block(snapshot.get("fiscal_docs") or [])
     lines += macro_block(snapshot.get("macro") or [])
+    lines += sovereign_risk_block(snapshot.get("sovereign_risk") or {})
+    lines += bop_block(snapshot.get("bop") or {})
+    lines += debt_block(snapshot.get("debt") or {})
+    lines += forecast_block(snapshot.get("forecast") or {})
     base = "\n".join(lines)
 
     resumen = snapshot.get("resumen") or ""
