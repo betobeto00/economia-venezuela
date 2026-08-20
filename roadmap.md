@@ -354,11 +354,11 @@ google-auth-oauthlib==1.2.0
 
 ### Pendientes del Análisis Macro
 
-37. ⏳ **SVAR** — Modelo Estructural de Vectores Autorregresivos para shocks estructurales
-38. ⏳ **Curva de Phillips** — Relación inflación vs brecha del producto
-39. ⏳ **Balanza de Pagos** — Dinámica de reservas internacionales
-40. ⏳ **Riesgo País** — EMBI+ o índice propio de riesgo
-41. ⏳ **Deuda Pública desglosada** — Bonos, deuda externa/interna, China/Rusia
+37. ✅ **SVAR** — `analyzers/svar.py` (shocks estructurales + FEVD)
+38. ✅ **Curva de Phillips** — `analyzers/phillips.py` (con NAIRU estimado)
+39. ✅ **Balanza de Pagos** — `analyzers/balance_of_payments.py` (reservas, cuenta corriente)
+40. ✅ **Riesgo País** — `analyzers/sovereign_risk.py` (índice 0-100)
+41. ✅ **Deuda Pública** — `analyzers/public_debt.py` (sostenibilidad + proyecciones)
 42. ⏳ **ENCOVI** — Encuesta de Condiciones de Vida (cuando se publique)
 43. ⏳ **Integrar Nowcasting/Alertas/IAE en el dashboard**
 44. ⏳ **Tests para nuevos módulos** (nowcasting, alerts, regional, iae)
