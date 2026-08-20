@@ -152,8 +152,8 @@ with st.sidebar:
                     st.error(f"❌ {label}: {e}")
 
 # ─── Tabs ───────────────────────────────────────────────────────────────────
-tab_inicio, tab_mercado, tab_ibc, tab_noticias, tab_encuestas, tab_fiscal, tab_informes, tab_macro = st.tabs(
-    ["🏠 Inicio", "💱 Mercado", "📈 IBC", "📰 Noticias", "📋 Encuestas", "🏛️ Fiscal", "📊 Informes", "🔬 Macro"]
+tab_inicio, tab_mercado, tab_ibc, tab_noticias, tab_social, tab_encuestas, tab_fiscal, tab_informes, tab_macro = st.tabs(
+    ["🏠 Inicio", "💱 Mercado", "📈 IBC", "📰 Noticias", "💬 Social", "📋 Encuestas", "🏛️ Fiscal", "📊 Informes", "🔬 Macro"]
 )
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -784,7 +784,7 @@ with tab_fiscal:
     with fc2:
         st.metric("⚖️ Leyes / Actos AN", fs["leyes_count"])
 
-    # Gacetas
+    # Gacetas del API
     st.markdown("### 📜 Gacetas Oficiales Recientes")
     if fs["gacetas"]:
         for g in fs["gacetas"]:
@@ -799,63 +799,72 @@ with tab_fiscal:
     else:
         st.info("No hay gacetas disponibles. El collector se ejecuta periódicamente.")
 
-    # OCR section
-    st.markdown("### 🔍 Clasificación de Gacetas Oficiales")
-    st.caption("Clasificación automática por categorías económicas")
+    # OCR Gacetas desde .md files
+    if fs.get("ocr_gacetas"):
+        st.markdown("### 📄 Gacetas con OCR (base de conocimiento)")
+        st.caption(f"{len(fs['ocr_gacetas'])} gacetas procesadas | {fs.get('ocr_total_chars', 0):,} caracteres extraídos")
 
-    try:
-        from src.collectors.fiscal.gaceta_ocr import CLASIFICACION_KEYWORDS
-        cats = list(CLASIFICACION_KEYWORDS.keys())
-        st.write(f"**Categorías detectables**: {', '.join(cats)}")
+        # Filter by category
+        all_cats = set()
+        for g in fs["ocr_gacetas"]:
+            for c in g.get("categories", []):
+                all_cats.add(c)
 
-        # Clasificar gacetas del API por sumarios
-        if fs["gacetas"]:
-            st.markdown("#### Gacetas Clasificadas")
-            for g in fs["gacetas"]:
-                title = getattr(g, "title", None) or (g.get("title", "") if hasattr(g, "get") else str(g))
-                desc = getattr(g, "description", None) or (g.get("description", "") if hasattr(g, "get") else "") or ""
-                url = getattr(g, "url", None) or (g.get("url", "") if hasattr(g, "get") else "")
-                # Clasificar por keywords del título + descripción
-                text_lower = (title + " " + desc).lower()
-                found_cats = []
-                for cat, keywords in CLASIFICACION_KEYWORDS.items():
-                    if sum(1 for kw in keywords if kw in text_lower) >= 1:
-                        found_cats.append(cat)
-                cat_badges = " ".join([f"`{c}`" for c in found_cats]) if found_cats else "_sin categoría_"
-                if url:
-                    st.markdown(f"**[{title}]({url})** → {cat_badges}")
-                else:
-                    st.markdown(f"**{title}** → {cat_badges}")
-                if desc:
-                    st.caption(desc[:200])
+        if all_cats:
+            selected_cats = st.multiselect(
+                "Filtrar por categoría",
+                options=sorted(all_cats),
+                default=[],
+                key="fiscal_cat_filter",
+            )
         else:
-            st.info("No hay gacetas disponibles para clasificar.")
+            selected_cats = []
 
-        # Botón para OCR de PDFs (procesamiento on-demand)
-        st.markdown("---")
-        st.markdown("#### 📥 Procesar PDF con OCR (on-demand)")
-        pdf_url = st.text_input("URL del PDF de Gaceta Oficial", key="ocr_pdf_url", placeholder="https://gacetaoficial.gob.ve/storage/...")
-        if st.button("🔍 Procesar OCR", key="btn_ocr") and pdf_url:
-            with st.spinner("Descargando y procesando PDF..."):
-                try:
-                    import httpx
-                    from src.collectors.fiscal.gaceta_ocr import process_gaceta_pdf
-                    resp = httpx.get(pdf_url, timeout=30, follow_redirects=True)
-                    if resp.status_code == 200:
-                        result = process_gaceta_pdf(resp.content)
-                        st.success(f"✅ Texto extraído: {result.raw_text_length:,} chars (método: {result.method})")
-                        if result.categories:
-                            st.write(f"**Categorías**: {', '.join(result.categories)}")
-                            st.write(f"**Confianza**: {result.confidence:.0%}")
-                        if result.text_preview:
-                            with st.expander("Vista previa del texto"):
-                                st.text(result.text_preview[:1000])
-                    else:
-                        st.error(f"Error {resp.status_code} al descargar PDF")
-                except Exception as e:
-                    st.error(f"Error procesando PDF: {e}")
-    except Exception as e:
-        st.warning(f"Módulo OCR no disponible: {e}")
+        # Display gacetas
+        for g in fs["ocr_gacetas"]:
+            cats = g.get("categories", [])
+            if selected_cats and not any(c in cats for c in selected_cats):
+                continue
+
+            num = g.get("number", "?")
+            date_str = g.get("date", "")
+            ocr_chars = g.get("ocr_chars", 0)
+            confidence = g.get("confidence", 0)
+
+            cat_badges = " ".join([f"`{c}`" for c in cats]) if cats else "_sin categoría_"
+
+            with st.expander(f"📜 Gaceta N° {num} — {date_str} | {ocr_chars:,} chars {cat_badges}"):
+                st.markdown(f"**Fecha:** {date_str} | **Caracteres:** {ocr_chars:,} | **Confianza:** {confidence:.0%}")
+                if cats:
+                    st.markdown(f"**Categorías:** {', '.join(cats)}")
+                preview = g.get("preview", "")
+                if preview:
+                    st.text(preview[:500])
+
+                # Full text option
+                full_text = g.get("full_text", "")
+                if full_text and len(full_text) > 500:
+                    if st.button(f"Ver texto completo ({len(full_text):,} chars)", key=f"full_{num}"):
+                        st.text(full_text[:5000])
+
+    # Documentos BVC OCR
+    if fs.get("ocr_bvc"):
+        st.markdown("### 📈 Documentos BVC (OCR)")
+        st.caption(f"{len(fs['ocr_bvc'])} documentos procesados")
+
+        # Group by type
+        bvc_by_type = {}
+        for doc in fs["ocr_bvc"]:
+            doc_type = doc.get("doc_type", "Otro")
+            if doc_type not in bvc_by_type:
+                bvc_by_type[doc_type] = []
+            bvc_by_type[doc_type].append(doc)
+
+        for doc_type, docs in bvc_by_type.items():
+            with st.expander(f"{doc_type} ({len(docs)} documentos)"):
+                for doc in docs:
+                    st.markdown(f"**{doc['filename']}** — {doc['chars']:,} chars")
+                    st.caption(doc.get("preview", "")[:150])
 
     # Leyes AN
     st.markdown("### ⚖️ Asamblea Nacional")
@@ -1106,7 +1115,7 @@ with tab_macro:
             st.caption("Predice inflación mensual con datos de alta frecuencia")
         with nc2:
             if metrics["oficial"] and metrics["paralelo"]:
-                brecha_val = (metrics["paralelo"].rate / metrics["oficial"].rate - 1) * 100 if metrics["oficial"] and metrics["oficial"].rate > 0 else 0
+                brecha_val = (metrics["paralelo"].rate / metrics["oficial"].rate - 1) * 100 if metrics["oficial"].rate > 0 else 0
                 st.metric("Brecha cambiaria actual", f"{brecha_val:.1f}%")
                 st.caption("Variable proxy principal para nowcasting")
             else:
@@ -1152,8 +1161,8 @@ with tab_macro:
             if metrics["oficial"] and metrics["paralelo"]:
                 # Componente TC
                 tc_score = iae.calculate_exchange_rate_component(
-                    current_rate=metrics["paralelo"],
-                    avg_rate_30d=metrics["oficial"]  # Proxy: usar oficial como promedio
+                    current_rate=metrics["paralelo"].rate if metrics["paralelo"] else 0,
+                    avg_rate_30d=metrics["oficial"].rate if metrics["oficial"] else 0  # Proxy: usar oficial como promedio
                 )
                 # Componente petróleo (estimado)
                 oil_score = iae.calculate_oil_component(1.08, 1.0)
