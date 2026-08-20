@@ -17,7 +17,12 @@ import logging
 import streamlit as st
 
 from src.dashboard import theme
-from src.dashboard.news_data import recent_articles, sentiment_label, sentiment_summary
+from src.dashboard.news_data import (
+    recent_articles,
+    recent_posts,
+    sentiment_label,
+    sentiment_summary,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -27,12 +32,19 @@ def _news_snapshot() -> dict:
     """Snapshot cacheadable de noticias y sentimiento (serializable)."""
     summary = sentiment_summary()
     articles = recent_articles(limit=10)
+    posts = recent_posts(limit=10)
     return {
         "summary": summary,
         "articles": [
             {"source": a.source, "title": a.title, "url": a.url,
              "published": a.published.isoformat() if a.published else None}
             for a in articles
+        ],
+        "posts": [
+            {"source": p.source, "channel": p.channel, "title": p.title,
+             "url": p.url, "score": p.score, "num_comments": p.num_comments,
+             "published": p.published.isoformat() if p.published else None}
+            for p in posts
         ],
     }
 
@@ -99,16 +111,41 @@ def render_news_section() -> None:
         unsafe_allow_html=True,
     )
 
-    # Últimos titulares
+    # Últimos titulares (con links)
     articles = data["articles"]
     if articles:
         st.markdown("### 🗞️ Últimos titulares")
         for article in articles:
             date = (article["published"] or "")[:10]
-            st.markdown(
-                f"- **{article['title']}** — *{article['source']}*"
-                + (f" ({date})" if date else "")
-            )
+            url = article.get("url", "")
+            title = article["title"]
+            if url:
+                st.markdown(
+                    f"- [{title}]({url}) — *{article['source']}*"
+                    + (f" ({date})" if date else "")
+                )
+            else:
+                st.markdown(
+                    f"- **{title}** — *{article['source']}*"
+                    + (f" ({date})" if date else "")
+                )
+
+    # Posts de Reddit
+    posts = data.get("posts", [])
+    if posts:
+        st.markdown("### 💬 Discusión en Reddit")
+        for post in posts:
+            date = (post.get("published") or "")[:10]
+            url = post.get("url", "")
+            title = post["title"]
+            channel = post.get("channel", "")
+            score = post.get("score") or 0
+            comments = post.get("num_comments") or 0
+            meta = f"⬆️ {score} | 💬 {comments} | r/{channel}"
+            if url:
+                st.markdown(f"- [{title}]({url}) — {meta}")
+            else:
+                st.markdown(f"- **{title}** — {meta}")
 
 
 def _pct(value: int, total: int) -> float:

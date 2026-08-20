@@ -11,7 +11,7 @@ valores vacíos (la UI muestra mensaje amigable, no rompe la página).
 import logging
 from typing import List
 
-from src.models.news import NewsArticle
+from src.models.news import NewsArticle, SocialPost
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +45,19 @@ def recent_articles(limit: int = 10) -> List[NewsArticle]:
             return NewsRepository(session).list_articles(limit=limit)
     except Exception as exc:  # noqa: BLE001
         logger.warning("recent_articles no disponible: %s", exc)
+        return []
+
+
+def recent_posts(limit: int = 10) -> List[SocialPost]:
+    """Últimos posts de Reddit persistidos (vacío si no hay datos o falla la DB)."""
+    try:
+        from src.db.repositories import NewsRepository
+        from src.db.session import session_scope
+
+        with session_scope() as session:
+            return NewsRepository(session).list_posts(limit=limit)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("recent_posts no disponible: %s", exc)
         return []
 
 

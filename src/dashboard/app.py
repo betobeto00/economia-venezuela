@@ -167,6 +167,70 @@ with tab_inicio:
             help="(Dólar Bybit / dólar oficial BCV - 1) * 100",
         )
 
+    # ── Indicadores macroeconómicos ──
+    from src.dashboard.macro_data import macro_summary
+    macro = macro_summary()
+
+    has_macro = any(macro.values())
+    if has_macro:
+        st.subheader("🏛️ Indicadores Macroeconómicos")
+        mc1, mc2, mc3, mc4, mc5 = st.columns(5)
+
+        with mc1:
+            pib = macro.get("pib")
+            if pib:
+                st.metric(
+                    label=f"💰 PIB ({pib['source']})",
+                    value=f"{pib['value']:,.0f}",
+                    help=f"Período: {pib['period']} | Unidad: {pib['unit']}",
+                )
+            else:
+                st.metric(label="💰 PIB", value="—")
+
+        with mc2:
+            crec = macro.get("pib_crecimiento")
+            if crec:
+                st.metric(
+                    label=f"📈 Crecimiento PIB ({crec['source']})",
+                    value=f"{crec['value']:+.1f}%",
+                    help=f"Período: {crec['period']}",
+                )
+            else:
+                st.metric(label="📈 Crecimiento PIB", value="—")
+
+        with mc3:
+            infl = macro.get("inflacion_int")
+            if infl:
+                st.metric(
+                    label=f"📊 Inflación ({infl['source']})",
+                    value=f"{infl['value']:.1f}%",
+                    help=f"Período: {infl['period']}",
+                )
+            else:
+                st.metric(label="📊 Inflación Internacional", value="—")
+
+        with mc4:
+            petro = macro.get("petroleo")
+            if petro:
+                st.metric(
+                    label=f"🛢️ Petróleo ({petro['source']})",
+                    value=f"${petro['value']:,.2f}",
+                    help=f"{petro.get('indicator', '')} | {petro['period']}",
+                )
+            else:
+                st.metric(label="🛢️ Petróleo", value="—")
+
+        with mc5:
+            onu = macro.get("gasto_onu")
+            if onu:
+                st.metric(
+                    label=f"🇺🇳 Gasto ONU ({onu['source']})",
+                    value=f"${onu['value']:,.0f}",
+                    help=f"Período: {onu['period']}",
+                )
+            else:
+                st.metric(label="🇺🇳 Gasto ONU", value="—")
+
     # ── Gráfico histórico (6 meses) ──
     st.subheader("📈 Evolución del Dólar (6 meses)")
     brecha_df = brecha_series(BYBIT_SOURCE, since_days=180)
