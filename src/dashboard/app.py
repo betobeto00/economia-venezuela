@@ -709,7 +709,9 @@ with tab_noticias:
             )
             if p.get("text"):
                 with st.expander("Ver texto"):
-                    st.write(p["text"][:500])
+                    import re
+                    clean = re.sub(r"<[^>]+>", "", p["text"])[:500]
+                    st.text(clean)
     else:
         st.info("No hay posts de Reddit disponibles. Ejecuta `collect_news` para recolectar.")
 
@@ -760,40 +762,60 @@ with tab_fiscal:
         st.info("No hay gacetas disponibles. El collector se ejecuta periódicamente.")
 
     # OCR section
-    st.markdown("### 🔍 OCR de Gacetas Oficiales")
-    st.caption("Procesamiento OCR de PDFs escaneados con clasificación automática")
+    st.markdown("### 🔍 Clasificación de Gacetas Oficiales")
+    st.caption("Clasificación automática por categorías económicas")
 
     try:
-        from src.collectors.fiscal.gaceta_ocr import process_gaceta_pdf, CLASIFICACION_KEYWORDS
-        # Show available categories
+        from src.collectors.fiscal.gaceta_ocr import CLASIFICACION_KEYWORDS
         cats = list(CLASIFICACION_KEYWORDS.keys())
         st.write(f"**Categorías detectables**: {', '.join(cats)}")
 
-        # Check if there are processed gacetas in data dir
-        import os
-        gaceta_dir = "data/gacetas"
-        if os.path.exists(gaceta_dir):
-            jsons = sorted([f for f in os.listdir(gaceta_dir) if f.endswith(".json")])
-            if jsons:
-                st.success(f"✅ {len(jsons)} gacetas procesadas con OCR")
-                for jf in jsons[-5:]:  # Show last 5
-                    try:
-                        with open(os.path.join(gaceta_dir, jf), "r", encoding="utf-8") as f:
-                            data = json.load(f)
-                        categories = data.get("categories", [])
-                        method = data.get("method", "unknown")
-                        text_len = data.get("raw_text_length", 0)
-                        st.markdown(
-                            f"- **{jf.replace('.json', '')}** | "
-                            f"Categorías: {', '.join(categories) if categories else 'Ninguna'} | "
-                            f"Método: {method} | Texto: {text_len:,} chars"
-                        )
-                    except Exception:
-                        pass
-            else:
-                st.info("No hay gacetas procesadas con OCR aún. Los PDFs se procesan automáticamente.")
+        # Clasificar gacetas del API por sumarios
+        if fs["gacetas"]:
+            st.markdown("#### Gacetas Clasificadas")
+            for g in fs["gacetas"]:
+                title = getattr(g, "title", None) or (g.get("title", "") if hasattr(g, "get") else str(g))
+                desc = getattr(g, "description", None) or (g.get("description", "") if hasattr(g, "get") else "") or ""
+                url = getattr(g, "url", None) or (g.get("url", "") if hasattr(g, "get") else "")
+                # Clasificar por keywords del título + descripción
+                text_lower = (title + " " + desc).lower()
+                found_cats = []
+                for cat, keywords in CLASIFICACION_KEYWORDS.items():
+                    if sum(1 for kw in keywords if kw in text_lower) >= 1:
+                        found_cats.append(cat)
+                cat_badges = " ".join([f"`{c}`" for c in found_cats]) if found_cats else "_sin categoría_"
+                if url:
+                    st.markdown(f"**[{title}]({url})** → {cat_badges}")
+                else:
+                    st.markdown(f"**{title}** → {cat_badges}")
+                if desc:
+                    st.caption(desc[:200])
         else:
-            st.info("Directorio de gacetas no encontrado. Los OCRs se ejecutan con el collector.")
+            st.info("No hay gacetas disponibles para clasificar.")
+
+        # Botón para OCR de PDFs (procesamiento on-demand)
+        st.markdown("---")
+        st.markdown("#### 📥 Procesar PDF con OCR (on-demand)")
+        pdf_url = st.text_input("URL del PDF de Gaceta Oficial", key="ocr_pdf_url", placeholder="https://gacetaoficial.gob.ve/storage/...")
+        if st.button("🔍 Procesar OCR", key="btn_ocr") and pdf_url:
+            with st.spinner("Descargando y procesando PDF..."):
+                try:
+                    import httpx
+                    from src.collectors.fiscal.gaceta_ocr import process_gaceta_pdf
+                    resp = httpx.get(pdf_url, timeout=30, follow_redirects=True)
+                    if resp.status_code == 200:
+                        result = process_gaceta_pdf(resp.content)
+                        st.success(f"✅ Texto extraído: {result.raw_text_length:,} chars (método: {result.method})")
+                        if result.categories:
+                            st.write(f"**Categorías**: {', '.join(result.categories)}")
+                            st.write(f"**Confianza**: {result.confidence:.0%}")
+                        if result.text_preview:
+                            with st.expander("Vista previa del texto"):
+                                st.text(result.text_preview[:1000])
+                    else:
+                        st.error(f"Error {resp.status_code} al descargar PDF")
+                except Exception as e:
+                    st.error(f"Error procesando PDF: {e}")
     except Exception as e:
         st.warning(f"Módulo OCR no disponible: {e}")
 
