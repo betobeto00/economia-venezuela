@@ -337,6 +337,51 @@ class PublicDebtAnalyzer:
 
         return projections
 
+    def load_ocr_data(self) -> dict:
+        """Carga datos de deuda desde archivos OCR (BVC).
+
+        Returns:
+            Dict con datos parseados de DPN, Letras del Tesoro, etc.
+        """
+        try:
+            from src.analyzers.debt_parser import load_all_debt_data, get_debt_totals
+            all_data = load_all_debt_data()
+            totals = get_debt_totals()
+
+            # Extract useful info from DPN
+            dpn_data = all_data.get("dpn")
+            bills_data = all_data.get("bills")
+
+            result = {
+                "source": "BVC/OCR",
+                "total_emissions": totals["total_emissions"],
+                "total_amount_bs": totals["total_amount_bs"],
+                "fixed_rate_count": totals["fixed_rate_count"],
+                "floating_rate_count": totals["floating_rate_count"],
+                "documents": totals["documents"],
+                "dpn_emissions": [],
+                "bills_count": bills_data.total_emissions if bills_data else 0,
+            }
+
+            # Parse DPN emissions for display
+            if dpn_data:
+                for e in dpn_data.emissions[:20]:  # Top 20
+                    result["dpn_emissions"].append({
+                        "code": e.code,
+                        "isin": e.isin,
+                        "sibe": e.sibe,
+                        "rate_type": e.rate_type,
+                        "amount_bs": e.amount_bs,
+                        "decree_date": e.decree_date,
+                        "maturity_date": e.maturity_date,
+                    })
+
+            return result
+
+        except Exception as exc:
+            logger.debug("OCR data not available: %s", exc)
+            return {}
+
     def analyze_contingent_liabilities(
         self,
         pdvsa_debt: float = 0.0,
@@ -540,6 +585,17 @@ class PublicDebtAnalyzer:
             )
 
         interpretation = " ".join(interpretation_parts) or "Datos insuficientes para análisis de deuda."
+
+        # 9. Load OCR data for additional context
+        ocr_data = self.load_ocr_data()
+        if ocr_data:
+            total_emissions = ocr_data.get("total_emissions", 0)
+            if total_emissions > 0:
+                interpretation_parts.append(
+                    f"Base de conocimiento BVC: {total_emissions} emisiones de deuda documentadas "
+                    f"(DPN, Letras del Tesoro, Bonos BCV/PDVSA)."
+                )
+                interpretation = " ".join(interpretation_parts)
 
         return DebtResult(
             structure=structure,

@@ -673,6 +673,63 @@ with tab_ibc:
     else:
         st.info("No hay datos de tickers venezolanos disponibles.")
 
+    # ── Capitalización del Mercado BVC ──
+    st.markdown("---")
+    st.subheader("💰 Capitalización del Mercado BVC")
+
+    try:
+        from src.dashboard.bvc_capitalization import get_capitalization_summary
+        cap = get_capitalization_summary()
+
+        if cap.get("available"):
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                total_bs = cap.get("total_bs", 0)
+                st.metric(
+                    label="Capitalización Total",
+                    value=f"Bs. {total_bs:,.0f}",
+                )
+            with c2:
+                change = cap.get("total_change_pct", 0)
+                st.metric(
+                    label="Variación Mensual",
+                    value=f"{change:+.2f}%",
+                    delta=f"{change:+.2f}%",
+                )
+            with c3:
+                st.metric(
+                    label="Mes",
+                    value=cap.get("latest_month", "N/A"),
+                )
+
+            # Trend chart
+            history = cap.get("history", [])
+            if len(history) > 1:
+                import plotly.graph_objects as go
+                from src.dashboard import theme
+
+                months = [h["month"] for h in history]
+                totals = [h["total"] for h in history]
+
+                fig = go.Figure()
+                fig.add_trace(go.Bar(
+                    x=months, y=totals,
+                    name="Capitalización",
+                    marker_color=theme.PALETTE.get("azul", "#1f77b4"),
+                ))
+                fig.update_layout(
+                    template=theme.plotly_template(),
+                    height=350,
+                    margin=dict(l=10, r=10, t=10, b=10),
+                    yaxis_title="Bs.",
+                    xaxis_title="Mes",
+                )
+                st.plotly_chart(fig, width="stretch")
+        else:
+            st.info("Datos de capitalización no disponibles. Procesa los PDFs de BVC con OCR.")
+    except Exception as e:
+        st.warning(f"Error cargando capitalización: {e}")
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # TAB: NOTICIAS
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
