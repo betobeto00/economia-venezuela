@@ -1,22 +1,25 @@
 """
-Análisis de Deuda Pública
-==========================
+Análisis de Deuda Pública (v2 - Expandido)
+============================================
 
-Análisis de la deuda pública de Venezuela:
-- Deuda externa vs interna
-- Sostenibilidad de la deuda
+Análisis completo de la deuda pública de Venezuela:
+- Deuda externa vs interna (desglose por moneda)
+- Sostenibilidad de la deuda con escenarios de estrés
 - Proyecciones bajo diferentes escenarios
-- Relación deuda/PIB
+- Análisis de vencimientos (rollover risk)
+- Deuda contingente (PDVSA, empresas públicas, pensiones)
+- Relación deuda/PIB y costo promedio de la deuda
 
 Fuentes:
 - BCV: deuda pública
 - FMI: proyecciones
 - Banco Mundial: indicadores de deuda
+- PDVSA: deuda corporativa
 """
 
 import logging
-from dataclasses import dataclass
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional
 
 import numpy as np
 
@@ -24,117 +27,279 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class DebtResult:
-    """Resultado del análisis de deuda."""
-    total_debt_usd: Optional[float]
-    debt_gdp_ratio: Optional[float]
-    external_debt: Optional[float]
-    internal_debt: Optional[float]
-    external_ratio: Optional[float]  # % de deuda externa
-    sustainability: str  # "sostenible", "en_riesgo", "insostenible"
-    years_to_crisis: Optional[float]  # Años estimados hasta crisis
+class DebtStructure:
+    """Estructura detallada de la deuda."""
+    total_usd: float = 0.0
+    external_usd: float = 0.0
+    internal_usd: float = 0.0
+    external_local_currency: float = 0.0  # deuda externa en Bs.
+    bond_debt: float = 0.0  # bonos soberanos
+    bilateral_debt: float = 0.0  # deuda bilateral (China, Rusia, etc.)
+    multilateral_debt: float = 0.0  # bancos multilaterales
+    commercial_debt: float = 0.0  # deuda comercial
+    weighted_interest_rate: float = 0.0  # tasa de interés ponderada
+    external_ratio: float = 0.0  # % de deuda externa
+    local_ratio: float = 0.0  # % de deuda interna
+
+    def to_dict(self) -> dict:
+        return {
+            "total_usd": self.total_usd,
+            "external_usd": self.external_usd,
+            "internal_usd": self.internal_usd,
+            "external_local_currency": self.external_local_currency,
+            "bond_debt": self.bond_debt,
+            "bilateral_debt": self.bilateral_debt,
+            "multilateral_debt": self.multilateral_debt,
+            "commercial_debt": self.commercial_debt,
+            "weighted_interest_rate": self.weighted_interest_rate,
+            "external_ratio": self.external_ratio,
+            "local_ratio": self.local_ratio,
+        }
+
+
+@dataclass
+class MaturityProfile:
+    """Perfil de vencimientos de deuda."""
+    short_term: float = 0.0  # < 1 año
+    medium_term: float = 0.0  # 1-5 años
+    long_term: float = 0.0  # > 5 años
+    next_12m: float = 0.0  # vencimiento en próximos 12 meses
+    next_3y: float = 0.0  # vencimiento en próximos 3 años
+    next_5y: float = 0.0  # vencimiento en próximos 5 años
+    rollover_risk: str = ""  # "bajo", "medio", "alto", "crítico"
+
+    def to_dict(self) -> dict:
+        return {
+            "short_term": self.short_term,
+            "medium_term": self.medium_term,
+            "long_term": self.long_term,
+            "next_12m": self.next_12m,
+            "next_3y": self.next_3y,
+            "next_5y": self.next_5y,
+            "rollover_risk": self.rollover_risk,
+        }
+
+
+@dataclass
+class StressScenario:
+    """Resultado de un escenario de estrés."""
+    name: str
+    oil_price: float
+    gdp_growth: float
+    interest_rate: float
+    deficit_pct: float
+    projected_debt_gdp: float
+    sustainability: str
     interpretation: str
 
 
+@dataclass
+class DebtResult:
+    """Resultado completo del análisis de deuda."""
+    structure: DebtStructure
+    maturity: MaturityProfile
+    debt_gdp_ratio: Optional[float]
+    sustainability: str  # "sostenible", "en_riesgo", "insostenible"
+    stress_scenarios: List[StressScenario]
+    years_to_crisis: Optional[float]
+    interpretation: str
+
+
+@dataclass
+class ContingentLiabilities:
+    """Pasivos contingentes."""
+    pdvsa_debt: float = 0.0
+    state_enterprise_debt: float = 0.0
+    unfunded_pensions: float = 0.0
+    guarantees: float = 0.0
+    total: float = 0.0
+
+    def to_dict(self) -> dict:
+        return {
+            "pdvsa_debt": self.pdvsa_debt,
+            "state_enterprise_debt": self.state_enterprise_debt,
+            "unfunded_pensions": self.unfunded_pensions,
+            "guarantees": self.guarantees,
+            "total": self.total,
+        }
+
+
 class PublicDebtAnalyzer:
-    """Analizador de Deuda Pública de Venezuela."""
+    """Analizador completo de Deuda Pública de Venezuela."""
 
     def __init__(self):
         pass
 
-    def analyze(
+    def analyze_structure(
         self,
-        total_debt_usd: Optional[float] = None,
-        gdp_usd: Optional[float] = None,
-        external_debt_usd: Optional[float] = None,
-        fiscal_deficit_pct: Optional[float] = None,
-        oil_revenues_usd: Optional[float] = None,
-        inflation_rate: Optional[float] = None,
-    ) -> DebtResult:
-        """Análisis de sostenibilidad de deuda.
+        total_debt_usd: float,
+        external_debt_usd: float = 0.0,
+        bond_debt: float = 0.0,
+        bilateral_debt: float = 0.0,
+        multilateral_debt: float = 0.0,
+        commercial_debt: float = 0.0,
+        interest_rates: Optional[Dict[str, float]] = None,
+        debt_amounts: Optional[Dict[str, float]] = None,
+    ) -> DebtStructure:
+        """Analiza la estructura de la deuda.
 
         Args:
             total_debt_usd: Deuda total en USD.
-            gdp_usd: PIB en USD.
             external_debt_usd: Deuda externa en USD.
-            fiscal_deficit_pct: Déficit fiscal como % del PIB.
-            oil_revenues_usd: Ingresos petroleros anuales en USD.
-            inflation_rate: Inflación anual (%).
+            bond_debt: Deuda en bonos soberanos (USD).
+            bilateral_debt: Deuda bilateral (USD).
+            multilateral_debt: Deuda multilateral (USD).
+            commercial_debt: Deuda comercial (USD).
+            interest_rates: Dict de tasa de interés por componente.
+            debt_amounts: Dict de monto por componente (para calcular tasa ponderada).
 
         Returns:
-            DebtResult con el análisis.
+            DebtStructure con el desglose.
         """
-        internal_debt = None
-        external_ratio = None
-        if total_debt_usd and external_debt_usd:
-            internal_debt = total_debt_usd - external_debt_usd
-            external_ratio = external_debt_usd / total_debt_usd * 100
+        internal = total_debt_usd - external_debt_usd
 
-        debt_gdp = None
-        if total_debt_usd and gdp_usd and gdp_usd > 0:
-            debt_gdp = total_debt_usd / gdp_usd * 100
+        external_ratio = (external_debt_usd / total_debt_usd * 100) if total_debt_usd > 0 else 0
+        local_ratio = 100 - external_ratio
 
-        # Análisis de sostenibilidad
-        sustainability = "desconocido"
-        years_to_crisis = None
-        interpretation = ""
+        # Tasa ponderada
+        weighted_rate = 0.0
+        if interest_rates and debt_amounts:
+            total_weighted = 0
+            total_amount = 0
+            for comp, rate in interest_rates.items():
+                amount = debt_amounts.get(comp, 0)
+                total_weighted += rate * amount
+                total_amount += amount
+            if total_amount > 0:
+                weighted_rate = total_weighted / total_amount
 
-        if debt_gdp is not None:
+        return DebtStructure(
+            total_usd=total_debt_usd,
+            external_usd=external_debt_usd,
+            internal_usd=internal,
+            bond_debt=bond_debt,
+            bilateral_debt=bilateral_debt,
+            multilateral_debt=multilateral_debt,
+            commercial_debt=commercial_debt,
+            weighted_interest_rate=round(weighted_rate, 2),
+            external_ratio=round(external_ratio, 1),
+            local_ratio=round(local_ratio, 1),
+        )
+
+    def analyze_maturities(
+        self,
+        short_term: float = 0.0,
+        medium_term: float = 0.0,
+        long_term: float = 0.0,
+    ) -> MaturityProfile:
+        """Analiza el perfil de vencimientos.
+
+        Args:
+            short_term: Deuda de corto plazo (< 1 año, USD).
+            medium_term: Deuda de mediano plazo (1-5 años, USD).
+            long_term: Deuda de largo plazo (> 5 años, USD).
+
+        Returns:
+            MaturityProfile con el análisis.
+        """
+        total = short_term + medium_term + long_term
+
+        next_12m = short_term
+        next_3y = short_term + medium_term * 0.6  # Aproximación
+        next_5y = short_term + medium_term + long_term * 0.3
+
+        # Riesgo de refinanciamiento
+        if total <= 0:
+            rollover_risk = "bajo"
+        else:
+            st_ratio = short_term / total * 100
+            if st_ratio > 50:
+                rollover_risk = "crítico"
+            elif st_ratio > 30:
+                rollover_risk = "alto"
+            elif st_ratio > 15:
+                rollover_risk = "medio"
+            else:
+                rollover_risk = "bajo"
+
+        return MaturityProfile(
+            short_term=short_term,
+            medium_term=medium_term,
+            long_term=long_term,
+            next_12m=round(next_12m, 0),
+            next_3y=round(next_3y, 0),
+            next_5y=round(next_5y, 0),
+            rollover_risk=rollover_risk,
+        )
+
+    def stress_test(
+        self,
+        current_debt: float,
+        gdp_usd: float,
+        scenarios: List[Dict],
+    ) -> List[StressScenario]:
+        """Ejecuta escenarios de estrés sobre la deuda.
+
+        Args:
+            current_debt: Deuda actual (USD).
+            gdp_usd: PIB actual (USD).
+            scenarios: Lista de dicts con keys:
+                - name: nombre del escenario
+                - oil_price: precio del petróleo (USD/barril)
+                - gdp_growth: crecimiento del PIB (%)
+                - interest_rate: tasa de interés de la deuda (%)
+                - deficit_pct: déficit fiscal (% del PIB)
+                - years: años a proyectar
+
+        Returns:
+            Lista de StressScenario con resultados.
+        """
+        results = []
+
+        for sc in scenarios:
+            name = sc.get("name", "Sin nombre")
+            oil_price = sc.get("oil_price", 60)
+            gdp_growth = sc.get("gdp_growth", 0)
+            interest_rate = sc.get("interest_rate", 0.05)
+            deficit_pct = sc.get("deficit_pct", 5)
+            years = sc.get("years", 5)
+
+            # Proyectar deuda
+            debt = current_debt
+            gdp = gdp_usd
+            for y in range(years):
+                deficit_usd = gdp * deficit_pct / 100
+                interest = debt * interest_rate
+                debt = debt + deficit_usd + interest
+                gdp = gdp * (1 + gdp_growth / 100)
+
+            debt_gdp = (debt / gdp * 100) if gdp > 0 else 999
+
             if debt_gdp > 300:
                 sustainability = "insostenible"
-                interpretation = (
-                    f"Deuda/PIB de {debt_gdp:.0f}% es extremadamente alta. "
-                    f"La deuda supera 3 veces el PIB. "
-                )
             elif debt_gdp > 100:
                 sustainability = "en_riesgo"
-                interpretation = (
-                    f"Deuda/PIB de {debt_gdp:.0f}% está por encima del umbral crítico. "
-                )
             else:
                 sustainability = "sostenible"
-                interpretation = f"Deuda/PIB de {debt_gdp:.0f}% dentro de rangos manejables. "
 
-            # Estimar años hasta crisis (simplificado)
-            if fiscal_deficit_pct and gdp_usd and gdp_usd > 0:
-                annual_deficit_usd = gdp_usd * fiscal_deficit_pct / 100
-                if annual_deficit_usd > 0 and total_debt_usd:
-                    # Asumiendo que el déficit se financia con deuda
-                    years_to_crisis = total_debt_usd / annual_deficit_usd if annual_deficit_usd > 0 else None
-                    if years_to_crisis and years_to_crisis < 5:
-                        interpretation += (
-                            f"Al ritmo actual de déficit ({fiscal_deficit_pct:.1f}% del PIB), "
-                            f"la deuda crecería significativamente en {years_to_crisis:.1f} años."
-                        )
-
-        # Estructura de deuda
-        if external_ratio is not None:
-            interpretation += (
-                f"Deuda externa: {external_ratio:.0f}% del total. "
+            interpretation = (
+                f"En {years} años, deuda/PIB = {debt_gdp:.0f}% "
+                f"(petróleo=${oil_price:.0f}, crecimiento={gdp_growth:.1f}%, "
+                f"déficit={deficit_pct:.1f}%, interés={interest_rate*100:.1f}%)."
             )
-            if external_ratio > 70:
-                interpretation += "Alta exposición a riesgo cambiario. "
-            else:
-                interpretation += "Exposición moderada al tipo de cambio. "
 
-        # Capacidad de pago
-        if oil_revenues_usd and total_debt_usd:
-            years_of_revenues = total_debt_usd / oil_revenues_usd if oil_revenues_usd > 0 else None
-            if years_of_revenues:
-                interpretation += (
-                    f"La deuda total equivale a {years_of_revenues:.1f} años de ingresos petroleros. "
-                )
+            results.append(StressScenario(
+                name=name,
+                oil_price=oil_price,
+                gdp_growth=gdp_growth,
+                interest_rate=interest_rate,
+                deficit_pct=deficit_pct,
+                projected_debt_gdp=round(debt_gdp, 1),
+                sustainability=sustainability,
+                interpretation=interpretation,
+            ))
 
-        return DebtResult(
-            total_debt_usd=total_debt_usd,
-            debt_gdp_ratio=round(debt_gdp, 1) if debt_gdp else None,
-            external_debt=external_debt_usd,
-            internal_debt=internal_debt,
-            external_ratio=round(external_ratio, 1) if external_ratio else None,
-            sustainability=sustainability,
-            years_to_crisis=round(years_to_crisis, 1) if years_to_crisis else None,
-            interpretation=interpretation or "Datos insuficientes para análisis de deuda.",
-        )
+        return results
 
     def project_debt(
         self,
@@ -171,3 +336,217 @@ class PublicDebtAnalyzer:
             debt = new_debt
 
         return projections
+
+    def analyze_contingent_liabilities(
+        self,
+        pdvsa_debt: float = 0.0,
+        state_enterprise_debt: float = 0.0,
+        unfunded_pensions: float = 0.0,
+        guarantees: float = 0.0,
+    ) -> ContingentLiabilities:
+        """Analiza pasivos contingentes.
+
+        Args:
+            pdvsa_debt: Deuda de PDVSA (USD).
+            state_enterprise_debt: Deuda de empresas estatales (USD).
+            unfunded_pensions: Pasivo acumulado de pensiones (USD).
+            guarantees: Garantías gubernamentales (USD).
+
+        Returns:
+            ContingentLiabilities con el desglose.
+        """
+        total = pdvsa_debt + state_enterprise_debt + unfunded_pensions + guarantees
+
+        return ContingentLiabilities(
+            pdvsa_debt=pdvsa_debt,
+            state_enterprise_debt=state_enterprise_debt,
+            unfunded_pensions=unfunded_pensions,
+            guarantees=guarantees,
+            total=total,
+        )
+
+    def analyze(
+        self,
+        total_debt_usd: Optional[float] = None,
+        gdp_usd: Optional[float] = None,
+        external_debt_usd: Optional[float] = None,
+        fiscal_deficit_pct: Optional[float] = None,
+        oil_revenues_usd: Optional[float] = None,
+        inflation_rate: Optional[float] = None,
+        bond_debt: float = 0.0,
+        bilateral_debt: float = 0.0,
+        multilateral_debt: float = 0.0,
+        commercial_debt: float = 0.0,
+        short_term_debt: float = 0.0,
+        medium_term_debt: float = 0.0,
+        long_term_debt: float = 0.0,
+        pdvsa_debt: float = 0.0,
+        oil_price: float = 60.0,
+    ) -> DebtResult:
+        """Análisis completo de deuda pública.
+
+        Args:
+            total_debt_usd: Deuda total en USD.
+            gdp_usd: PIB en USD.
+            external_debt_usd: Deuda externa en USD.
+            fiscal_deficit_pct: Déficit fiscal como % del PIB.
+            oil_revenues_usd: Ingresos petroleros anuales en USD.
+            inflation_rate: Inflación anual (%).
+            bond_debt: Deuda en bonos (USD).
+            bilateral_debt: Deuda bilateral (USD).
+            multilateral_debt: Deuda multilateral (USD).
+            commercial_debt: Deuda comercial (USD).
+            short_term_debt: Deuda corto plazo (USD).
+            medium_term_debt: Deuda mediano plazo (USD).
+            long_term_debt: Deuda largo plazo (USD).
+            pdvsa_debt: Deuda de PDVSA (USD).
+            oil_price: Precio del petróleo (USD/barril).
+
+        Returns:
+            DebtResult con análisis completo.
+        """
+        total = total_debt_usd or 0
+        ext = external_debt_usd or 0
+
+        # 1. Estructura
+        structure = self.analyze_structure(
+            total_debt_usd=total,
+            external_debt_usd=ext,
+            bond_debt=bond_debt,
+            bilateral_debt=bilateral_debt,
+            multilateral_debt=multilateral_debt,
+            commercial_debt=commercial_debt,
+        )
+
+        # 2. Vencimientos
+        maturity = self.analyze_maturities(
+            short_term=short_term_debt,
+            medium_term=medium_term_debt,
+            long_term=long_term_debt,
+        )
+
+        # 3. Deuda/PIB
+        debt_gdp = None
+        if gdp_usd and gdp_usd > 0:
+            debt_gdp = total / gdp_usd * 100
+
+        # 4. Sostenibilidad
+        sustainability = "desconocido"
+        if debt_gdp is not None:
+            if debt_gdp > 300:
+                sustainability = "insostenible"
+            elif debt_gdp > 100:
+                sustainability = "en_riesgo"
+            else:
+                sustainability = "sostenible"
+
+        # 5. Años hasta crisis
+        years_to_crisis = None
+        if fiscal_deficit_pct and gdp_usd and gdp_usd > 0:
+            annual_deficit_usd = gdp_usd * fiscal_deficit_pct / 100
+            if annual_deficit_usd > 0 and total > 0:
+                years_to_crisis = total / annual_deficit_usd
+
+        # 6. Escenarios de estrés
+        scenarios = []
+        if total > 0 and gdp_usd and gdp_usd > 0:
+            scenarios = self.stress_test(
+                current_debt=total,
+                gdp_usd=gdp_usd,
+                scenarios=[
+                    {
+                        "name": "Base",
+                        "oil_price": oil_price,
+                        "gdp_growth": 3.0,
+                        "interest_rate": 0.05,
+                        "deficit_pct": fiscal_deficit_pct or 5,
+                        "years": 5,
+                    },
+                    {
+                        "name": "Optimista",
+                        "oil_price": oil_price * 1.3,
+                        "gdp_growth": 8.0,
+                        "interest_rate": 0.04,
+                        "deficit_pct": max(0, (fiscal_deficit_pct or 5) - 3),
+                        "years": 5,
+                    },
+                    {
+                        "name": "Pesimista",
+                        "oil_price": oil_price * 0.6,
+                        "gdp_growth": -2.0,
+                        "interest_rate": 0.08,
+                        "deficit_pct": (fiscal_deficit_pct or 5) + 4,
+                        "years": 5,
+                    },
+                    {
+                        "name": "Crisis petrolera",
+                        "oil_price": 30,
+                        "gdp_growth": -5.0,
+                        "interest_rate": 0.10,
+                        "deficit_pct": 15,
+                        "years": 5,
+                    },
+                ],
+            )
+
+        # 7. Pasivos contingentes
+        contingent = self.analyze_contingent_liabilities(pdvsa_debt=pdvsa_debt)
+
+        # 8. Interpretación
+        interpretation_parts = []
+
+        if debt_gdp is not None:
+            if debt_gdp > 300:
+                interpretation_parts.append(
+                    f"Deuda/PIB de {debt_gdp:.0f}% es extremadamente alta. La deuda supera 3 veces el PIB."
+                )
+            elif debt_gdp > 100:
+                interpretation_parts.append(
+                    f"Deuda/PIB de {debt_gdp:.0f}% está por encima del umbral crítico."
+                )
+            else:
+                interpretation_parts.append(
+                    f"Deuda/PIB de {debt_gdp:.0f}% dentro de rangos manejables."
+                )
+
+        if structure.external_ratio > 70:
+            interpretation_parts.append(
+                f"Alta exposición a riesgo cambiario: {structure.external_ratio:.0f}% de deuda externa."
+            )
+
+        if maturity.rollover_risk in ("alto", "crítico"):
+            interpretation_parts.append(
+                f"Riesgo de refinanciamiento {maturity.rollover_risk}: "
+                f"${maturity.short_term/1e9:.1f}B vencen en <1 año."
+            )
+
+        if oil_revenues_usd and total > 0:
+            years_of_revenues = total / oil_revenues_usd if oil_revenues_usd > 0 else None
+            if years_of_revenues:
+                interpretation_parts.append(
+                    f"La deuda total equivale a {years_of_revenues:.1f} años de ingresos petroleros."
+                )
+
+        if years_to_crisis and years_to_crisis < 5:
+            interpretation_parts.append(
+                f"Al ritmo actual de déficit ({fiscal_deficit_pct:.1f}% del PIB), "
+                f"la deuda crecería significativamente en {years_to_crisis:.1f} años."
+            )
+
+        if contingent.total > 0:
+            interpretation_parts.append(
+                f"Pasivos contingentes (PDVSA, pensiones): ${contingent.total/1e9:.1f}B "
+                f"que podrían materializarse."
+            )
+
+        interpretation = " ".join(interpretation_parts) or "Datos insuficientes para análisis de deuda."
+
+        return DebtResult(
+            structure=structure,
+            maturity=maturity,
+            debt_gdp_ratio=round(debt_gdp, 1) if debt_gdp else None,
+            sustainability=sustainability,
+            stress_scenarios=scenarios,
+            years_to_crisis=round(years_to_crisis, 1) if years_to_crisis else None,
+            interpretation=interpretation,
+        )

@@ -408,99 +408,229 @@ with tab_macro:
     from src.analyzers.balance_of_payments import BalanceOfPaymentsAnalyzer
     from src.analyzers.public_debt import PublicDebtAnalyzer
     from src.analyzers.phillips import PhillipsCurveAnalyzer
+    from src.analyzers.integrated_forecast import IntegratedForecaster
     from src.dashboard.macro_data import macro_summary
 
     st.subheader("🔬 Análisis Macro Avanzado")
 
-    # ── Riesgo Soberano ──
-    st.markdown("### 🚨 Índice de Riesgo Soberano")
-    risk = SovereignRiskIndex()
-    risk_result = risk.calculate(
-        spread_pct=brecha if brecha else 0,
-        annual_inflation=metrics["inflacion"].annual_rate if metrics["inflacion"] else 0,
+    # ── Sub-tabs para Macro ──
+    macro_tab1, macro_tab2, macro_tab3 = st.tabs(
+        ["🚨 Riesgo & Sostenibilidad", "🔮 Pronóstico Integral", "📉 Modelos Econométricos"]
     )
 
-    rc1, rc2 = st.columns([1, 3])
-    with rc1:
-        # Score con color
-        score = risk_result.score
-        if score < 25:
-            color = theme.PALETTE["verde"]
-        elif score < 50:
-            color = theme.PALETTE["amarillo"]
-        elif score < 75:
-            color = theme.PALETTE["naranja"]
-        else:
-            color = theme.PALETTE["rojo"]
-        st.markdown(
-            f"<div style='text-align:center; padding:20px; border-radius:10px; "
-            f"background:rgba(0,0,0,0.05);'>
-            f"<div style='font-size:48px; font-weight:bold; color:{color};'>{score:.0f}</div>
-            f"<div style='font-size:14px; color:#666;'>/100</div>
-            f"<div style='font-size:18px; font-weight:600; color:{color};'>"
-            f"{risk_result.level.upper()}</div></div>",
-            unsafe_allow_html=True,
+    # ── Sub-tab 1: Riesgo & Sostenibilidad ──
+    with macro_tab1:
+        st.markdown("### 🚨 Índice de Riesgo Soberano")
+        risk = SovereignRiskIndex()
+        risk_result = risk.calculate(
+            spread_pct=brecha if brecha else 0,
+            annual_inflation=metrics["inflacion"].annual_rate if metrics["inflacion"] else 0,
+            oil_production_mbd=1.08,
         )
-    with rc2:
-        st.markdown(risk_result.interpretation)
-        st.markdown("**Factores:**")
-        for factor, value in sorted(risk_result.components.items(), key=lambda x: -x[1]):
-            label = {
-                "spread": "Brecha cambiaria",
-                "volatility": "Volatilidad",
-                "inflation": "Inflación",
-                "reserves": "Reservas",
-                "debt": "Deuda",
-                "oil": "Petróleo",
-            }.get(factor, factor)
-            st.progress(min(value / 100, 1.0), text=f"{label}: {value:.0f}/100")
 
-    # ── Balanza de Pagos ──
-    st.markdown("### 💱 Balanza de Pagos")
-    bop = BalanceOfPaymentsAnalyzer()
-    bop_result = bop.analyze(
-        reserves=None,  # Pendiente de obtener de BCV
-        oil_production_mbd=1.08,
-        oil_price_usd=70,
-        imports_monthly=2e9,  # Estimado
-    )
-    st.markdown(bop_result.interpretation)
+        rc1, rc2 = st.columns([1, 3])
+        with rc1:
+            score = risk_result.score
+            if score < 25:
+                color = theme.PALETTE["verde"]
+            elif score < 50:
+                color = theme.PALETTE["amarillo"]
+            elif score < 75:
+                color = theme.PALETTE["naranja"]
+            else:
+                color = theme.PALETTE["rojo"]
+            st.markdown(
+                f"<div style='text-align:center; padding:20px; border-radius:10px; "
+                f"background:rgba(0,0,0,0.05);'>
+                f"<div style='font-size:48px; font-weight:bold; color:{color};'>{score:.0f}</div>
+                f"<div style='font-size:14px; color:#666;'>/100</div>
+                f"<div style='font-size:18px; font-weight:600; color:{color};'>"
+                f"{risk_result.level.upper()}</div></div>",
+                unsafe_allow_html=True,
+            )
+            if risk_result.momentum is not None:
+                m_color = "🔴" if risk_result.momentum > 5 else "🟢" if risk_result.momentum < -5 else "⚪"
+                st.caption(f"{m_color} Momentum: {risk_result.momentum:+.1f} vs período anterior")
+        with rc2:
+            st.markdown(risk_result.interpretation)
+            st.markdown("**Factores:**")
+            for factor, value in sorted(risk_result.components.items(), key=lambda x: -x[1]):
+                label = {
+                    "spread": "Brecha cambiaria",
+                    "volatility": "Volatilidad",
+                    "inflation": "Inflación",
+                    "reserves": "Reservas",
+                    "debt": "Deuda",
+                    "oil": "Petróleo",
+                    "political": "Riesgo político",
+                    "uncertainty": "Incertidumbre",
+                }.get(factor, factor)
+                st.progress(min(value / 100, 1.0), text=f"{label}: {value:.0f}/100")
 
-    # ── Deuda Pública ──
-    st.markdown("### 💳 Deuda Pública")
-    debt = PublicDebtAnalyzer()
-    debt_result = debt.analyze(
-        total_debt_usd=240e9,  # Estimado
-        gdp_usd=94e9,
-        external_debt_usd=180e9,
-        fiscal_deficit_pct=-5.8,
-        oil_revenues_usd=35e9,
-    )
+        # ── Balanza de Pagos ──
+        st.markdown("### 💱 Balanza de Pagos")
+        bop = BalanceOfPaymentsAnalyzer()
+        bop_result = bop.analyze(
+            reserves=None,
+            oil_production_mbd=1.08,
+            oil_price_usd=70,
+            imports_monthly=2e9,
+        )
 
-    dc1, dc2, dc3 = st.columns(3)
-    with dc1:
-        st.metric("Deuda/PIB", f"{debt_result.debt_gdp_ratio:.0f}%" if debt_result.debt_gdp_ratio else "—")
-    with dc2:
-        st.metric("Sostenibilidad", debt_result.sustainability.upper())
-    with dc3:
-        if debt_result.external_ratio:
-            st.metric("Deuda Externa", f"{debt_result.external_ratio:.0f}%")
-    st.markdown(debt_result.interpretation)
+        bop_c1, bop_c2, bop_c3, bop_c4 = st.columns(4)
+        with bop_c1:
+            st.metric("Cuenta Corriente", f"${bop_result.current_account.balance/1e9:.1f}B")
+        with bop_c2:
+            st.metric("Reservas", f"{bop_result.reserves.months_coverage:.1f} meses")
+        with bop_c3:
+            st.metric("Ingresos Petróleo", f"${bop_result.current_account.oil_revenues/1e9:.1f}B")
+        with bop_c4:
+            st.metric("Score Sustentabilidad", f"{bop_result.external_sustainability_score:.0f}/100")
 
-    # ── Curva de Phillips ──
-    st.markdown("### 📉 Curva de Phillips")
-    phillips = PhillipsCurveAnalyzer()
-    st.info(
-        "*La Curva de Phillips requiere datos históricos de desempleo e inflación. "
-        "Se activará cuando se integren los datos del INE con la serie de inflación.*"
-    )
+        st.markdown(bop_result.interpretation)
 
-    # ── Regional ──
-    st.markdown("### 🌎 Comparación Regional")
-    st.info(
-        "*Las comparaciones regionales se activarán cuando se integren "
-        "los datos de World Bank (wbgapi) con el dashboard.*"
-    )
+        # Ciclo petrolero
+        if bop_result.oil_cycle.interpretation:
+            with st.expander("🛢️ Detalle Ciclo Petrolero"):
+                oil_c1, oil_c2, oil_c3 = st.columns(3)
+                with oil_c1:
+                    st.metric("Ingresos Brutos", f"${bop_result.oil_cycle.gross_revenues/1e9:.1f}B")
+                with oil_c2:
+                    st.metric("Netos Fisco", f"${bop_result.oil_cycle.net_revenues/1e9:.1f}B")
+                with oil_c3:
+                    st.metric("Flujo Efectivo", f"${bop_result.oil_cycle.effective_cash_flow/1e9:.1f}B")
+                st.caption(bop_result.oil_cycle.interpretation)
+
+        # ── Deuda Pública ──
+        st.markdown("### 💳 Deuda Pública")
+        debt = PublicDebtAnalyzer()
+        debt_result = debt.analyze(
+            total_debt_usd=240e9,
+            gdp_usd=94e9,
+            external_debt_usd=180e9,
+            fiscal_deficit_pct=5.8,
+            oil_revenues_usd=35e9,
+            oil_price=70,
+            short_term_debt=60e9,
+            medium_term_debt=100e9,
+            long_term_debt=80e9,
+            pdvsa_debt=40e9,
+        )
+
+        dc1, dc2, dc3, dc4 = st.columns(4)
+        with dc1:
+            st.metric("Deuda/PIB", f"{debt_result.debt_gdp_ratio:.0f}%" if debt_result.debt_gdp_ratio else "—")
+        with dc2:
+            st.metric("Sostenibilidad", debt_result.sustainability.upper())
+        with dc3:
+            st.metric("Riesgo Rollover", debt_result.maturity.rollover_risk.upper())
+        with dc4:
+            if debt_result.structure.weighted_interest_rate > 0:
+                st.metric("Tasa Promedio", f"{debt_result.structure.weighted_interest_rate:.1f}%")
+
+        st.markdown(debt_result.interpretation)
+
+        # Escenarios de estrés
+        if debt_result.stress_scenarios:
+            with st.expander("🔥 Escenarios de Estrés"):
+                for sc in debt_result.stress_scenarios:
+                    icon = "🔴" if sc.sustainability == "insostenible" else "🟡" if sc.sustainability == "en_riesgo" else "🟢"
+                    st.info(
+                        f"{icon} **{sc.name}**: Deuda/PIB = {sc.projected_debt_gdp:.0f}% "
+                        f"({sc.sustainability.upper()}) — {sc.interpretation}"
+                    )
+
+        # Pasivos contingentes
+        if debt_result.structure.external_ratio > 0:
+            with st.expander("⚠️ Pasivos Contingentes"):
+                st.markdown(
+                    f"- **PDVSA**: $40B estimado\n"
+                    f"- **Empresas estatales**: pendiente\n"
+                    f"- **Pensiones no fondeadas**: pendiente\n"
+                    f"- **Garantías gubernamentales**: pendiente"
+                )
+
+    # ── Sub-tab 2: Pronóstico Integral ──
+    with macro_tab2:
+        st.markdown("### 🔮 Pronóstico Integral")
+        st.caption("Combina SVAR + Nowcast + Phillips para escenarios macro")
+
+        # Inputs del usuario
+        fc1, fc2, fc3 = st.columns(3)
+        with fc1:
+            oil_input = st.number_input("Precio Petróleo (USD)", value=65.0, step=5.0, key="fc_oil")
+        with fc2:
+            spread_input = st.number_input("Brecha Cambiaria (%)", value=30.0, step=5.0, key="fc_spread")
+        with fc3:
+            gdp_input = st.number_input("Crecimiento PIB (%)", value=3.0, step=0.5, key="fc_gdp")
+
+        if st.button("🔮 Generar Escenarios", key="btn_forecast"):
+            forecaster = IntegratedForecaster()
+            forecast_result = forecaster.scenario_analysis(
+                macro_data=pd.DataFrame(),
+                base_oil=oil_input,
+                base_inflation=metrics["inflacion"].monthly_rate if metrics["inflacion"] else 10.0,
+                base_gdp=gdp_input,
+                base_spread=spread_input,
+                base_exchange=metrics["oficial"] if metrics["oficial"] else 500.0,
+            )
+
+            # Escenarios
+            sc1, sc2, sc3 = st.columns(3)
+            with sc1:
+                st.markdown("#### 🟢 Optimista")
+                opt = forecast_result.optimistic_scenario
+n                st.metric("Inflación", f"{opt.inflation_forecast:.1f}%")
+                st.metric("TC", f"{opt.exchange_rate_forecast:.0f} Bs./USD")
+                st.caption(opt.interpretation)
+            with sc2:
+                st.markdown("#### 🟡 Central")
+                cen = forecast_result.central_scenario
+                st.metric("Inflación", f"{cen.inflation_forecast:.1f}%")
+                st.metric("TC", f"{cen.exchange_rate_forecast:.0f} Bs./USD")
+                st.caption(cen.interpretation)
+            with sc3:
+                st.markdown("#### 🔴 Pesimista")
+                pes = forecast_result.pessimistic_scenario
+                st.metric("Inflación", f"{pes.inflation_forecast:.1f}%")
+                st.metric("TC", f"{pes.exchange_rate_forecast:.0f} Bs./USD")
+                st.caption(pes.interpretation)
+
+            st.info(forecast_result.interpretation)
+
+            # Sensibilidad
+            with st.expander("📊 Análisis de Sensibilidad"):
+                for var, effects in forecast_result.sensitivity.items():
+                    st.markdown(f"**{var}:**")
+                    for key, val in effects.items():
+                        if key != "impact_on_inflation":
+                            st.write(f"  - {key}: {val:+.1f} pp")
+
+    # ── Sub-tab 3: Modelos Econométricos ──
+    with macro_tab3:
+        st.markdown("### 📉 Modelos Econométricos")
+
+        # Curva de Phillips
+        st.markdown("#### 📉 Curva de Phillips")
+        phillips = PhillipsCurveAnalyzer()
+        st.info(
+            "*La Curva de Phillips requiere datos históricos de desempleo e inflación. "
+            "Se activará cuando se integren los datos del INE con la serie de inflación.*"
+        )
+
+        # SVAR placeholder
+        st.markdown("#### 🔗 SVAR - Shocks Estructurales")
+        st.info(
+            "*El modelo SVAR requiere series temporales multivariadas. "
+            "Se activará cuando haya suficientes datos históricos de "
+            "inflación, tipo de cambio, petróleo y PIB.*")
+
+        # Regional
+        st.markdown("#### 🌎 Comparación Regional")
+        st.info(
+            "*Las comparaciones regionales se activarán cuando se integren "
+            "los datos de World Bank (wbgapi) con el dashboard.*"
+        )
 
     # ── Footer ─────────────────────────────────────────────────────────────────
 st.markdown("---")

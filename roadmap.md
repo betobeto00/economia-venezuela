@@ -354,14 +354,16 @@ google-auth-oauthlib==1.2.0
 
 ### Pendientes del Análisis Macro
 
-37. ✅ **SVAR** — `analyzers/svar.py` (shocks estructurales + FEVD)
-38. ✅ **Curva de Phillips** — `analyzers/phillips.py` (con NAIRU estimado)
-39. ✅ **Balanza de Pagos** — `analyzers/balance_of_payments.py` (reservas, cuenta corriente)
-40. ✅ **Riesgo País** — `analyzers/sovereign_risk.py` (índice 0-100)
-41. ✅ **Deuda Pública** — `analyzers/public_debt.py` (sostenibilidad + proyecciones)
-42. ⏳ **ENCOVI** — Encuesta de Condiciones de Vida (cuando se publique)
-43. ⏳ **Integrar Nowcasting/Alertas/IAE en el dashboard**
-44. ⏳ **Tests para nuevos módulos** (nowcasting, alerts, regional, iae)
+37. ✅ **SVAR** — `analyzers/svar.py` (shocks estructurales + FEVD + Cholesky + bootstrap)
+38. ✅ **Curva de Phillips** — `analyzers/phillips.py` (NAIRU + híbrido + no lineal + estanflación)
+39. ✅ **Balanza de Pagos** — `analyzers/balance_of_payments.py` (cuenta corriente completa + ciclo petrolero + desglose reservas)
+40. ✅ **Riesgo País** — `analyzers/sovereign_risk.py` (índice 0-100 + PCA + político + incertidumbre + momentum)
+41. ✅ **Deuda Pública** — `analyzers/public_debt.py` (sostenibilidad + escenarios estrés + vencimientos + contingentes)
+42. ✅ **Pronóstico Integral** — `analyzers/integrated_forecast.py` (SVAR + Nowcast + Phillips + escenarios)
+43. ✅ **Panel Sostenibilidad** — `dashboard/components/sustainability_panel.py` (deuda + BOP + riesgo unificado)
+44. ⏳ **ENCOVI** — Encuesta de Condiciones de Vida (cuando se publique)
+45. ⏳ **Integrar Nowcasting/Alertas/IAE en el dashboard**
+46. ⏳ **Tests para nuevos módulos** (nowcasting, alerts, regional, iae, svar, phillips)
 
 ### Nice to have
 - ⏳ **Redes sociales**: Facebook e Instagram (requiere tokens de Graph API o scraping frágil)
