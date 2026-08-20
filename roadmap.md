@@ -59,8 +59,9 @@ src/collectors/fiscal/
 | Collector | Fuente | Datos | Método | Prioridad | Estado |
 |-----------|--------|-------|--------|-----------|--------|
 | `worldbank_collector.py` | Banco Mundial | PIB, Desarrollo | API REST | 1️⃣ | ✅ |
-| `imf_collector.py` | FMI | Proyecciones | API IMF | 1️⃣ | ⏳ |
-| `cepal_collector.py` | CEPAL | Estadísticas regionales | Scraping | 2️⃣ | ⏳ |
+| `imf_collector.py` | FMI | Proyecciones | API IMF (SDMX) | 1️⃣ | ✅ |
+| `cepal_collector.py` | CEPAL | Estadísticas regionales | API CEPALSTAT | 2️⃣ | ✅ |
+| `unsceb_collector.py` | UNSCEB | Gasto ONU por país | CSV | 2️⃣ | ✅ |
 
 #### 🔬 2.4 Observatorios Independientes
 
@@ -74,7 +75,7 @@ src/collectors/fiscal/
 
 | Collector | Fuente | Datos | Método | Prioridad | Estado |
 |-----------|--------|-------|--------|-----------|--------|
-| `pdvsa_collector.py` | PDVSA | Producción oficial | Scraping | 1️⃣ | ⏳ |
+| `pdvsa_collector.py` | PDVSA | Producción oficial | Scraping | 1️⃣ | ✅ |
 | `opec_collector.py` | OPEP | Producción secundaria | API/Scraping | 1️⃣ | ✅ |
 | `eia_collector.py` | EIA | Estimaciones | API/Scraping | 2️⃣ | ⏳ |
 
@@ -333,9 +334,13 @@ google-auth-oauthlib==1.2.0
 23. ✅ **Persistencia del loop de mercado** — *verificado con Postgres real (Railway)*
 24. ✅ **Ingesta de noticias/RSS + análisis de sentimiento**
 25. ✅ **Informes semanales automatizados con IA** — cadena de 4 LLMs con fallback
-26. 🔄 **Collectors restantes**: ✅ `seniat`, `mppef`, `pdvsa`, `imf`, `cepal` — ⏳ `an`, `caracas`, `twitter`
+26. 🔄 **Collectors restantes**: ✅ `seniat`, `mppef`, `pdvsa`, `imf`, `cepal`, `unsceb` — ⏳ `an`, `caracas`, `twitter`
 27. ✅ **Backfill histórico de tasas** (6 meses) — dataset abierto usdt.com.ve (CC-BY-4.0)
 28. ✅ **Dashboard: Bybit + brecha cambiaria** — tarjetas, brecha y gráfico de 6 meses
+29. 🔄 **Datos macro**: ✅ `unsceb` (`unsceb.org/data-download`) — ⏳ FMI `data.imf.org` (bloqueado 403 local; SDMX IFS ya integrado)
+
+### Nice to have
+- ⏳ **Redes sociales**: Facebook e Instagram (requiere tokens de Graph API o scraping frágil)
 
 ---
 
@@ -343,7 +348,7 @@ google-auth-oauthlib==1.2.0
 
 | KPI | Meta | Actual | Estado |
 |-----|------|--------|--------|
-| Collectors implementados | 20 | 17 | 🟡 |
+| Collectors implementados | 20 | 18 | 🟡 |
 | Collectors fiscales | 4 | 4 ✅ | ✅ |
 | Formularios de encuesta activos | 2+ | 2 ✅ | ✅ |
 | Respuestas de encuesta procesadas | 500+ | 2 | ⏳ |

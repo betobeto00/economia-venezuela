@@ -16,6 +16,11 @@ from src.collectors.international.cepal_collector import (
 )
 from src.collectors.international.imf_collector import IMFCollector, parse_imf_series
 from src.collectors.international.pdvsa_collector import PDVSACollector, parse_basket_price
+from src.collectors.international.unsceb_collector import (
+    UNSCEBCollector,
+    aggregate_by_year,
+    parse_expenses,
+)
 
 # ---------------------------------------------------------------- SENIAT
 
@@ -282,3 +287,50 @@ class TestCEPAL:
         )
         CEPALCollector().fetch_gdp()
         assert seen["members"] == f"259,{GDP_RUBRO_TOTAL}"
+
+
+# ---------------------------------------------------------------- UNSCEB
+
+UNSCEB_CSV = (
+    "calendar_year,agency,sub_agency,amount,_currency_amount,country/territory,"
+    "subregion,location_type,region,function\r\n"
+    "2019,UNEP,UNEP,237900.52,USD,Venezuela (Bolivarian Republic of),South America,"
+    "COU,Americas,Development Assistance\r\n"
+    "2019,UNICEF,UNICEF,100000.00,USD,Venezuela (Bolivarian Republic of),South America,"
+    "COU,Americas,Humanitarian\r\n"
+    "2020,UNIDO,UNIDO,879647.24,EUR,Venezuela (Bolivarian Republic of),South America,"
+    "COU,Americas,\r\n"
+    "2019,UNEP,UNEP,-500.00,USD,Venezuela (Bolivarian Republic of),South America,"
+    "COU,Americas,Development Assistance\r\n"
+    "2020,FAO,FAO,999999.00,USD,Brasil,South America,COU,Americas,Development\r\n"
+    "2020,UNICEF,UNICEF,abc,USD,Venezuela (Bolivarian Republic of),South America,"
+    "COU,Americas,\r\n"
+)
+
+
+class TestUNSCEB:
+    def test_parse_expenses_filtra_venezuela(self):
+        rows = parse_expenses(UNSCEB_CSV.encode("utf-8"))
+        assert len(rows) == 5  # excluye Brasil y la fila sin país
+        assert all(r["country/territory"].startswith("Venezuela") for r in rows)
+
+    def test_aggregate_by_year(self):
+        rows = parse_expenses(UNSCEB_CSV.encode("utf-8"))
+        points = aggregate_by_year(rows)
+        # 2019 USD: 237900.52 + 100000 - 500 = 337400.52
+        # 2020 EUR: 879647.24
+        assert len(points) == 2
+        usd19 = next(p for p in points if p.period == "2019" and p.unit == "USD")
+        assert usd19.value == 337400.52
+        eur20 = next(p for p in points if p.period == "2020" and p.unit == "EUR")
+        assert eur20.value == 879647.24
+        assert usd19.indicator == "gasto_onu_venezuela"
+
+    def test_fetch_venezuela_expenses(self, monkeypatch):
+        monkeypatch.setattr(
+            "src.collectors.international.unsceb_collector.http_get_bytes",
+            lambda url, params=None: UNSCEB_CSV.encode("utf-8"),
+        )
+        points = UNSCEBCollector().fetch_venezuela_expenses()
+        assert len(points) == 2
+        assert points[0].source == "unsceb"

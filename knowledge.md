@@ -629,6 +629,7 @@ Pipeline:
 - [x] **PDVSA** — `collectors/international/pdvsa_collector.py` (cesta venezolana)
 - [x] **FMI** — `collectors/international/imf_collector.py` (API SDMX-JSON de IFS)
 - [x] **CEPAL** — `collectors/international/cepal_collector.py` (API CEPALSTAT)
+- [x] **UNSCEB** — `collectors/international/unsceb_collector.py` (gasto ONU por país)
 
 > **Helpers compartidos:** `collectors/fiscal/documents.py` centraliza el catálogo de
 > documentos (filtra hrefs `#`/`javascript:`, hosts externos, y deriva título del
@@ -642,7 +643,15 @@ Pipeline:
 >
 > **API FMI** (`dataservices.imf.org/REST/SDMX_JSON.svc`): `CompactData/IFS/A.VE.<ind>`.
 > NGDP_RPCH (crec. PIB real) y PCPIPCH (inflación IPC). DNS caído desde la red local
-> (como BCV IPC); funciona desde Railway u otras redes.
+> (como BCV IPC); funciona desde Railway u otras redes. `data.imf.org` y el DataMapper
+> (`www.imf.org/external/datamapper/api/v1`) responden 403 desde scripts.
+>
+> **API UNSCEB** (`unsceb.org`): CSVs del sistema ONU. El dataset
+> `FS/expenses_by_country_region_sub_agency.csv` (~10MB, 116k filas) desglosa el gasto
+> de agencias de la ONU por país (Venezuela = "Venezuela (Bolivarian Republic of)").
+> `UNSCEBCollector.fetch_venezuela_expenses()` agrega por (año, moneda) →
+> `IndicatorPoint(gasto_onu_venezuela)`. Verificado en vivo: ~38 observaciones
+> (2021-2024), ≈ $160-210M USD/año de gasto ONU en Venezuela.
 >
 > **Nota PDVSA/CEPAL:** los datos de mercado con DNS caído localmente se recogen
 > mejor desde Railway (ver `pdvsa.com`, `dataservices.imf.org`).
