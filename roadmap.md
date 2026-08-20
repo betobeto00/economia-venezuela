@@ -334,6 +334,7 @@ google-auth-oauthlib==1.2.0
 24. ✅ **Ingesta de noticias/RSS + análisis de sentimiento**
 25. ✅ **Informes semanales automatizados con IA** — cadena de 4 LLMs con fallback
 26. ⏳ **Collectors restantes**: `mppef`, `seniat`, `sunaval`, `an`, `caracas`, `imf`, `cepal`, `pdvsa`, `twitter`
+27. ✅ **Backfill histórico de tasas** (6 meses) — dataset abierto usdt.com.ve (CC-BY-4.0)
 
 ---
 

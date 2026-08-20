@@ -239,7 +239,9 @@ economia-venezuela/
 │   │   └── components/         #   Componentes (survey_section)
 │   ├── scripts/                # CLIs
 │   │   ├── collect_surveys.py  #   Ingesta de encuestas
-│   │   └── collect_market.py   #   Recolección de mercado → DB
+│   │   ├── collect_market.py   #   Recolección de mercado → DB
+│   │   ├── collect_news.py     #   Noticias RSS + Reddit + sentimiento
+│   │   └── backfill_rates.py   #   Backfill histórico (usdt.com.ve)
 │   ├── scheduler/              # Programación
 │   │   └── jobs.py             #   Jobs APScheduler (encuestas, mercado)
 │   ├── alerts/                 # Sistema de alertas

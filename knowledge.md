@@ -614,6 +614,12 @@ Pipeline:
 - [x] **Cadena de LLMs con fallback** — `analyzers/llm.py` (LLM1..LLM8, estilo `dev/ds`)
 - [x] **Informe semanal automatizado** — `analyzers/reports/weekly.py` → `data/reports/`
 - [x] **Job semanal** (cron `WEEKLY_REPORT_DAY`/`WEEKLY_REPORT_HOUR`) → 4 jobs totales
+- [x] **Backfill histórico de tasas** — `scripts/backfill_rates.py` (usdt.com.ve CSV, CC-BY-4.0)
+
+> **Nota histórico:** el CSV de usdt.com.ve (`/data/usdt-ves-historical.csv`, ~10MB,
+> snapshots 5 min de Binance/Bybit/BCV) cubre desde 2026-01-17. El backfill agrega a
+> promedio diario (``source/currency``: binance/usdt, bybit/usdt, bcv/usd) e inserta
+> idempotente. Se cargaron 6 meses (2026-02-20 → hoy): ~195 tasas por fuente.
 
 ---
 
