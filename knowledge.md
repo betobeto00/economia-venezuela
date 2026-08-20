@@ -630,6 +630,7 @@ Pipeline:
 - [x] **FMI** — `collectors/international/imf_collector.py` (API SDMX-JSON de IFS)
 - [x] **CEPAL** — `collectors/international/cepal_collector.py` (API CEPALSTAT)
 - [x] **UNSCEB** — `collectors/international/unsceb_collector.py` (gasto ONU por país)
+- [x] **Gaceta Oficial** — `collectors/fiscal/gaceta_collector.py` (índice + PDFs)
 
 > **Helpers compartidos:** `collectors/fiscal/documents.py` centraliza el catálogo de
 > documentos (filtra hrefs `#`/`javascript:`, hosts externos, y deriva título del
@@ -652,6 +653,18 @@ Pipeline:
 > `UNSCEBCollector.fetch_venezuela_expenses()` agrega por (año, moneda) →
 > `IndicatorPoint(gasto_onu_venezuela)`. Verificado en vivo: ~38 observaciones
 > (2021-2024), ≈ $160-210M USD/año de gasto ONU en Venezuela.
+>
+> **Gaceta Oficial** (`gacetaoficial.gob.ve`): índice de gacetas en Laravel.
+> `GET /` → calendario anual con `.calendar-day.has-gaceta` (días con gacetas).
+> `GET /gacetas/dia?year=&month=&day=` → JSON por día (`numero_gaceta`,
+> `categoria`, `fecha_gaceta`, `ruta_archivo`). Búsqueda avanzada
+> `GET /gacetas/filtro-avanzado?texto=` → tabla de resultados (N°, tipo, fecha,
+> páginas). El PDF sigue el patrón `/storage/{año}/{num}-{YYYY-MM-DD}-{TIPO}.pdf`.
+> `GacetaOficialCollector`: `fetch_gacetas_dia`, `fetch_calendario`,
+> `fetch_busqueda`, `fetch_documentos(keywords)` y `fetch_recientes(days)`.
+> El endpoint devuelve JSON con httpx (httpx no envía Accept HTML); en el
+> navegador directo muestra HTML (SPA). Verificado en vivo: 241 gacetas con
+> "presupuesto"; 17/06/2026 → gaceta 43399 ORDINARIA.
 >
 > **Nota PDVSA/CEPAL:** los datos de mercado con DNS caído localmente se recogen
 > mejor desde Railway (ver `pdvsa.com`, `dataservices.imf.org`).

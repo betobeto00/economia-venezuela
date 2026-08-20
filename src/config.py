@@ -100,6 +100,7 @@ class Settings(BaseSettings):
     IMF_SDMX_URL: str = "https://dataservices.imf.org/REST/SDMX_JSON.svc"
     CEPALSTAT_BASE_URL: str = "https://api-cepalstat.cepal.org/cepalstat/api/v1"
     UNSCEB_BASE_URL: str = "https://unsceb.org"
+    GACETA_OFICIAL_BASE_URL: str = "http://www.gacetaoficial.gob.ve"
     BINANCE_P2P_URL: str = "https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search"
     # Feeds RSS de noticias (separados por coma)
     # Nota: elpitazo.net y bancaynegocios.com no responden desde la red local

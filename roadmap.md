@@ -38,6 +38,7 @@ TOTAL: 73%
 |-----------|--------|-------|--------|-----------|--------|
 | `onapre_collector.py` | ONAPRE | Ejecución presupuestaria | Scraping + PDF | 1️⃣ | ✅ |
 | `cgr_collector.py` | CGR | Informes de gestión | Scraping + PDF | 1️⃣ | ✅ |
+| `gaceta_collector.py` | Gaceta Oficial | Gacetas (índice + PDF) | API + HTML | 1️⃣ | ✅ |
 | `an_collector.py` | AN | Leyes de presupuesto | Scraping | 2️⃣ | ⏳ |
 | `caracas_collector.py` | Alcaldía | Gestión municipal | Scraping | 3️⃣ | ⏳ |
 
@@ -334,7 +335,7 @@ google-auth-oauthlib==1.2.0
 23. ✅ **Persistencia del loop de mercado** — *verificado con Postgres real (Railway)*
 24. ✅ **Ingesta de noticias/RSS + análisis de sentimiento**
 25. ✅ **Informes semanales automatizados con IA** — cadena de 4 LLMs con fallback
-26. 🔄 **Collectors restantes**: ✅ `seniat`, `mppef`, `pdvsa`, `imf`, `cepal`, `unsceb` — ⏳ `an`, `caracas`, `twitter`
+26. 🔄 **Collectors restantes**: ✅ `seniat`, `mppef`, `pdvsa`, `imf`, `cepal`, `unsceb`, `gaceta` — ⏳ `an`, `caracas`, `twitter`
 27. ✅ **Backfill histórico de tasas** (6 meses) — dataset abierto usdt.com.ve (CC-BY-4.0)
 28. ✅ **Dashboard: Bybit + brecha cambiaria** — tarjetas, brecha y gráfico de 6 meses
 29. 🔄 **Datos macro**: ✅ `unsceb` (`unsceb.org/data-download`) — ⏳ FMI `data.imf.org` (bloqueado 403 local; SDMX IFS ya integrado)
@@ -348,7 +349,7 @@ google-auth-oauthlib==1.2.0
 
 | KPI | Meta | Actual | Estado |
 |-----|------|--------|--------|
-| Collectors implementados | 20 | 18 | 🟡 |
+| Collectors implementados | 20 | 19 | 🟡 |
 | Collectors fiscales | 4 | 4 ✅ | ✅ |
 | Formularios de encuesta activos | 2+ | 2 ✅ | ✅ |
 | Respuestas de encuesta procesadas | 500+ | 2 | ⏳ |

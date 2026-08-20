@@ -199,7 +199,7 @@ economia-venezuela/
 │   │   ├── http.py             #   Cliente HTTP compartido (GET/POST, retries)
 │   │   ├── errors.py           #   Excepciones del dominio
 │   │   ├── market/             #   bcv, ovf, bvc, binance
-│   │   ├── fiscal/             #   onapre, cgr, seniat, mppef + documents.py
+│   │   ├── fiscal/             #   onapre, cgr, seniat, mppef, gaceta + documents.py
 │   │   ├── official/           #   ine
 │   │   ├── international/      #   worldbank, opec, imf, cepal, pdvsa, unsceb
 │   │   ├── news/               #   rss
