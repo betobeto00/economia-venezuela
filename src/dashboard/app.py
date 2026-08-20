@@ -119,7 +119,7 @@ with st.sidebar:
             key="collector_until",
         )
 
-    if st.button("🚀 Ejecutar", use_container_width=True, type="primary"):
+    if st.button("🚀 Ejecutar", width="stretch", type="primary"):
         if not selected_collectors:
             st.warning("Selecciona al menos un recolector")
         else:
@@ -323,7 +323,7 @@ with tab_inicio:
             margin=dict(l=10, r=10, t=10, b=10),
             legend=dict(orientation="h", yanchor="bottom", y=1.02),
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     else:
         st.info("No hay suficiente serie histórica para graficar la brecha.")
 
@@ -386,7 +386,7 @@ with tab_mercado:
             df_rates = pd.DataFrame(rates_data)
             st.dataframe(
                 df_rates.sort_values("Fecha", ascending=False),
-                use_container_width=True,
+                width="stretch",
                 column_config={
                     "Tasa": st.column_config.NumberColumn("Tasa", format="%.2f"),
                     "Variación %": st.column_config.NumberColumn("Variación %", format="%.2f"),
@@ -417,7 +417,7 @@ with tab_mercado:
             margin=dict(l=10, r=10, t=10, b=10),
             yaxis_title="Brecha %",
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -477,7 +477,7 @@ with tab_ibc:
             margin=dict(l=10, r=10, t=10, b=10),
             yaxis_title="Puntos",
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     # Componentes del IBC
     st.subheader("🏢 Componentes del IBC")
@@ -524,7 +524,7 @@ with tab_ibc:
             df_comp = df_comp[mask]
         st.dataframe(
             df_comp[["ticker", "name", "price", "change_pct", "volume"]],
-            use_container_width=True,
+            width="stretch",
             column_config={
                 "price": st.column_config.NumberColumn("Precio", format="$%.2f"),
                 "change_pct": st.column_config.NumberColumn("Cambio %", format="%.2f"),
@@ -551,7 +551,7 @@ with tab_ibc:
                             template=theme.plotly_template(), height=300,
                             yaxis_title="Precio ($)",
                         )
-                        st.plotly_chart(fig_h, use_container_width=True)
+                        st.plotly_chart(fig_h, width="stretch")
                     else:
                         st.info(f"No hay histórico para {selected_comp}")
                 else:
@@ -601,7 +601,7 @@ with tab_ibc:
 
         st.dataframe(
             tk_df_show[["ticker", "name", "close", "change_pct", "avg_volume"]],
-            use_container_width=True,
+            width="stretch",
             column_config={
                 "close": st.column_config.NumberColumn("Precio", format="$%.2f"),
                 "change_pct": st.column_config.NumberColumn("Cambio %", format="%.2f"),
@@ -629,7 +629,7 @@ with tab_ibc:
                         template=theme.plotly_template(), height=300,
                         yaxis_title="Precio ($)",
                     )
-                    st.plotly_chart(fig_tk, use_container_width=True)
+                    st.plotly_chart(fig_tk, width="stretch")
                 else:
                     st.info(f"No hay histórico para {selected_tk}")
     else:
@@ -680,7 +680,7 @@ with tab_noticias:
                     marker_colors=[theme.PALETTE.get("verde", "#2CA58D"), theme.PALETTE.get("amarillo", "#F2C14E"), theme.PALETTE.get("rojo", "#C0392B")],
                 )])
                 fig_sent.update_layout(template=theme.plotly_template(), height=280, showlegend=True)
-                st.plotly_chart(fig_sent, use_container_width=True)
+                st.plotly_chart(fig_sent, width="stretch")
         with col_channels:
             st.markdown("### 📡 Posts por Subreddit")
             if summary["posts_per_channel"]:
@@ -719,7 +719,7 @@ with tab_noticias:
         with st.expander("📊 Detalle de Sentimiento por Post"):
             st.dataframe(
                 sent_detail[["item_id", "text", "score", "label"]],
-                use_container_width=True,
+                width="stretch",
                 column_config={
                     "score": st.column_config.NumberColumn("Score", format="%.3f"),
                 },
@@ -1174,7 +1174,7 @@ with tab_macro:
              "Descripción": r.description}
             for r in alert_mgr.rules
         ])
-        st.dataframe(rules_df, use_container_width=True)
+        st.dataframe(rules_df, width="stretch")
 
         # Resumen de umbrales
         st.markdown("#### 📊 Umbrales de Alerta")
@@ -1245,7 +1245,7 @@ with tab_macro:
                                 xaxis_title='Nivel TC (Proxy actividad)',
                                 yaxis_title='Variación TC % (Proxy inflación)'
                             )
-                            st.plotly_chart(fig_ph, use_container_width=True)
+                            st.plotly_chart(fig_ph, width="stretch")
                         else:
                             st.warning("⚠️ Datos insuficientes para ajustar Phillips")
                     else:

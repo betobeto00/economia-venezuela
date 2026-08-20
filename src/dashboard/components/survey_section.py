@@ -149,7 +149,7 @@ def render_survey_section(segment: str, days: int = 90, freq: str = "W") -> None
     if not series.empty:
         st.plotly_chart(
             _build_series_chart(series),
-            use_container_width=True,
+            width="stretch",
             key=f"series_{segment}",
         )
     else:
