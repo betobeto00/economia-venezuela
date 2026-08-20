@@ -725,6 +725,47 @@ with tab_ibc:
                     xaxis_title="Mes",
                 )
                 st.plotly_chart(fig, width="stretch")
+
+            # Sector breakdown pie chart
+            breakdown = cap.get("sector_breakdown", [])
+            if breakdown:
+                st.markdown("#### 🏭 Desglose por Sector")
+                col_pie, col_table = st.columns([1, 1])
+
+                with col_pie:
+                    labels = [s["sector"][:25] for s in breakdown]
+                    values = [s["capitalization"] for s in breakdown]
+
+                    fig_pie = go.Figure(data=[go.Pie(
+                        labels=labels,
+                        values=values,
+                        hole=0.3,
+                        textinfo="label+percent",
+                        textposition="inside",
+                    )])
+                    fig_pie.update_layout(
+                        template=theme.plotly_template(),
+                        height=400,
+                        margin=dict(l=10, r=10, t=10, b=10),
+                        showlegend=True,
+                        legend=dict(font=dict(size=10)),
+                    )
+                    st.plotly_chart(fig_pie, width="stretch")
+
+                with col_table:
+                    st.dataframe(
+                        breakdown,
+                        column_config={
+                            "capitalization": st.column_config.NumberColumn(
+                                "Capitalización (Bs.)", format="%.0f"
+                            ),
+                            "percentage": st.column_config.NumberColumn(
+                                "% del Mercado", format="%.1f%%"
+                            ),
+                        },
+                        hide_index=True,
+                        width="stretch",
+                    )
         else:
             st.info("Datos de capitalización no disponibles. Procesa los PDFs de BVC con OCR.")
     except Exception as e:

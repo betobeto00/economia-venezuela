@@ -217,6 +217,19 @@ def get_capitalization_summary() -> Dict:
             largest_value = val
             largest_sector = name
 
+    # Sector breakdown for pie chart
+    sector_breakdown = []
+    total_cap = latest.get("total", 0)
+    for name, data in latest.get("sectors", {}).items():
+        val = data.get("capitalization", 0)
+        pct = (val / total_cap * 100) if total_cap > 0 else 0
+        sector_breakdown.append({
+            "sector": name,
+            "capitalization": val,
+            "percentage": round(pct, 1),
+        })
+    sector_breakdown.sort(key=lambda x: x["capitalization"], reverse=True)
+
     return {
         "available": True,
         "latest_month": latest["month"],
@@ -226,4 +239,5 @@ def get_capitalization_summary() -> Dict:
         "largest_sector_bs": largest_value,
         "months_available": len(history),
         "history": [{"month": h["month"], "total": h["total"]} for h in history],
+        "sector_breakdown": sector_breakdown,
     }
