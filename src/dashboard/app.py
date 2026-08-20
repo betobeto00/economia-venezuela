@@ -2,11 +2,14 @@
 Dashboard Principal - Economía Venezuela
 ========================================
 
-Layout por capas (skill frontend-visionary-artisan):
-- Sidebar: filtros (rango de fechas, métricas, segmento de encuesta).
-- Pestañas: Inicio (métricas generales) y Encuestas (Fase B).
+5 tabs:
+- 🏠 Inicio: métricas de dólar, inflación, brecha, gráfico histórico
+- 📈 IBC: índice bursátil, componentes, gainers/losers, tickers
+- 📰 Noticias: sentimiento, distribución, últimos titulares
+- 📋 Encuestas: KPIs, serie temporal, contraste, informe ejecutivo
+- 📊 Informes: generador de informes periódicos (MD + PDF)
 
-Toda métrica sale de la capa de datos; no hay valores hardcodeados.
+Sidebar: filtros globales y generación rápida de informes.
 """
 
 import streamlit as st
@@ -16,6 +19,7 @@ from datetime import datetime, timedelta
 
 from src.dashboard import theme
 from src.dashboard.components.news_section import render_news_section
+from src.dashboard.components.reports_section import render_reports_section
 from src.dashboard.components.survey_section import render_survey_section
 from src.dashboard.market_data import (
     BYBIT_SOURCE,
@@ -40,26 +44,21 @@ st.markdown(theme.apply_global_css(), unsafe_allow_html=True)
 st.title("🇻🇪 Economía Venezuela")
 st.markdown("---")
 
-# Sidebar
+# ─── Sidebar ────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.header("🔍 Filtros")
+    st.header("🔍 Filtros Globales")
 
-    # Date range (aplica a métricas generales; encuestas usan su propia ventana)
+    # Date range
     start_date = st.date_input(
         "Fecha inicio",
-        value=datetime.now() - timedelta(days=30)
+        value=datetime.now() - timedelta(days=30),
     )
     end_date = st.date_input(
         "Fecha fin",
-        value=datetime.now()
+        value=datetime.now(),
     )
 
-    # Metrics selection
-    metrics = st.multiselect(
-        "Métricas a mostrar",
-        ["Dólar Oficial", "Dólar Paralelo", "Inflación", "PIB", "Reservas"],
-        default=["Dólar Oficial", "Dólar Paralelo"]
-    )
+    st.markdown("---")
 
     # Segmento de encuesta
     st.subheader("📋 Encuestas")
@@ -73,19 +72,31 @@ with st.sidebar:
         index=0,
     )
 
-# Tabs
-tab_inicio, tab_noticias, tab_encuestas = st.tabs(
-    ["🏠 Inicio", "📰 Noticias", "📋 Encuestas"]
+    st.markdown("---")
+
+    # Quick actions
+    st.subheader("⚡ Acciones Rápidas")
+    if st.button("🔄 Recolección de mercado", use_container_width=True):
+        st.toast("Ejecutando collect_market...", icon="🔄")
+    if st.button("📰 Recolectar noticias", use_container_width=True):
+        st.toast("Ejecutando collect_news...", icon="📰")
+
+# ─── Tabs ───────────────────────────────────────────────────────────────────
+tab_inicio, tab_ibc, tab_noticias, tab_encuestas, tab_informes = st.tabs(
+    ["🏠 Inicio", "📈 IBC", "📰 Noticias", "📋 Encuestas", "📊 Informes"]
 )
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# TAB: INICIO
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 with tab_inicio:
-    # Métricas generales (Fase A: datos persistidos por los collectors)
     metrics = dashboard_metrics()
     brecha = brecha_porcentaje(metrics["oficial"], metrics["paralelo"])
 
-    col1, col2, col3, col4 = st.columns(4)
+    # ── Tarjetas principales ──
+    c1, c2, c3, c4 = st.columns(4)
 
-    with col1:
+    with c1:
         st.metric(
             label="💵 Dólar Oficial (BCV)",
             value=format_metric(metrics["oficial"].rate if metrics["oficial"] else None, " Bs"),
@@ -96,7 +107,7 @@ with tab_inicio:
             ),
             help="Última tasa oficial persistida por el colector BCV",
         )
-    with col2:
+    with c2:
         st.metric(
             label="💵 Dólar Paralelo (Binance)",
             value=format_metric(metrics["paralelo"].rate if metrics["paralelo"] else None, " Bs"),
@@ -105,13 +116,13 @@ with tab_inicio:
             ),
             help="Última tasa USDT/VES del mercado P2P (Binance)",
         )
-    with col3:
+    with c3:
         st.metric(
-            label="💵 Dólar Paralelo (Bybit)",
+            label="💵 Dólar Bybit",
             value=format_metric(metrics["bybit"].rate if metrics["bybit"] else None, " Bs"),
             help="Última tasa USDT/VES del mercado P2P (Bybit)",
         )
-    with col4:
+    with c4:
         infl_source = (
             metrics["inflacion"].source.upper()
             if metrics["inflacion"] else "BCV/OVF"
@@ -131,7 +142,7 @@ with tab_inicio:
             "para poblar las tarjetas."
         )
 
-    # Brecha cambiaria
+    # ── Brecha cambiaria ──
     st.subheader("⚖️ Brecha Cambiaria")
     c1, c2 = st.columns(2)
     with c1:
@@ -148,12 +159,12 @@ with tab_inicio:
             help="(Dólar Bybit / dólar oficial BCV - 1) * 100",
         )
 
-    # Gráfico histórico (6 meses)
+    # ── Gráfico histórico (6 meses) ──
     st.subheader("📈 Evolución del Dólar (6 meses)")
     brecha_df = brecha_series(BYBIT_SOURCE, since_days=180)
     if not brecha_df.empty:
         fig = go.Figure()
-        series = {
+        series_data = {
             "BCV Oficial": list_rates("bcv", "usd", limit=200),
             "Binance P2P": list_rates("binance", "usdt", limit=200),
             "Bybit P2P": list_rates(BYBIT_SOURCE, "usdt", limit=200),
@@ -163,7 +174,7 @@ with tab_inicio:
             "Binance P2P": "#F2C14E",
             "Bybit P2P": "#C0392B",
         }
-        for name, rates in series.items():
+        for name, rates in series_data.items():
             if not rates:
                 continue
             df = pd.DataFrame(
@@ -183,13 +194,141 @@ with tab_inicio:
     else:
         st.info("No hay suficiente serie histórica para graficar la brecha.")
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# TAB: IBC
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+with tab_ibc:
+    from src.dashboard.ibc_data import (
+        ibc_gainers_losers,
+        ibc_index_series,
+        ibc_latest,
+        ven_tickers_top,
+    )
+
+    st.subheader("📈 Índice Bursátil Caracas (IBC)")
+
+    # Último valor del IBC
+    ibc = ibc_latest()
+    if ibc:
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.metric(
+                label="🎯 IBC Actual",
+                value=f"{ibc['value']:,.2f}",
+                delta=f"{ibc['change_pct']:+.2f}%" if ibc["change_pct"] else None,
+            )
+        with c2:
+            st.metric(
+                label="📊 Cambio",
+                value=f"{ibc['change']:+,.2f}",
+            )
+        with c3:
+            st.metric(
+                label="📅 Fecha",
+                value=ibc["date"].strftime("%d/%m/%Y") if hasattr(ibc["date"], "strftime") else str(ibc["date"]),
+            )
+    else:
+        st.info(
+            "📭 No hay datos del IBC. Ejecuta `python -m src.scripts.backfill_ibc` "
+            "para poblar esta sección."
+        )
+
+    # Gráfico del IBC
+    ibc_df = ibc_index_series(days=180)
+    if not ibc_df.empty:
+        st.subheader("📈 Evolución del IBC (6 meses)")
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=ibc_df["date"], y=ibc_df["value"],
+            mode="lines+markers",
+            name="IBC",
+            line=dict(color=theme.PALETTE["azul"], width=2.5),
+            marker=dict(size=4),
+        ))
+        fig.update_layout(
+            template=theme.plotly_template(),
+            height=350,
+            margin=dict(l=10, r=10, t=10, b=10),
+            yaxis_title="Puntos",
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    # Componentes del IBC
+    st.subheader("🏢 Componentes del IBC")
+    gl = ibc_gainers_losers()
+
+    if gl["gainers"] or gl["losers"]:
+        col_g, col_l = st.columns(2)
+
+        with col_g:
+            st.markdown("##### 🟢 Gainers")
+            for c in gl["gainers"]:
+                st.metric(
+                    label=f"{c['ticker']} — {c['name']}",
+                    value=f"${c['price']:,.2f}",
+                    delta=f"{c['change_pct']:+.2f}%",
+                    delta_color="normal",
+                )
+
+        with col_l:
+            st.markdown("##### 🔴 Losers")
+            for c in gl["losers"]:
+                st.metric(
+                    label=f"{c['ticker']} — {c['name']}",
+                    value=f"${c['price']:,.2f}",
+                    delta=f"{c['change_pct']:+.2f}%",
+                    delta_color="inverse",
+                )
+    else:
+        st.info("No hay datos de componentes del IBC disponibles.")
+
+    # Tickers venezolanos
+    st.subheader("🇻🇪 Tickers Venezolanos (fuera del IBC)")
+    tk = ven_tickers_top()
+
+    if tk["gainers"] or tk["losers"]:
+        col_g, col_l = st.columns(2)
+
+        with col_g:
+            st.markdown("##### 🟢 Top Performers")
+            for t in tk["gainers"]:
+                st.metric(
+                    label=f"{t['ticker']} — {t['name']}",
+                    value=f"${t['close']:,.2f}",
+                    delta=f"{t['change_pct']:+.2f}%",
+                )
+
+        with col_l:
+            st.markdown("##### 🔴 Bottom Performers")
+            for t in tk["losers"]:
+                st.metric(
+                    label=f"{t['ticker']} — {t['name']}",
+                    value=f"${t['close']:,.2f}",
+                    delta=f"{t['change_pct']:+.2f}%",
+                    delta_color="inverse",
+                )
+    else:
+        st.info("No hay datos de tickers venezolanos disponibles.")
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# TAB: NOTICIAS
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 with tab_noticias:
     render_news_section()
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# TAB: ENCUESTAS
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 with tab_encuestas:
     render_survey_section(survey_segment)
 
-# Footer
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# TAB: INFORMES
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+with tab_informes:
+    render_reports_section()
+
+# ─── Footer ─────────────────────────────────────────────────────────────────
 st.markdown("---")
 st.markdown(
     """
