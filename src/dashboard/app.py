@@ -90,8 +90,8 @@ with st.sidebar:
         st.toast("Ejecutando collect_news...", icon="📰")
 
 # ─── Tabs ───────────────────────────────────────────────────────────────────
-tab_inicio, tab_ibc, tab_noticias, tab_encuestas, tab_informes, tab_macro = st.tabs(
-    ["🏠 Inicio", "📈 IBC", "📰 Noticias", "📋 Encuestas", "📊 Informes", "🔬 Macro"]
+tab_inicio, tab_mercado, tab_ibc, tab_noticias, tab_social, tab_encuestas, tab_fiscal, tab_informes, tab_macro = st.tabs(
+    ["🏠 Inicio", "💱 Mercado", "📈 IBC", "📰 Noticias", "💬 Social", "📋 Encuestas", "🏛️ Fiscal", "📊 Informes", "🔬 Macro"]
 )
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -266,9 +266,102 @@ with tab_inicio:
     else:
         st.info("No hay suficiente serie histórica para graficar la brecha.")
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# TAB: MERCADO
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+with tab_mercado:
+    from src.dashboard.market_data import (
+        list_rates,
+        brecha_porcentaje,
+        format_metric,
+        brecha_series,
+        BYBIT_SOURCE,
+    )
+    from src.db.repositories import MarketRepository
+    from src.db.session import session_scope
+    import pandas as pd
+    from datetime import timedelta, timezone
+
+    st.subheader("💱 Tasas de Cambio Detalladas")
+
+    # All latest rates
+    with session_scope() as session:
+        repo = MarketRepository(session)
+        all_latest = repo.latest_all_sources()
+
+    if all_latest:
+        st.markdown("### Últimas Cotizaciones por Fuente")
+        for rate in all_latest:
+            c1, c2, c3, c4 = st.columns([2, 2, 2, 2])
+            with c1:
+                st.write(f"**{rate.source.upper()}** ({rate.currency.upper()})")
+            with c2:
+                st.write(f"{format_metric(rate.rate, ' Bs')}")
+            with c3:
+                var = rate.variation_pct
+                delta = f"{var:+.2f}%" if var is not None else "—"
+                st.write(delta)
+            with c4:
+                st.caption(rate.date.strftime("%Y-%m-%d %H:%M"))
+
+    # Historical table
+    st.markdown("### Serie Histórica (último mes)")
+    sources = st.multiselect(
+        "Fuentes",
+        options=["bcv", "binance", "bybit", "banco_venezuela", "banco_bicentenario", "banco_provincial", "banco_mercantil", "banco_exterior"],
+        default=["bcv", "binance", "bybit"],
+        key="mercado_sources",
+    )
+
+    if sources:
+        with session_scope() as session:
+            repo = MarketRepository(session)
+            rates_data = []
+            for src in sources:
+                rates = repo.list_rates(source=src, currency="usd" if src == "bcv" else "usdt", since=datetime.now(timezone.utc) - timedelta(days=30), limit=100)
+                for r in rates:
+                    rates_data.append({"Fuente": r.source, "Moneda": r.currency, "Tasa": float(r.rate), "Fecha": r.date.date(), "Variación %": r.variation_pct})
+        if rates_data:
+            df_rates = pd.DataFrame(rates_data)
+            st.dataframe(
+                df_rates.sort_values("Fecha", ascending=False),
+                use_container_width=True,
+                column_config={
+                    "Tasa": st.column_config.NumberColumn("Tasa", format="%.2f"),
+                    "Variación %": st.column_config.NumberColumn("Variación %", format="%.2f"),
+                },
+            )
+            # Download button
+            csv = df_rates.to_csv(index=False).encode("utf-8")
+            st.download_button("📥 Descargar CSV", csv, "tasas_cambio.csv", "text/csv")
+        else:
+            st.info("No hay datos históricos para las fuentes seleccionadas.")
+    else:
+        st.info("Selecciona al menos una fuente para ver la serie histórica.")
+
+    # Brecha chart
+    st.markdown("### Evolución de la Brecha (6 meses)")
+    brecha_df = brecha_series(BYBIT_SOURCE, since_days=180)
+    if not brecha_df.empty:
+        import plotly.graph_objects as go
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=brecha_df.index, y=brecha_df["brecha_%"],
+            mode="lines", name="Brecha %",
+            line=dict(color=theme.PALETTE["rojo"], width=2),
+        ))
+        fig.update_layout(
+            template=theme.plotly_template(),
+            height=350,
+            margin=dict(l=10, r=10, t=10, b=10),
+            yaxis_title="Brecha %",
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # TAB: IBC
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 with tab_ibc:
     from src.dashboard.ibc_data import (
         ibc_gainers_losers,
@@ -354,31 +447,130 @@ with tab_ibc:
     else:
         st.info("No hay datos de componentes del IBC disponibles.")
 
-    # Tickers venezolanos
+    # ── Tabla completa de componentes ──
+    st.subheader("📋 Tabla Completa de Componentes")
+    from src.dashboard.ibc_data import ibc_components_all, ibc_components_full_history
+    all_comp = ibc_components_all()
+    if all_comp:
+        df_comp = pd.DataFrame(all_comp)
+        # Search filter
+        search_comp = st.text_input("🔍 Buscar componente (ticker o nombre)", key="search_comp")
+        if search_comp:
+            mask = (
+                df_comp["ticker"].str.contains(search_comp, case=False, na=False) |
+                df_comp["name"].str.contains(search_comp, case=False, na=False)
+            )
+            df_comp = df_comp[mask]
+        st.dataframe(
+            df_comp[["ticker", "name", "price", "change_pct", "volume"]],
+            use_container_width=True,
+            column_config={
+                "price": st.column_config.NumberColumn("Precio", format="$%.2f"),
+                "change_pct": st.column_config.NumberColumn("Cambio %", format="%.2f"),
+                "volume": st.column_config.NumberColumn("Volumen"),
+            },
+            hide_index=True,
+        )
+        # Historical by component
+        with st.expander("📅 Histórico por componente (30 días)"):
+            comp_options = [c["ticker"] for c in all_comp]
+            selected_comp = st.selectbox("Componente", comp_options, key="hist_comp")
+            if selected_comp:
+                hist_df = ibc_components_full_history(days=30)
+                if not hist_df.empty:
+                    comp_hist = hist_df[hist_df["ticker"] == selected_comp]
+                    if not comp_hist.empty:
+                        fig_h = go.Figure()
+                        fig_h.add_trace(go.Scatter(
+                            x=comp_hist["date"], y=comp_hist["price"],
+                            mode="lines+markers", name=selected_comp,
+                            line=dict(color=theme.PALETTE["azul"], width=2),
+                        ))
+                        fig_h.update_layout(
+                            template=theme.plotly_template(), height=300,
+                            yaxis_title="Precio ($)",
+                        )
+                        st.plotly_chart(fig_h, use_container_width=True)
+                    else:
+                        st.info(f"No hay histórico para {selected_comp}")
+                else:
+                    st.info("No hay histórico de componentes")
+    else:
+        st.info("No hay datos de componentes del IBC disponibles.")
+
+    # ── Tickers venezolanos completos ──
     st.subheader("🇻🇪 Tickers Venezolanos (fuera del IBC)")
-    tk = ven_tickers_top()
+    from src.dashboard.ibc_data import ven_tickers_latest_snapshot, ven_tickers_series
+    tk_df = ven_tickers_latest_snapshot()
 
-    if tk["gainers"] or tk["losers"]:
+    if not tk_df.empty:
+        # Top/bottom summary
         col_g, col_l = st.columns(2)
-
         with col_g:
-            st.markdown("##### 🟢 Top Performers")
-            for t in tk["gainers"]:
+            st.markdown("##### 🟢 Top 5 Performers")
+            top5 = tk_df.head(5)
+            for _, t in top5.iterrows():
                 st.metric(
-                    label=f"{t['ticker']} — {t['name']}",
+                    label=f"{t['ticker']} — {t.get('name', '')}",
                     value=f"${t['close']:,.2f}",
                     delta=f"{t['change_pct']:+.2f}%",
                 )
-
         with col_l:
-            st.markdown("##### 🔴 Bottom Performers")
-            for t in tk["losers"]:
+            st.markdown("##### 🔴 Bottom 5 Performers")
+            bot5 = tk_df.tail(5).iloc[::-1]
+            for _, t in bot5.iterrows():
                 st.metric(
-                    label=f"{t['ticker']} — {t['name']}",
+                    label=f"{t['ticker']} — {t.get('name', '')}",
                     value=f"${t['close']:,.2f}",
                     delta=f"{t['change_pct']:+.2f}%",
                     delta_color="inverse",
                 )
+
+        # Full table with search/sort/export
+        st.markdown("### 📋 Tabla Completa de Tickers")
+        search_tk = st.text_input("🔍 Buscar ticker", key="search_tickers")
+        if search_tk:
+            mask = (
+                tk_df["ticker"].str.contains(search_tk, case=False, na=False) |
+                tk_df["name"].str.contains(search_tk, case=False, na=False)
+            )
+            tk_df_show = tk_df[mask]
+        else:
+            tk_df_show = tk_df
+
+        st.dataframe(
+            tk_df_show[["ticker", "name", "close", "change_pct", "avg_volume"]],
+            use_container_width=True,
+            column_config={
+                "close": st.column_config.NumberColumn("Precio", format="$%.2f"),
+                "change_pct": st.column_config.NumberColumn("Cambio %", format="%.2f"),
+                "avg_volume": st.column_config.NumberColumn("Volumen"),
+            },
+            hide_index=True,
+        )
+        csv_tk = tk_df_show.to_csv(index=False).encode("utf-8")
+        st.download_button("📥 Descargar CSV", csv_tk, "tickers_venezolanos.csv", "text/csv")
+
+        # Historical by ticker
+        with st.expander("📅 Histórico por ticker (30 días)"):
+            tk_options = sorted(tk_df["ticker"].tolist())
+            selected_tk = st.selectbox("Ticker", tk_options, key="hist_ticker")
+            if selected_tk:
+                tk_hist = ven_tickers_series(selected_tk, days=30)
+                if not tk_hist.empty:
+                    fig_tk = go.Figure()
+                    fig_tk.add_trace(go.Scatter(
+                        x=tk_hist["date"], y=tk_hist["close"],
+                        mode="lines+markers", name=selected_tk,
+                        line=dict(color=theme.PALETTE["verde"], width=2),
+                    ))
+                    fig_tk.update_layout(
+                        template=theme.plotly_template(), height=300,
+                        yaxis_title="Precio ($)",
+                    )
+                    st.plotly_chart(fig_tk, use_container_width=True)
+                else:
+                    st.info(f"No hay histórico para {selected_tk}")
     else:
         st.info("No hay datos de tickers venezolanos disponibles.")
 
@@ -387,6 +579,177 @@ with tab_ibc:
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 with tab_noticias:
     render_news_section()
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# TAB: SOCIAL (Reddit + Sentimiento)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+with tab_social:
+    from src.dashboard.social_data import social_posts_with_sentiment, social_summary, sentiment_by_item
+
+    st.subheader("💬 Social — Reddit r/vzla")
+
+    summary = social_summary()
+
+    # KPIs
+    sc1, sc2, sc3, sc4 = st.columns(4)
+    with sc1:
+        st.metric("📝 Posts totales", summary["total_posts"])
+    with sc2:
+        st.metric("👍 Score promedio", f"{summary['avg_score']:.1f}")
+    with sc3:
+        st.metric("💬 Comentarios prom", f"{summary['avg_comments']:.1f}")
+    with sc4:
+        sent_mean = summary["sentiment_mean"]
+        label = "Positivo" if sent_mean > 0.15 else "Negativo" if sent_mean < -0.15 else "Neutral"
+        color = "🟢" if sent_mean > 0.15 else "🔴" if sent_mean < -0.15 else "⚪"
+        st.metric(f"{color} Sentimiento", label, f"Score: {sent_mean:.3f}")
+
+    # Sentiment distribution
+    if summary["sentiment_dist"]:
+        st.markdown("### 📊 Distribución de Sentimiento")
+        sent_df = pd.DataFrame([
+            {"Etiqueta": k.title(), "Cantidad": v}
+            for k, v in summary["sentiment_dist"].items()
+        ])
+        if not sent_df.empty:
+            fig_sent = go.Figure(data=[go.Pie(
+                labels=sent_df["Etiqueta"], values=sent_df["Cantidad"],
+                hole=0.4,
+                marker_colors=[theme.PALETTE.get("verde", "#2CA58D"), theme.PALETTE.get("amarillo", "#F2C14E"), theme.PALETTE.get("rojo", "#C0392B")],
+            )])
+            fig_sent.update_layout(
+                template=theme.plotly_template(), height=300,
+                showlegend=True,
+            )
+            st.plotly_chart(fig_sent, use_container_width=True)
+
+    # Posts by channel
+    if summary["posts_per_channel"]:
+        st.markdown("### 📡 Posts por Subreddit")
+        for ch, count in summary["posts_per_channel"].items():
+            st.write(f"**r/{ch}**: {count} posts")
+
+    # Posts table with sentiment
+    st.markdown("### 📋 Posts de Reddit con Sentimiento")
+    posts = social_posts_with_sentiment(limit=50)
+    if posts:
+        df_posts = pd.DataFrame(posts)
+        # Search
+        search_social = st.text_input("🔍 Buscar en posts", key="search_social")
+        if search_social:
+            mask = df_posts["title"].str.contains(search_social, case=False, na=False)
+            df_posts = df_posts[mask]
+
+        for _, p in df_posts.iterrows():
+            sent_icon = "🟢" if p.get("sentiment_label") == "positive" else "🔴" if p.get("sentiment_label") == "negative" else "⚪"
+            sent_val = f"{p['sentiment_score']:.3f}" if p.get("sentiment_score") is not None else "—"
+            st.markdown(
+                f"{sent_icon} **[{p['title']}]({p['url']})**  "
+                f"| 👍 {p.get('score', 0) or 0} | 💬 {p.get('num_comments', 0) or 0} | "
+                f"Sentimiento: {sent_val}"
+            )
+            if p.get("text"):
+                with st.expander("Ver texto"):
+                    st.write(p["text"][:500])
+    else:
+        st.info("No hay posts de Reddit disponibles. Ejecuta `collect_news` para recolectar.")
+
+    # Sentiment detail table
+    sent_detail = sentiment_by_item(item_type="social", limit=50)
+    if not sent_detail.empty:
+        with st.expander("📊 Detalle de Sentimiento por Post"):
+            st.dataframe(
+                sent_detail[["item_id", "text", "score", "label"]],
+                use_container_width=True,
+                column_config={
+                    "score": st.column_config.NumberColumn("Score", format="%.3f"),
+                },
+                hide_index=True,
+            )
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# TAB: FISCAL (Gacetas OCR + Leyes)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+with tab_fiscal:
+    from src.dashboard.fiscal_data import fiscal_summary
+    import json
+
+    st.subheader("🏛️ Información Fiscal")
+
+    fs = fiscal_summary()
+
+    # KPIs
+    fc1, fc2 = st.columns(2)
+    with fc1:
+        st.metric("📜 Gacetas recientes (7 días)", fs["gacetas_count"])
+    with fc2:
+        st.metric("⚖️ Leyes / Actos AN", fs["leyes_count"])
+
+    # Gacetas
+    st.markdown("### 📜 Gacetas Oficiales Recientes")
+    if fs["gacetas"]:
+        for g in fs["gacetas"]:
+            title = g.get("title", "Gaceta")
+            url = g.get("url", "")
+            date_str = str(g.get("date", ""))
+            desc = g.get("description", "")
+            st.markdown(f"**[{title}]({url})** — {date_str}")
+            if desc:
+                st.caption(desc[:200])
+            st.markdown("---")
+    else:
+        st.info("No hay gacetas disponibles. El collector se ejecuta periódicamente.")
+
+    # OCR section
+    st.markdown("### 🔍 OCR de Gacetas Oficiales")
+    st.caption("Procesamiento OCR de PDFs escaneados con clasificación automática")
+
+    try:
+        from src.collectors.fiscal.gaceta_ocr import process_gaceta_pdf, CLASIFICACION_KEYWORDS
+        # Show available categories
+        cats = list(CLASIFICACION_KEYWORDS.keys())
+        st.write(f"**Categorías detectables**: {', '.join(cats)}")
+
+        # Check if there are processed gacetas in data dir
+        import os
+        gaceta_dir = "data/gacetas"
+        if os.path.exists(gaceta_dir):
+            jsons = sorted([f for f in os.listdir(gaceta_dir) if f.endswith(".json")])
+            if jsons:
+                st.success(f"✅ {len(jsons)} gacetas procesadas con OCR")
+                for jf in jsons[-5:]:  # Show last 5
+                    try:
+                        with open(os.path.join(gaceta_dir, jf), "r", encoding="utf-8") as f:
+                            data = json.load(f)
+                        categories = data.get("categories", [])
+                        method = data.get("method", "unknown")
+                        text_len = data.get("raw_text_length", 0)
+                        st.markdown(
+                            f"- **{jf.replace('.json', '')}** | "
+                            f"Categorías: {', '.join(categories) if categories else 'Ninguna'} | "
+                            f"Método: {method} | Texto: {text_len:,} chars"
+                        )
+                    except Exception:
+                        pass
+            else:
+                st.info("No hay gacetas procesadas con OCR aún. Los PDFs se procesan automáticamente.")
+        else:
+            st.info("Directorio de gacetas no encontrado. Los OCRs se ejecutan con el collector.")
+    except Exception as e:
+        st.warning(f"Módulo OCR no disponible: {e}")
+
+    # Leyes AN
+    st.markdown("### ⚖️ Asamblea Nacional")
+    if fs["leyes"]:
+        for l in fs["leyes"]:
+            title = l.get("title", "")
+            url = l.get("url", "")
+            if url:
+                st.markdown(f"- [{title}]({url})")
+            else:
+                st.markdown(f"- {title}")
+    else:
+        st.info("No hay leyes/actos de la AN disponibles.")
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # TAB: ENCUESTAS
@@ -425,9 +788,10 @@ with tab_macro:
     with macro_tab1:
         st.markdown("### 🚨 Índice de Riesgo Soberano")
         risk = SovereignRiskIndex()
+        inflation_rate = metrics["inflacion"].annual_rate if metrics.get("inflacion") else 0
         risk_result = risk.calculate(
             spread_pct=brecha if brecha else 0,
-            annual_inflation=metrics["inflacion"].annual_rate if metrics["inflacion"] else 0,
+            annual_inflation=inflation_rate,
             oil_production_mbd=1.08,
         )
 
@@ -444,9 +808,9 @@ with tab_macro:
                 color = theme.PALETTE["rojo"]
             st.markdown(
                 f"<div style='text-align:center; padding:20px; border-radius:10px; "
-                f"background:rgba(0,0,0,0.05);'>
-                f"<div style='font-size:48px; font-weight:bold; color:{color};'>{score:.0f}</div>
-                f"<div style='font-size:14px; color:#666;'>/100</div>
+                f"background:rgba(0,0,0,0.05);'>"
+                f"<div style='font-size:48px; font-weight:bold; color:{color};'>{score:.0f}</div>"
+                f"<div style='font-size:14px; color:#666;'>/100</div>"
                 f"<div style='font-size:18px; font-weight:600; color:{color};'>"
                 f"{risk_result.level.upper()}</div></div>",
                 unsafe_allow_html=True,
@@ -583,7 +947,7 @@ with tab_macro:
             with sc1:
                 st.markdown("#### 🟢 Optimista")
                 opt = forecast_result.optimistic_scenario
-n                st.metric("Inflación", f"{opt.inflation_forecast:.1f}%")
+                st.metric("Inflación", f"{opt.inflation_forecast:.1f}%")
                 st.metric("TC", f"{opt.exchange_rate_forecast:.0f} Bs./USD")
                 st.caption(opt.interpretation)
             with sc2:

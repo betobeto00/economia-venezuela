@@ -178,6 +178,65 @@ def _collect_macro(days: int) -> List[Dict]:
     return points
 
 
+def _collect_social() -> Dict:
+    """Recolecta datos sociales (Reddit posts + sentimiento) para el informe."""
+    try:
+        from sqlalchemy import func, select
+        from src.db.models import SocialPostORM, SentimentScoreORM
+        from src.db.session import get_session
+
+        with get_session() as sess:
+            total = sess.scalar(select(func.count(SocialPostORM.id))) or 0
+            avg_score = sess.scalar(select(func.avg(SocialPostORM.score)))
+            avg_comments = sess.scalar(select(func.avg(SocialPostORM.num_comments)))
+            sent_rows = sess.execute(
+                select(SentimentScoreORM.label, func.count(SentimentScoreORM.id))
+                .where(SentimentScoreORM.item_type == "social")
+                .group_by(SentimentScoreORM.label)
+            ).all()
+            sentiment_dist = {label: int(n) for label, n in sent_rows}
+            sentiment_mean = sess.scalar(
+                select(func.avg(SentimentScoreORM.score))
+                .where(SentimentScoreORM.item_type == "social")
+            )
+            ch_rows = sess.execute(
+                select(SocialPostORM.channel, func.count(SocialPostORM.id))
+                .group_by(SocialPostORM.channel)
+            ).all()
+            posts_per_channel = {ch: int(n) for ch, n in ch_rows}
+            # Posts con sentimiento
+            posts_orm = sess.scalars(
+                select(SocialPostORM).order_by(SocialPostORM.published.desc()).limit(10)
+            ).all()
+            sent_map = {}
+            for s in sess.scalars(
+                select(SentimentScoreORM).where(SentimentScoreORM.item_type == "social")
+            ).all():
+                sent_map[s.item_id] = s
+            posts = []
+            for p in posts_orm:
+                s = sent_map.get(p.id)
+                posts.append({
+                    "title": p.title, "url": p.url,
+                    "score": p.score, "num_comments": p.num_comments,
+                    "sentiment_label": s.label if s else None,
+                    "sentiment_score": float(s.score) if s else None,
+                })
+
+        return {
+            "total_posts": int(total),
+            "avg_score": round(float(avg_score or 0), 1),
+            "avg_comments": round(float(avg_comments or 0), 1),
+            "sentiment_dist": sentiment_dist,
+            "sentiment_mean": round(float(sentiment_mean or 0), 4),
+            "posts_per_channel": posts_per_channel,
+            "posts": posts,
+        }
+    except Exception as exc:
+        logger.warning("Datos sociales no disponibles para informe: %s", exc)
+        return {}
+
+
 def _collect_bancos() -> List[Dict]:
     """Tasas de bancos venezolanos + BCV oficial via pyDolarVenezuela."""
     try:
@@ -592,6 +651,7 @@ def collect_snapshot(
         "bancos": _collect_bancos(),
         "ibc_index": _collect_ibc_index(session, since, until),
         "ibc_stocks": _collect_ibc_stocks(session, since, until),
+        "social": _collect_social(),
         "resumen": "",
         "proyeccion": "",
         "proyeccion_rows": _projection_rows(market_series),
@@ -784,6 +844,53 @@ def debt_block(debt_data: Dict) -> List[str]:
     return lines
 
 
+def social_block(social_data: Dict) -> List[str]:
+    """Sección de Redes Sociales (Reddit) para el informe."""
+    lines = ["## 💬 Redes Sociales (Reddit)", ""]
+    if not social_data:
+        lines += ["_Sin datos de redes sociales._", ""]
+        return lines
+    total = social_data.get("total_posts", 0)
+    avg_score = social_data.get("avg_score", 0)
+    avg_comments = social_data.get("avg_comments", 0)
+    sentiment_mean = social_data.get("sentiment_mean", 0)
+    sentiment_dist = social_data.get("sentiment_dist", {})
+    posts_per_channel = social_data.get("posts_per_channel", {})
+    posts = social_data.get("posts", [])
+
+    lines.append(f"**Total de posts:** {total} | **Score promedio:** {avg_score:.1f} | **Comentarios prom:** {avg_comments:.1f}")
+    lines.append("")
+
+    # Sentiment
+    label = "Positivo" if sentiment_mean > 0.15 else "Negativo" if sentiment_mean < -0.15 else "Neutral"
+    lines.append(f"**Sentimiento promedio:** {label} ({sentiment_mean:.3f})")
+    if sentiment_dist:
+        dist_str = ", ".join(f"{k}: {v}" for k, v in sentiment_dist.items())
+        lines.append(f"_Distribución: {dist_str}_")
+    lines.append("")
+
+    # Posts per channel
+    if posts_per_channel:
+        lines += ["| Subreddit | Posts |", "|---|---|"]
+        for ch, count in posts_per_channel.items():
+            lines.append(f"| r/{ch} | {count} |")
+        lines.append("")
+
+    # Top posts
+    if posts:
+        lines += ["### Posts Destacados", ""]
+        lines += ["| Post | Score | Comentarios | Sentimiento |",
+                  "|---|---|---|---|"]
+        for p in posts[:5]:
+            title = (p.get("title") or "")[:60]
+            score = p.get("score") or 0
+            comments = p.get("num_comments") or 0
+            sent = p.get("sentiment_label") or "—"
+            lines.append(f"| {title} | {score} | {comments} | {sent} |")
+        lines.append("")
+    return lines
+
+
 def forecast_block(forecast_data: Dict) -> List[str]:
     """Sección de Pronóstico Integral para el informe."""
     lines = ["## 🔮 Pronóstico Integral", ""]
@@ -838,6 +945,7 @@ def build_markdown(snapshot: Dict) -> str:
     lines += articles_block(snapshot.get("articles") or [])
     lines += ibc_stocks_block(snapshot.get("ibc_stocks"))
     lines += bancos_block(snapshot.get("bancos") or [])
+    lines += social_block(snapshot.get("social") or {})
     lines += fiscal_docs_block(snapshot.get("fiscal_docs") or [])
     lines += macro_block(snapshot.get("macro") or [])
     lines += sovereign_risk_block(snapshot.get("sovereign_risk") or {})

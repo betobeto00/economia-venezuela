@@ -421,7 +421,35 @@ def _snapshot_from_session(session, days: int, since=None, until=None) -> Dict:
 
     rates = market_repo.list_rates(since=since, limit=50)
     inflation = market_repo.list_inflation(limit=12)
-    articles = news_repo.list_articles(since=since, limit=TOP_ARTICLES)
+
+    # Combinar RSS articles + Reddit/social posts
+    rss_articles = news_repo.list_articles(since=since, limit=TOP_ARTICLES)
+    social_posts = news_repo.list_posts(since=since, limit=TOP_ARTICLES)
+
+    # Unificar en una sola lista con formato compatible
+    all_news = []
+    for a in rss_articles:
+        all_news.append({
+            "title": a.title,
+            "source": a.source,
+            "published": a.published,
+            "summary": a.summary,
+            "url": a.url,
+            "type": "news",
+        })
+    for p in social_posts:
+        all_news.append({
+            "title": p.title,
+            "source": f"Reddit r/{p.channel}",
+            "published": p.published,
+            "summary": p.body[:220] if p.body else "",
+            "url": p.url,
+            "type": "social",
+        })
+    # Ordenar por fecha descendente
+    all_news.sort(key=lambda x: x.get("published") or "", reverse=True)
+    all_news = all_news[:TOP_ARTICLES]
+
     sentiment = news_repo.sentiment_summary()
 
     surveys: Dict[str, Dict] = {}
@@ -441,7 +469,7 @@ def _snapshot_from_session(session, days: int, since=None, until=None) -> Dict:
         "inflation": [_to_dict(p) for p in inflation],
         "surveys": surveys,
         "sentiment": sentiment,
-        "articles": [_to_dict(a) for a in articles],
+        "articles": all_news,
     }
 
 
