@@ -442,7 +442,7 @@ def _snapshot_from_session(session, days: int, since=None, until=None) -> Dict:
             "title": p.title,
             "source": f"Reddit r/{p.channel}",
             "published": p.published,
-            "summary": p.body[:220] if p.body else "",
+            "summary": p.text[:220] if p.text else "",
             "url": p.url,
             "type": "social",
         })

@@ -35,6 +35,12 @@ class NowcastResult:
     model: str
     features_used: List[str]
     r_squared: float = 0.0
+    feature_importance: Dict[str, float] = None
+    interpretation: str = ""
+
+    def __post_init__(self):
+        if self.feature_importance is None:
+            self.feature_importance = {}
 
 
 class InflationNowcaster:
@@ -94,6 +100,33 @@ class InflationNowcaster:
         if "parallel_rate" in df.columns:
             features["delta_parallel"] = df["parallel_rate"].pct_change() * 100
 
+        # ── Nuevas features de series temporales ──
+        if "parallel_rate" in df.columns:
+            pr = df["parallel_rate"]
+            # Momentum: cambio relativo a 7 días
+            features["momentum_7d"] = pr.pct_change(7) * 100
+            # Volatilidad: desviación estándar rolling de 7 días
+            features["volatility_7d"] = pr.pct_change().rolling(7).std() * 100
+            # Aceleración: cambio del cambio
+            delta = pr.pct_change() * 100
+            features["acceleration"] = delta.diff()
+            # Nivel normalizado (z-score rolling 14 días)
+            roll_mean = pr.rolling(14).mean()
+            roll_std = pr.rolling(14).std()
+            features["zscore_14d"] = (pr - roll_mean) / roll_std.clip(lower=1)
+            # Tasa de cambio logarítmica
+            features["log_return"] = np.log(pr / pr.shift(1)).clip(-1, 1)
+
+        if "official_rate" in df.columns:
+            ofr = df["official_rate"]
+            features["delta_official"] = ofr.pct_change() * 100
+            features["volatility_official_7d"] = ofr.pct_change().rolling(7).std() * 100
+
+        # Sentimiento rolling
+        if "sentiment_score" in df.columns:
+            features["sentiment_ma7"] = df["sentiment_score"].rolling(7).mean()
+            features["sentiment_momentum"] = df["sentiment_score"].diff()
+
         self.feature_names = list(features.columns)
         return features
 
@@ -152,6 +185,21 @@ class InflationNowcaster:
         ])
         std = float(np.std(tree_predictions))
 
+        # Importancia de features
+        importances = dict(zip(
+            self.feature_names,
+            [round(float(x), 4) for x in self.model.feature_importances_],
+        ))
+        # Top 5 features más importantes
+        top_features = sorted(importances.items(), key=lambda x: -x[1])[:5]
+        top_str = ", ".join(f"{k}={v:.2%}" for k, v in top_features)
+
+        interpretation = (
+            f"Modelo RandomForest. "
+            f"Predicción: {prediction:.2f}% (IC 95%: [{prediction-1.96*std:.2f}, {prediction+1.96*std:.2f}]). "
+            f"Variables más relevantes: {top_str}."
+        )
+
         return NowcastResult(
             indicator="inflacion_mensual",
             predicted_value=round(prediction, 2),
@@ -159,6 +207,8 @@ class InflationNowcaster:
             confidence_upper=round(prediction + 1.96 * std, 2),
             model="RandomForest",
             features_used=self.feature_names,
+            feature_importance=importances,
+            interpretation=interpretation,
         )
 
 
@@ -229,11 +279,26 @@ class GDPNowcaster:
         X_clean = X[self.feature_names].fillna(0)
         prediction = float(self.model.predict(X_clean.iloc[[-1]])[0])
 
-        tree_predictions = np.array([
-            tree.predict(X_clean.iloc[[-1]])[0]
-            for tree in self.model.estimators_
+        # Estimar incertidumbre con staging (GradientBoosting)
+        staged_preds = np.array([
+            est.predict(X_clean.iloc[[-1]])[0]
+            for est in self.model.estimators_.ravel()
         ])
-        std = float(np.std(tree_predictions))
+        std = float(np.std(staged_preds))
+
+        # Importancia de features
+        importances = dict(zip(
+            self.feature_names,
+            [round(float(x), 4) for x in self.model.feature_importances_],
+        ))
+        top_features = sorted(importances.items(), key=lambda x: -x[1])[:5]
+        top_str = ", ".join(f"{k}={v:.2%}" for k, v in top_features)
+
+        interpretation = (
+            f"Modelo GradientBoosting. "
+            f"Predicción PIB: {prediction:.2f}% (IC 95%: [{prediction-1.96*std:.2f}, {prediction+1.96*std:.2f}]). "
+            f"Variables más relevantes: {top_str}."
+        )
 
         return NowcastResult(
             indicator="pib_trimestral",
@@ -242,4 +307,6 @@ class GDPNowcaster:
             confidence_upper=round(prediction + 1.96 * std, 2),
             model="GradientBoosting",
             features_used=self.feature_names,
+            feature_importance=importances,
+            interpretation=interpretation,
         )

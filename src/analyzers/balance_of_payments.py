@@ -158,7 +158,7 @@ class BalanceOfPaymentsAnalyzer:
         Returns:
             Ingresos anuales estimados en USD.
         """
-        return production_mbd * oil_price_usd * 365
+        return production_mbd * oil_price_usd * 365 * 1e6  # mbd → barriles/día, resultado en USD
 
     def estimate_non_oil_exports(
         self,
@@ -344,8 +344,8 @@ class BalanceOfPaymentsAnalyzer:
             OilCycleResult con el análisis del ciclo.
         """
         gross = self.estimate_oil_revenues(production_mbd, oil_price_usd)
-        extraction = production_mbd * extraction_cost_per_barrel * 365
-        pdvsa_ops = pdvsa_operating_cost_mbd * oil_price_usd * 365
+        extraction = production_mbd * 1e6 * extraction_cost_per_barrel * 365  # mbd → barriles
+        pdvsa_ops = pdvsa_operating_cost_mbd * 1e6 * oil_price_usd * 365
 
         # Regalías e impuestos
         royalty = gross * pdvsa_royalty_pct / 100
@@ -355,9 +355,9 @@ class BalanceOfPaymentsAnalyzer:
         net_revenues = gross - royalty - tax - extraction - pdvsa_ops
         effective_cf = net_revenues - debt_service_commitments
 
-        # Precio de equilibrio: costo total / producción
+        # Precio de equilibrio: costo total / producción (en barriles)
         total_cost = extraction + pdvsa_ops + (royalty + tax)
-        breakeven = total_cost / (production_mbd * 365) if production_mbd > 0 else 0
+        breakeven = total_cost / (production_mbd * 1e6 * 365) if production_mbd > 0 else 0
 
         interpretation = ""
         if effective_cf < 0:

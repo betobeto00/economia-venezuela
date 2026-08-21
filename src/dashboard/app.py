@@ -1056,10 +1056,46 @@ with tab_macro:
             cap_for_risk = get_capitalization_summary()
         except Exception:
             pass
+        # Calcular volatilidad desde historial de tipos de cambio
+        _volatility = 0.0
+        try:
+            from src.db.session import get_session as _get_sess
+            from src.db.repositories import MarketRepository as _MR
+            from datetime import timedelta as _td
+            with _get_sess() as _sess:
+                _repo = _MR(_sess)
+                _rates = _repo.list_rates(
+                    since=datetime.now(timezone.utc) - _td(days=30),
+                    limit=200,
+                )
+                _volatility = SovereignRiskIndex.compute_volatility_from_rates(_rates)
+        except Exception:
+            pass
+
+        # Calcular incertidumbre desde sentimiento y encuestas
+        _sent_vol, _survey_disp, _forecast_err = 0.0, 0.0, 0.0
+        try:
+            from src.dashboard.social_data import social_summary as _soc_sum
+            _soc = _soc_sum()
+            _sent_vol, _survey_disp, _forecast_err = SovereignRiskIndex.compute_uncertainty_from_data(
+                sentiment_mean=_soc.get("sentiment_mean", 0),
+                sentiment_count=_soc.get("total_posts", 0),
+                survey_responses=1,  # Placeholder
+            )
+        except Exception:
+            pass
+
         risk_result = risk.calculate(
             spread_pct=brecha if brecha else 0,
+            volatility=_volatility,
             annual_inflation=inflation_rate,
             oil_production_mbd=1.08,
+            sanctions_level=80,  # Sanciones US/UE activas
+            social_unrest=30,    # Tensión social moderada
+            governance_score=25, # Gobernanza baja
+            sentiment_volatility=_sent_vol,
+            survey_dispersion=_survey_disp,
+            forecast_error=_forecast_err,
             market_cap_bs=cap_for_risk.get("total_bs", 0),
             market_cap_change_pct=cap_for_risk.get("total_change_pct", 0),
             market_cap_months=cap_for_risk.get("months_available", 0),
@@ -1107,12 +1143,15 @@ with tab_macro:
 
         # ── Balanza de Pagos ──
         st.markdown("### 💱 Balanza de Pagos")
+        from src.dashboard.macro_data import (
+            oil_price_current, oil_production_ve, reserves_usd, imports_monthly as get_imports_monthly,
+        )
         bop = BalanceOfPaymentsAnalyzer()
         bop_result = bop.analyze(
-            reserves=None,
-            oil_production_mbd=1.08,
-            oil_price_usd=70,
-            imports_monthly=2e9,
+            reserves=reserves_usd(),
+            oil_production_mbd=oil_production_ve(),
+            oil_price_usd=oil_price_current(),
+            imports_monthly=get_imports_monthly(),
         )
 
         bop_c1, bop_c2, bop_c3, bop_c4 = st.columns(4)
@@ -1141,17 +1180,27 @@ with tab_macro:
 
         # ── Deuda Pública ──
         st.markdown("### 💳 Deuda Pública")
+        from src.dashboard.macro_data import (
+            gdp_usd as get_gdp_usd, total_debt_usd as get_total_debt,
+            fiscal_deficit_pct as get_deficit, oil_price_current as get_oil_price,
+            oil_production_ve as get_oil_prod,
+        )
+        _gdp = get_gdp_usd()
+        _debt = get_total_debt()
+        _oil_price = get_oil_price()
+        _oil_rev = get_oil_prod() * _oil_price * 365 * 1e6  # mbd → USD/año
+        _deficit = get_deficit()
         debt = PublicDebtAnalyzer()
         debt_result = debt.analyze(
-            total_debt_usd=240e9,
-            gdp_usd=94e9,
-            external_debt_usd=180e9,
-            fiscal_deficit_pct=5.8,
-            oil_revenues_usd=35e9,
-            oil_price=70,
-            short_term_debt=60e9,
-            medium_term_debt=100e9,
-            long_term_debt=80e9,
+            total_debt_usd=_debt,
+            gdp_usd=_gdp,
+            external_debt_usd=_debt * 0.75,  # ~75% externa
+            fiscal_deficit_pct=_deficit,
+            oil_revenues_usd=_oil_rev,
+            oil_price=_oil_price,
+            short_term_debt=_debt * 0.25,
+            medium_term_debt=_debt * 0.42,
+            long_term_debt=_debt * 0.33,
             pdvsa_debt=40e9,
         )
 
@@ -1194,9 +1243,11 @@ with tab_macro:
         st.caption("Combina SVAR + Nowcast + Phillips para escenarios macro")
 
         # Inputs del usuario
+        from src.dashboard.macro_data import oil_price_current as _get_oil_price
+        _current_oil = _get_oil_price()
         fc1, fc2, fc3 = st.columns(3)
         with fc1:
-            oil_input = st.number_input("Precio Petróleo (USD)", value=65.0, step=5.0, key="fc_oil")
+            oil_input = st.number_input("Precio Petróleo (USD)", value=_current_oil, step=5.0, key="fc_oil")
         with fc2:
             spread_input = st.number_input("Brecha Cambiaria (%)", value=30.0, step=5.0, key="fc_spread")
         with fc3:
@@ -1210,7 +1261,7 @@ with tab_macro:
                 base_inflation=metrics["inflacion"].monthly_rate if metrics["inflacion"] else 10.0,
                 base_gdp=gdp_input,
                 base_spread=spread_input,
-                base_exchange=metrics["oficial"] if metrics["oficial"] else 500.0,
+                base_exchange=metrics["oficial"].rate if metrics["oficial"] else 500.0,
             )
 
             # Escenarios

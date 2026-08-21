@@ -24,7 +24,7 @@ class TestBalanceOfPayments:
 
     def test_estimate_oil_revenues(self):
         result = self.analyzer.estimate_oil_revenues(production_mbd=1.0, oil_price_usd=70)
-        expected = 1.0 * 70 * 365
+        expected = 1.0 * 70 * 365 * 1e6  # mbd → barriles, resultado en USD
         assert result == expected
 
     def test_estimate_non_oil_exports(self):

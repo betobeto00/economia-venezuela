@@ -190,24 +190,23 @@ class RegionalAnalyzer:
             diff = venezuela.value - latam_avg
             indicator_name = INDICATORS.get(indicator_code, indicator_code)
 
-            if "Crecimiento" in indicator_name or "PIB" in indicator_name:
-                if diff > 0:
-                    interpretation = (
-                        f"Venezuela crece {abs(diff):.1f} puntos por encima del promedio regional."
-                    )
+            if "PIB" in indicator_name and "USD" in indicator_name:
+                # PIB: mostrar como ratio vs promedio
+                ratio = venezuela.value / latam_avg if latam_avg > 0 else 0
+                if ratio > 1:
+                    interpretation = f"Venezuela tiene un PIB {ratio:.1f}x el promedio regional."
                 else:
-                    interpretation = (
-                        f"Venezuela crece {abs(diff):.1f} puntos por debajo del promedio regional."
-                    )
+                    interpretation = f"Venezuela tiene un PIB {ratio:.0%} del promedio regional."
+            elif "Crecimiento" in indicator_name:
+                if diff > 0:
+                    interpretation = f"Venezuela crece {abs(diff):.1f} puntos por encima del promedio regional."
+                else:
+                    interpretation = f"Venezuela crece {abs(diff):.1f} puntos por debajo del promedio regional."
             elif "Inflación" in indicator_name:
                 if diff > 0:
-                    interpretation = (
-                        f"La inflación de Venezuela es {abs(diff):.1f} puntos mayor al promedio regional."
-                    )
+                    interpretation = f"La inflación de Venezuela es {abs(diff):.1f} puntos mayor al promedio regional."
                 else:
-                    interpretation = (
-                        f"La inflación de Venezuela es {abs(diff):.1f} puntos menor al promedio regional."
-                    )
+                    interpretation = f"La inflación de Venezuela es {abs(diff):.1f} puntos menor al promedio regional."
             else:
                 if diff > 0:
                     interpretation = f"Venezuela está {abs(diff):.1f} puntos por encima del promedio."

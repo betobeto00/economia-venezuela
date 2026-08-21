@@ -347,3 +347,139 @@ def refresh_macro_cache() -> dict:
             logger.warning("Refresh %s falló: %s", name, exc)
             results[name] = False
     return results
+
+
+# ─── Datos para Balanza de Pagos ────────────────────────────────────────────
+
+def oil_price_current() -> float:
+    """Precio actual del petróleo Brent desde el CSV local o fallback.
+
+    Returns:
+        Precio en USD/barril.
+    """
+    import csv
+    from pathlib import Path
+
+    csv_path = Path(__file__).resolve().parent.parent.parent / "data" / "cvs.xls" / "Datos históricos Petróleo Brent.csv"
+    if csv_path.exists():
+        try:
+            with open(csv_path, encoding="utf-8-sig") as f:
+                reader = csv.DictReader(f, delimiter=",")
+                for row in reader:
+                    # Primera fila = más reciente
+                    # Try multiple header encodings for the price column
+                    raw = row.get("Último", "") or row.get("ltimo", "") or row.get("\u00daltimo", "")
+                    if not raw:
+                        # Fallback: use second column (price)
+                        vals = list(row.values())
+                        if len(vals) > 1:
+                            raw = vals[1]
+                    if raw:
+                        price = float(raw.replace(".", "").replace(",", "."))
+                        if price > 0:
+                            return price
+        except Exception as exc:
+            logger.debug("CSV petróleo Brent no disponible: %s", exc)
+
+    # Fallback: intentar OPEP collector
+    try:
+        from src.collectors.international.opec_collector import OPECCollector
+        point = OPECCollector().fetch_basket_price()
+        if point and point.value > 0:
+            return point.value
+    except Exception:
+        pass
+
+    return 70.0  # Fallback razonable
+
+
+def oil_production_ve() -> float:
+    """Producción petrolera de Venezuela (mbd) desde OPEP o estimación.
+
+    Returns:
+        Producción en millones de barriles diarios.
+    """
+    # Intentar cache en DB
+    cached = _get_cached("produccion_ve")
+    if cached:
+        return cached["value"]
+
+    # Fallback: estimación basada en datos públicos recientes
+    # Venezuela: ~1.08 mbd (2025-2026, estimación OPEP)
+    return 1.08
+
+
+def reserves_usd() -> float:
+    """Reservas internacionales de Venezuela (USD) desde DB o estimación.
+
+    Returns:
+        Reservas en USD.
+    """
+    cached = _get_cached("reservas")
+    if cached:
+        return cached["value"]
+
+    # Estimación basada en datos públicos recientes
+    # BCV reporta ~$5-6B en reservas (oro + divisas)
+    return 5.5e9  # ~5,500 millones USD
+
+
+def imports_monthly() -> float:
+    """Importaciones mensuales estimadas de Venezuela (USD).
+
+    Returns:
+        Importaciones mensuales en USD.
+    """
+    cached = _get_cached("importaciones")
+    if cached:
+        return cached["value"]
+
+    # Estimación: ~$2B/mes según CEPAL/FMI
+    return 2.0e9
+
+
+def fiscal_deficit_pct() -> float:
+    """Déficit fiscal como % del PIB.
+
+    Returns:
+        Déficit en porcentaje.
+    """
+    cached = _get_cached("deficit_fiscal")
+    if cached:
+        return cached["value"]
+
+    # Estimación FMI: ~5.8% del PIB
+    return 5.8
+
+
+def gdp_usd() -> float:
+    """PIB de Venezuela en USD.
+
+    Returns:
+        PIB en USD.
+    """
+    cached = _get_cached("pib")
+    if cached:
+        # El valor puede estar en millones de USD
+        val = cached["value"]
+        unit = (cached.get("unit") or "").lower()
+        if "millon" in unit:
+            return val * 1e6
+        return val
+
+    # Estimación FMI: ~$94B (2025-2026)
+    return 94e9
+
+
+def total_debt_usd() -> float:
+    """Deuda pública total de Venezuela en USD.
+
+    Returns:
+        Deuda total en USD.
+    """
+    cached = _get_cached("deuda_total")
+    if cached:
+        return cached["value"]
+
+    # Estimación: ~$150B deuda total reportada
+    return 150e9

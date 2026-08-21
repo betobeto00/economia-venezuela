@@ -377,20 +377,33 @@ def _ai_resumen(markdown: str) -> str:
                 "ejecutivo amplio (10-15 frases) del informe para un lector "
                 "no técnico. No te limites a listar cifras: analiza, compara, "
                 "explora relaciones entre secciones y valida coherencia. "
+                "El informe contiene datos de:\n"
+                "- Mercado cambiario (BCV, Binance, Bybit, bancos)\n"
+                "- Inflación y sentimiento de mercado\n"
+                "- IBC y mercados bursátiles\n"
+                "- Noticias y redes sociales (Reddit)\n"
+                "- Marco fiscal (gacetas, leyes AN)\n"
+                "- Indicadores macro (PIB, inflación FMI, petróleo OPEP)\n"
+                "- Riesgo soberano, balanza de pagos, deuda pública\n"
+                "- Pronóstico integral con escenarios\n"
+                "- Nowcasting con modelos ML (RandomForest, GradientBoosting)\n"
                 "Incluye:\n"
                 "1. Contexto general del período.\n"
                 "2. Mercado cambiario: tendencias por fuente, brechas, volatilidad.\n"
                 "3. Inflación: trayectoria y comparación con el período anterior.\n"
-                "4. Sentimiento de noticias y encuestas: qué信号 envía la calle.\n"
+                "4. Sentimiento de noticias y encuestas: qué señal envía la calle.\n"
                 "5. Marco fiscal y macro: qué cambió y por qué importa.\n"
-                "6. Proyección para la próxima semana: hacia dónde apuntan "
+                "6. Riesgo soberano y balanza de pagos: análisis integral.\n"
+                "7. Deuda pública y sostenibilidad fiscal.\n"
+                "8. Pronóstico ML y nowcasting: qué dicen los modelos.\n"
+                "9. Proyección para la próxima semana: hacia dónde apuntan "
                 "tipo de cambio, inflación y sentimiento; riesgos al alza y "
                 "a la baja.\n"
                 "Termina cada frase con punto final. "
                 "Responde siempre en español."
             ),
             markdown,
-            max_tokens=2500,
+            max_tokens=3000,
         ) or ""
     except Exception as exc:  # noqa: BLE001 - el informe no debe fallar
         logger.warning("Resumen IA no disponible: %s", exc)
@@ -480,19 +493,97 @@ def _collect_macro_analytics() -> Dict:
     """Recolecta datos de analizadores macro para el informe.
 
     Incluye: Riesgo Soberano, Balanza de Pagos, Deuda Pública, Pronóstico.
+    Usa datos reales de macro_data (CSV petróleo, DB, APIs internacionales).
     """
+    # Cargar datos reales una sola vez
+    try:
+        from src.dashboard.macro_data import (
+            oil_price_current, oil_production_ve, reserves_usd,
+            imports_monthly, gdp_usd, total_debt_usd, fiscal_deficit_pct,
+        )
+        _oil_price = oil_price_current()
+        _oil_prod = oil_production_ve()
+        _reserves = reserves_usd()
+        _imports = imports_monthly()
+        _gdp = gdp_usd()
+        _debt = total_debt_usd()
+        _deficit = fiscal_deficit_pct()
+        _oil_rev = _oil_prod * _oil_price * 365 * 1e6  # USD/año
+    except Exception:
+        # Fallback a estimaciones si macro_data falla
+        _oil_price, _oil_prod = 70.0, 1.08
+        _reserves, _imports = 5.5e9, 2.0e9
+        _gdp, _debt, _deficit = 94e9, 150e9, 5.8
+        _oil_rev = _oil_prod * _oil_price * 365 * 1e6
+
+    # Cargar datos de mercado para brecha cambiaria real
+    _brecha = 30.0  # Default
+    try:
+        from src.dashboard.market_data import dashboard_metrics
+        metrics = dashboard_metrics()
+        if metrics.get("oficial") and metrics.get("paralelo") and metrics["oficial"].rate > 0:
+            _brecha = (metrics["paralelo"].rate / metrics["oficial"].rate - 1) * 100
+    except Exception:
+        pass
+
+    # Cargar inflación actual
+    _inflation = 10.0  # Default mensual
+    try:
+        from src.dashboard.market_data import dashboard_metrics
+        metrics = dashboard_metrics()
+        if metrics.get("inflacion") and metrics["inflacion"].monthly_rate:
+            _inflation = metrics["inflacion"].monthly_rate
+    except Exception:
+        pass
+
     result = {}
+
+    # ── Riesgo Soberano ──
     try:
         from src.analyzers.sovereign_risk import SovereignRiskIndex
         from src.dashboard.bvc_capitalization import get_capitalization_summary
         cap = get_capitalization_summary()
         risk = SovereignRiskIndex()
+
+        # Calcular volatilidad desde historial de TC
+        _volatility = 0.0
+        try:
+            from src.db.session import get_session as _get_sess
+            from src.db.repositories import MarketRepository as _MR
+            with _get_sess() as _sess:
+                _rates = _MR(_sess).list_rates(
+                    since=datetime.now(timezone.utc) - timedelta(days=30),
+                    limit=200,
+                )
+                _volatility = SovereignRiskIndex.compute_volatility_from_rates(_rates)
+        except Exception:
+            pass
+
+        # Calcular incertidumbre
+        _sent_vol, _survey_disp, _forecast_err = 0.0, 0.0, 0.0
+        try:
+            from src.dashboard.social_data import social_summary as _soc_sum
+            _soc = _soc_sum()
+            _sent_vol, _survey_disp, _forecast_err = SovereignRiskIndex.compute_uncertainty_from_data(
+                sentiment_mean=_soc.get("sentiment_mean", 0),
+                sentiment_count=_soc.get("total_posts", 0),
+            )
+        except Exception:
+            pass
+
         risk_result = risk.calculate(
-            spread_pct=30,  # Estimado
-            annual_inflation=150,  # Estimado
-            reserves_months=2.5,
-            debt_gdp_pct=253,
-            oil_production_mbd=1.08,
+            spread_pct=_brecha,
+            volatility=_volatility,
+            annual_inflation=_inflation * 12,  # Mensual → anual
+            reserves_months=_reserves / _imports if _imports > 0 else 0,
+            debt_gdp_pct=_debt / _gdp * 100 if _gdp > 0 else 250,
+            oil_production_mbd=_oil_prod,
+            sanctions_level=80,  # Sanciones US/UE activas
+            social_unrest=30,    # Tensión social moderada
+            governance_score=25, # Gobernanza baja
+            sentiment_volatility=_sent_vol,
+            survey_dispersion=_survey_disp,
+            forecast_error=_forecast_err,
             market_cap_bs=cap.get("total_bs", 0),
             market_cap_change_pct=cap.get("total_change_pct", 0),
             market_cap_months=cap.get("months_available", 0),
@@ -506,14 +597,15 @@ def _collect_macro_analytics() -> Dict:
     except Exception as exc:
         logger.warning("Riesgo soberano no disponible: %s", exc)
 
+    # ── Balanza de Pagos ──
     try:
         from src.analyzers.balance_of_payments import BalanceOfPaymentsAnalyzer
         bop = BalanceOfPaymentsAnalyzer()
         bop_result = bop.analyze(
-            reserves=5e9,
-            oil_production_mbd=1.08,
-            oil_price_usd=70,
-            imports_monthly=2e9,
+            reserves=_reserves,
+            oil_production_mbd=_oil_prod,
+            oil_price_usd=_oil_price,
+            imports_monthly=_imports,
         )
         result["bop"] = {
             "current_account": bop_result.current_account.to_dict(),
@@ -524,19 +616,21 @@ def _collect_macro_analytics() -> Dict:
     except Exception as exc:
         logger.warning("Balanza de pagos no disponible: %s", exc)
 
+    # ── Deuda Pública ──
     try:
         from src.analyzers.public_debt import PublicDebtAnalyzer
-        debt = PublicDebtAnalyzer()
-        debt_result = debt.analyze(
-            total_debt_usd=240e9,
-            gdp_usd=94e9,
-            external_debt_usd=180e9,
-            fiscal_deficit_pct=5.8,
-            oil_revenues_usd=35e9,
-            oil_price=70,
-            short_term_debt=60e9,
-            medium_term_debt=100e9,
-            long_term_debt=80e9,
+        debt_analyzer = PublicDebtAnalyzer()
+        debt_result = debt_analyzer.analyze(
+            total_debt_usd=_debt,
+            gdp_usd=_gdp,
+            external_debt_usd=_debt * 0.75,
+            fiscal_deficit_pct=_deficit,
+            oil_revenues_usd=_oil_rev,
+            oil_price=_oil_price,
+            short_term_debt=_debt * 0.25,
+            medium_term_debt=_debt * 0.42,
+            long_term_debt=_debt * 0.33,
+            pdvsa_debt=40e9,
         )
         result["debt"] = {
             "debt_gdp_ratio": debt_result.debt_gdp_ratio,
@@ -553,17 +647,18 @@ def _collect_macro_analytics() -> Dict:
     except Exception as exc:
         logger.warning("Deuda pública no disponible: %s", exc)
 
+    # ── Pronóstico Integral ──
     try:
         from src.analyzers.integrated_forecast import IntegratedForecaster
         import pandas as pd
         forecaster = IntegratedForecaster()
         forecast_result = forecaster.scenario_analysis(
             macro_data=pd.DataFrame(),
-            base_oil=70,
-            base_inflation=10,
-            base_gdp=3,
-            base_spread=30,
-            base_exchange=500,
+            base_oil=_oil_price,
+            base_inflation=_inflation,
+            base_gdp=3.0,  # Crecimiento PIB estimado
+            base_spread=_brecha,
+            base_exchange=_brecha + 100 if _brecha > 0 else 500,  # Proxy TC
         )
         result["forecast"] = {
             "optimistic": {
@@ -582,6 +677,107 @@ def _collect_macro_analytics() -> Dict:
         }
     except Exception as exc:
         logger.warning("Pronóstico no disponible: %s", exc)
+
+    # ── Nowcasting ──
+    try:
+        from src.analyzers.nowcasting import InflationNowcaster
+        import pandas as pd
+        from src.db.session import get_session
+        from src.db.repositories import MarketRepository
+        from datetime import timedelta
+
+        with get_session() as sess:
+            repo = MarketRepository(sess)
+            rates = repo.list_rates(
+                since=datetime.now(timezone.utc) - timedelta(days=90),
+                limit=200,
+            )
+            if len(rates) >= 20:
+                df_now = pd.DataFrame([
+                    {"date": r.date, "official_rate": float(r.rate) if r.source == "bcv" else None,
+                     "parallel_rate": float(r.rate) if r.source in ("binance", "bybit") else None}
+                    for r in rates
+                ])
+                df_now = df_now.groupby("date").mean(numeric_only=True).dropna()
+                if len(df_now) >= 10:
+                    nowcaster = InflationNowcaster()
+                    df_now["inflation_lag1"] = df_now["parallel_rate"].pct_change().shift(1) * 100
+                    df_now["inflation_lag2"] = df_now["parallel_rate"].pct_change().shift(2) * 100
+                    features = nowcaster.prepare_features(df_now)
+                    target = df_now["parallel_rate"].pct_change() * 100
+                    r2 = nowcaster.train(features, target)
+                    if r2 > 0:
+                        prediction = nowcaster.predict(features)
+                        result["nowcasting"] = {
+                            "r_squared": r2,
+                            "prediction": prediction.predicted_value,
+                            "confidence_lower": prediction.confidence_lower,
+                            "confidence_upper": prediction.confidence_upper,
+                            "features": prediction.features_used,
+                        }
+    except Exception as exc:
+        logger.debug("Nowcasting no disponible para informe: %s", exc)
+
+    # ── Comparativa Regional ──
+    try:
+        from src.analyzers.regional import RegionalAnalyzer
+        regional = RegionalAnalyzer()
+        regional_result = regional.full_comparison()
+        if regional_result:
+            result["regional"] = regional_result
+    except Exception as exc:
+        logger.debug("Comparativa regional no disponible: %s", exc)
+
+    # ── Outlook Petrolero ──
+    try:
+        import csv
+        from pathlib import Path
+        csv_path = Path(__file__).resolve().parent.parent.parent.parent / "data" / "cvs.xls" / "Datos hist\u00f3ricos Petr\u00f3leo Brent.csv"
+        if not csv_path.exists():
+            csv_path = Path(__file__).resolve().parent.parent.parent.parent / "data" / "cvs.xls" / "Datos históricos Petróleo Brent.csv"
+        trend_analysis = ""
+        if csv_path.exists():
+            with open(csv_path, encoding="utf-8-sig") as f:
+                reader = csv.DictReader(f, delimiter=",")
+                prices = []
+                for row in reader:
+                    # Try multiple header encodings for the price column
+                    raw = row.get("Último", "") or row.get("ltimo", "") or row.get("\u00daltimo", "")
+                    if not raw:
+                        # Fallback: use second column (price)
+                        vals = list(row.values())
+                        if len(vals) > 1:
+                            raw = vals[1]
+                    if raw:
+                        try:
+                            p = float(raw.replace(".", "").replace(",", "."))
+                            if p > 0:
+                                prices.append(p)
+                        except ValueError:
+                            pass
+                if len(prices) >= 5:
+                    week_avg = sum(prices[:5]) / 5
+                    month_avg = sum(prices[:20]) / min(20, len(prices))
+                    if week_avg > month_avg * 1.02:
+                        trend = "Alcista (+{:.1f}% vs promedio mes)".format((week_avg/month_avg - 1) * 100)
+                    elif week_avg < month_avg * 0.98:
+                        trend = "Bajista ({:.1f}% vs promedio mes)".format((week_avg/month_avg - 1) * 100)
+                    else:
+                        trend = "Estable (dentro del rango del mes)"
+                    trend_analysis = (
+                        f"Brent promedio semanal: ${week_avg:.2f}. "
+                        f"Promedio mensual: ${month_avg:.2f}. "
+                        f"{trend}. "
+                        f"Para Venezuela, cada $1/barril = ~${_oil_prod * 365 * 1e6 / 1e9:.1f}B/año en ingresos petroleros."
+                    )
+        result["oil_outlook"] = {
+            "current_price": _oil_price,
+            "venezuela_production_mbd": _oil_prod,
+            "trend": trend if 'trend' in dir() else "",
+            "analysis": trend_analysis,
+        }
+    except Exception as exc:
+        logger.debug("Outlook petrolero no disponible: %s", exc)
 
     return result
 
@@ -653,6 +849,9 @@ def collect_snapshot(
         "bop": macro_snapshot.get("bop", {}),
         "debt": macro_snapshot.get("debt", {}),
         "forecast": macro_snapshot.get("forecast", {}),
+        "nowcasting": macro_snapshot.get("nowcasting", {}),
+        "regional": macro_snapshot.get("regional", {}),
+        "oil_outlook": macro_snapshot.get("oil_outlook", {}),
         "bancos": _collect_bancos(),
         "ibc_index": _collect_ibc_index(session, since, until),
         "ibc_stocks": _collect_ibc_stocks(session, since, until),
@@ -896,6 +1095,25 @@ def social_block(social_data: Dict) -> List[str]:
     return lines
 
 
+def nowcasting_block(nc_data: Dict) -> List[str]:
+    """Sección de Nowcasting (ML) para el informe."""
+    lines = ["## 📡 Nowcasting (Predicción ML)", ""]
+    if not nc_data:
+        lines += ["_Sin datos de nowcasting._", ""]
+        return lines
+    r2 = nc_data.get("r_squared", 0)
+    pred = nc_data.get("prediction", 0)
+    lower = nc_data.get("confidence_lower", 0)
+    upper = nc_data.get("confidence_upper", 0)
+    features = nc_data.get("features", [])
+    lines.append(f"**Predicción inflación mensual:** {pred:.2f}% (IC 95%: [{lower:.2f}, {upper:.2f}])")
+    lines.append(f"**Calidad del modelo (R²):** {r2:.3f}")
+    if features:
+        lines.append(f"**Variables usadas:** {', '.join(features[:8])}")
+    lines.append("")
+    return lines
+
+
 def forecast_block(forecast_data: Dict) -> List[str]:
     """Sección de Pronóstico Integral para el informe."""
     lines = ["## 🔮 Pronóstico Integral", ""]
@@ -918,6 +1136,71 @@ def forecast_block(forecast_data: Dict) -> List[str]:
     interp = forecast_data.get("interpretation", "")
     if interp:
         lines += [f"_{interp}_", ""]
+    return lines
+
+
+def regional_block(regional_data: Dict) -> List[str]:
+    """Sección de Comparativa Regional para el informe."""
+    lines = ["## 🌎 Comparativa Regional", ""]
+    if not regional_data:
+        lines += ["_Sin datos de comparativa regional._", ""]
+        return lines
+    for indicator_name, comparison in regional_data.items():
+        lines.append(f"### {indicator_name}")
+        if comparison.venezuela:
+            # Formato especial para PIB (USD) - mostrar en miles de millones
+            val = comparison.venezuela.value
+            if "PIB" in indicator_name and "USD" in indicator_name and val > 1e9:
+                lines.append(f"**Venezuela:** ${val/1e9:.1f}B ({comparison.venezuela.period})")
+            else:
+                lines.append(f"**Venezuela:** {_fmt(val)} ({comparison.venezuela.period})")
+        if comparison.latam_average is not None:
+            avg = comparison.latam_average
+            if "PIB" in indicator_name and "USD" in indicator_name and avg > 1e9:
+                lines.append(f"**Promedio regional:** ${avg/1e9:.1f}B")
+            else:
+                lines.append(f"**Promedio regional:** {_fmt(avg)}")
+        if comparison.interpretation:
+            lines.append(f"_{comparison.interpretation}_")
+        lines.append("")
+        # Top 5 rankings
+        if comparison.rankings:
+            lines += ["| País | Valor |",
+                      "|---|---|"]
+            for r in comparison.rankings[:5]:
+                marker = " **VEN**" if r.country_code == "VEN" else ""
+                rval = r.value
+                if "PIB" in indicator_name and "USD" in indicator_name and rval > 1e9:
+                    lines.append(f"| {r.country_name}{marker} | ${rval/1e9:.1f}B |")
+                else:
+                    lines.append(f"| {r.country_name}{marker} | {_fmt(rval)} |")
+            lines.append("")
+    return lines
+
+
+def oil_outlook_block(oil_data: Dict) -> List[str]:
+    """Sección de Outlook Petrolero para el informe."""
+    lines = ["## 🛢️ Outlook Petrolero", ""]
+    if not oil_data:
+        lines += ["_Sin datos de outlook petrolero._", ""]
+        return lines
+    # Precio actual
+    current_price = oil_data.get("current_price", 0)
+    if current_price:
+        lines.append(f"**Brent Actual:** ${current_price:.2f}/bbl")
+    # Producción Venezuela
+    production = oil_data.get("venezuela_production_mbd", 0)
+    if production:
+        lines.append(f"**Producción Venezuela:** {production:.2f} mbd")
+    # Tendencia
+    trend = oil_data.get("trend", "")
+    if trend:
+        lines.append(f"**Tendencia:** {trend}")
+    lines.append("")
+    # Análisis
+    analysis = oil_data.get("analysis", "")
+    if analysis:
+        lines += ["### Análisis", "", f"_{analysis}_", ""]
     return lines
 
 
@@ -957,6 +1240,9 @@ def build_markdown(snapshot: Dict) -> str:
     lines += bop_block(snapshot.get("bop") or {})
     lines += debt_block(snapshot.get("debt") or {})
     lines += forecast_block(snapshot.get("forecast") or {})
+    lines += nowcasting_block(snapshot.get("nowcasting") or {})
+    lines += oil_outlook_block(snapshot.get("oil_outlook") or {})
+    lines += regional_block(snapshot.get("regional") or {})
     base = "\n".join(lines)
 
     resumen = snapshot.get("resumen") or ""

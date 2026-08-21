@@ -61,6 +61,86 @@ class SovereignRiskIndex:
         self.weights = dict(self.default_weights)
         self._previous_score: Optional[float] = None
 
+    @staticmethod
+    def compute_volatility_from_rates(rates, window_days: int = 30) -> float:
+        """Calcula volatilidad anualizada del tipo de cambio desde una serie.
+
+        Calcula por fuente y promedia para evitar que P2P infle el valor.
+
+        Args:
+            rates: Lista de objetos con .rate, .date y .source.
+            window_days: Ventana de cálculo en días.
+
+        Returns:
+            Volatilidad anualizada (float, 0-1).
+        """
+        try:
+            import pandas as pd
+
+            if hasattr(rates, 'iloc'):
+                df = rates.copy()
+            else:
+                df = pd.DataFrame([
+                    {"date": getattr(r, 'date', None), "rate": float(getattr(r, 'rate', 0)),
+                     "source": getattr(r, 'source', 'unknown')}
+                    for r in rates if getattr(r, 'rate', 0) > 0
+                ])
+
+            if df.empty or len(df) < 5:
+                return 0.0
+
+            if "date" in df.columns:
+                df = df.sort_values("date")
+
+            # Calcular volatilidad por fuente
+            vols = []
+            for src in df["source"].unique():
+                sub = df[df["source"] == src]
+                if len(sub) < 5:
+                    continue
+                returns = sub["rate"].pct_change().dropna()
+                if len(returns) < 3:
+                    continue
+                daily_vol = float(returns.std())
+                annual_vol = daily_vol * np.sqrt(252)
+                vols.append(annual_vol)
+
+            if not vols:
+                return 0.0
+
+            # Promedio de volatilidades por fuente, cap en 1.0
+            avg_vol = np.mean(vols)
+            return min(1.0, avg_vol)
+        except Exception:
+            return 0.0
+
+    @staticmethod
+    def compute_uncertainty_from_data(
+        sentiment_mean: float = 0.0,
+        sentiment_count: int = 0,
+        survey_responses: int = 0,
+        forecast_error: float = 0.0,
+    ) -> tuple:
+        """Calcula métricas de incertidumbre desde datos disponibles.
+
+        Returns:
+            Tuple de (sentiment_volatility, survey_dispersion, forecast_error).
+        """
+        # Volatilidad del sentimiento: más posts = más señal, sentimiento extremo = más incertidumbre
+        sent_vol = 0.0
+        if sentiment_count > 0:
+            # Sentimiento lejos de 0 = más polarización
+            sent_vol = min(1.0, abs(float(sentiment_mean)) * 0.5 + 0.2)
+
+        # Dispersión de encuestas: más respuestas = mejor señal, pero si hay pocas = más incertidumbre
+        survey_disp = 0.0
+        if survey_responses > 0 and survey_responses < 10:
+            survey_disp = max(0, 50 - survey_responses * 5)  # Pocas respuestas = más incertidumbre
+        elif survey_responses >= 10:
+            survey_disp = 20  # Suficientes respuestas = incertidumbre baja
+
+        return (sent_vol, survey_disp, forecast_error)
+
     def update_weights_pca(
         self,
         historical_components: List[Dict[str, float]],
