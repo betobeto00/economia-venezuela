@@ -1,0 +1,32 @@
+import sys
+sys.path.insert(0, '.')
+from src.analyzers.reports.periodic import collect_snapshot, build_markdown, save_report
+
+print('Generando snapshot semanal...')
+snapshot = collect_snapshot(cadence='semanal', with_fiscal=True, with_macro=True, with_ai=True)
+print(f'Snapshot keys: {list(snapshot.keys())}')
+print(f'Market: {len(snapshot.get("market", []))} fuentes')
+print(f'Inflation: {len(snapshot.get("inflation", []))} puntos')
+print(f'Sentiment: {snapshot.get("sentiment", {})}')
+print(f'Articles: {len(snapshot.get("articles", []))}')
+print(f'Social: {snapshot.get("social", {}).get("total_posts", 0)} posts')
+print(f'Sovereign risk: {bool(snapshot.get("sovereign_risk"))}')
+print(f'BOP: {bool(snapshot.get("bop"))}')
+print(f'Debt: {bool(snapshot.get("debt"))}')
+print(f'Forecast: {bool(snapshot.get("forecast"))}')
+print(f'Nowcasting: {bool(snapshot.get("nowcasting"))}')
+print(f'Regional: {bool(snapshot.get("regional"))}')
+print(f'Oil outlook: {bool(snapshot.get("oil_outlook"))}')
+print(f'Fiscal docs: {len(snapshot.get("fiscal_docs", []))}')
+print(f'Bancos: {len(snapshot.get("bancos", []))}')
+print(f'IBC index: {bool(snapshot.get("ibc_index"))}')
+print(f'IBC stocks: {bool(snapshot.get("ibc_stocks"))}')
+print(f'Resumen IA: {len(snapshot.get("resumen", ""))} chars')
+print(f'Proyeccion IA: {len(snapshot.get("proyeccion", ""))} chars')
+
+print('\nGenerando Markdown...')
+markdown = build_markdown(snapshot)
+print(f'Markdown length: {len(markdown)} chars')
+
+path = save_report(markdown, 'semanal')
+print(f'Guardado en: {path}')
