@@ -495,6 +495,7 @@ def _collect_macro_analytics() -> Dict:
     Incluye: Riesgo Soberano, Balanza de Pagos, Deuda Pública, Pronóstico.
     Usa datos reales de macro_data (CSV petróleo, DB, APIs internacionales).
     """
+    from datetime import timedelta
     # Cargar datos reales una sola vez
     try:
         from src.dashboard.macro_data import (

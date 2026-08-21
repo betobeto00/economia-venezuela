@@ -21,8 +21,8 @@ from src.collectors.market.binance_collector import BinanceCollector
 from src.collectors.market.bvc_collector import BVCCollector
 from src.collectors.market.ibc_components_collector import fetch_ibc_from_investing
 from src.collectors.market.ovf_collector import OVFCollector
-from src.db.repositories import MarketRepository
-from src.models.market import ExchangeRate, InflationPoint
+from src.db.repositories import MarketRepository, IBCIndexRepository
+from src.models.market import ExchangeRate, InflationPoint, IndexPoint
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +51,7 @@ def run_market_pipeline(
     period = period or CURRENT_MONTH
 
     repo = MarketRepository(session)
+    ibc_repo = IBCIndexRepository(session)
     summary: dict = {}
 
     def _save(name: str, kind: str, items: List) -> None:
@@ -58,8 +59,17 @@ def run_market_pipeline(
             return
         if kind == "rate":
             saved = repo.save_rates(items)
-        else:
+        elif kind == "inflation":
             saved = repo.save_inflation(items)
+        elif kind == "ibc_index":
+            # Save IBC index using IBCIndexRepository
+            saved = 0
+            for item in items:
+                if isinstance(item, IndexPoint):
+                    if ibc_repo.save_index(item.date, item.value):
+                        saved += 1
+        else:
+            saved = 0
         summary[name] = {"type": kind, "saved": saved}
 
     # BCV: tasa oficial + IPC
@@ -88,10 +98,10 @@ def run_market_pipeline(
     except Exception as exc:  # noqa: BLE001
         logger.warning("Binance P2P no disponible: %s", exc)
 
-    # BVC: Índice IBC (Bolsa de Valores de Caracas)
+    # BVC: Índice IBC (Bolsa de Valores de Caracas) — índice en PUNTOS, no tasa de cambio
     try:
         ibc = bvc.fetch_index()
-        _save("bvc_ibc", "rate", [ibc])
+        _save("bvc_ibc", "ibc_index", [ibc])
     except Exception as exc:  # noqa: BLE001
         logger.warning("BVC IBC no disponible: %s", exc)
 

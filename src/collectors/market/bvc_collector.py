@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from src.collectors.errors import CollectorSourceError
-from src.models.market import ExchangeRate, IndexPoint
+from src.models.market import IndexPoint
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +38,8 @@ class BVCCollector:
     def __init__(self, symbol: str = IBC_SYMBOL):
         self.symbol = symbol
 
-    def fetch_index(self, period: str = "1d") -> ExchangeRate:
-        """Último cierre del índice devuelto como ExchangeRate.
+    def fetch_index(self, period: str = "1d") -> IndexPoint:
+        """Último cierre del índice devuelto como IndexPoint.
         
         El índice IBC se obtiene de Yahoo Finance (ticker ``IBC.CR``, ya que
         ``IBC`` no está disponible en Yahoo).
@@ -54,27 +54,24 @@ class BVCCollector:
             date = date.to_pydatetime()
         elif isinstance(date, str):
             date = datetime.fromisoformat(date)
-        # Devolver ExchangeRate para que se integre con el pipeline de mercado
-        return ExchangeRate(
+        return IndexPoint(
             source="bvc",
-            currency="usd",
-            rate=close,
+            symbol=self.symbol,
+            value=close,
             date=date,
-            variation_pct=None,
         )
 
-    def fetch_history(self, period: str = "1y") -> List[ExchangeRate]:
-        """Devuelve una serie completa de ExchangeRate para el período indicado."""
+    def fetch_history(self, period: str = "1y") -> List[IndexPoint]:
+        """Devuelve una serie completa de IndexPoint para el período indicado."""
         history = self._history(period)
         if history.empty:
             return []
         return [
-            ExchangeRate(
+            IndexPoint(
                 source="bvc",
-                currency="usd",
-                rate=float(row["Close"]),
+                symbol=self.symbol,
+                value=float(row["Close"]),
                 date=row.name,
-                variation_pct=None,
             )
             for _, row in history.iterrows()
         ]

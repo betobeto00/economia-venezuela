@@ -263,6 +263,14 @@ Dada la dependencia venezolana del petróleo, es un sector crítico.
 | Subíndices | Scraping BVC | BeautifulSoup |
 | Acciones individuales | Scraping BVC | BeautifulSoup |
 
+> ⚠️ **IMPORTANTE - Distinción IBC vs Tipo de Cambio:**
+> El **IBC (Índice Bursátil de Caracas)** es un **índice bursátil en PUNTOS** (p.ej. 5.654 pts), **NO es una tasa de cambio** en Bs/USD.
+> - Se obtiene via Yahoo Finance (`IBC.CR` ticker)
+> - Se persiste en tabla `ibc_index` (modelo `IndexPoint`, source="bvc")
+> - **NO** va en `exchange_rates` (esa tabla es solo para tasas de cambio: BCV, Binance, Bybit, etc.)
+> - Tiene serie histórica completa (6+ meses) vía `scripts/backfill_ibc.py`
+> - El collector `BVCCollector.fetch_index()` devuelve `IndexPoint`, no `ExchangeRate`
+
 #### 5.2 Monitores de Dólar
 
 | Monitor | Tipo | Método |
