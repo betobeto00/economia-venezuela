@@ -11,6 +11,8 @@ La inflación en Venezuela tiene un fuerte componente estacional
 (diciembre, agosto), por lo que SARIMA es especialmente útil.
 """
 
+import logging
+
 import pandas as pd
 import numpy as np
 from typing import Dict, Optional, Tuple, List
@@ -22,6 +24,8 @@ from itertools import product
 import warnings
 
 warnings.filterwarnings('ignore')
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -181,7 +185,8 @@ class InflationForecaster:
                     order=(p, d, q),
                     residuals=results.resid
                 ))
-            except:
+            except Exception as exc:  # noqa: BLE001 - un orden que no converge se descarta
+                logger.debug("ARIMA(%s,%s,%s) descartado: %s", p, d, q, exc)
                 continue
         
         # SARIMA si se solicita
@@ -212,7 +217,11 @@ class InflationForecaster:
                             seasonal_order=seasonal_order,
                             residuals=results.resid
                         ))
-                    except:
+                    except Exception as exc:  # noqa: BLE001
+                        logger.debug(
+                            "SARIMA(%s,%s,%s)x%s descartado: %s",
+                            p, d, q, seasonal_order, exc,
+                        )
                         continue
         
         # Seleccionar mejores modelos

@@ -16,6 +16,8 @@ import logging
 
 import streamlit as st
 
+from src.analyzers.reference_values import EXTERNAL_DEBT_SHARE
+
 logger = logging.getLogger(__name__)
 
 
@@ -99,7 +101,7 @@ def _calculate_and_display(
     debt_result = debt_analyzer.analyze(
         total_debt_usd=total_debt,
         gdp_usd=gdp,
-        external_debt_usd=total_debt * 0.7,  # Estimación: 70% externa
+        external_debt_usd=total_debt * EXTERNAL_DEBT_SHARE,  # Supuesto documentado
         fiscal_deficit_pct=deficit_pct,
         oil_revenues_usd=oil_production * oil_price * 365,
         oil_price=oil_price,

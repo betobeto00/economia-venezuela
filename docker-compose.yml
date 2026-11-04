@@ -1,42 +1,70 @@
-version: '3.8'
-
 services:
-  # Application
+  # Scheduler legado (APScheduler). Se retira cuando n8n tome el control
+  # de los jobs (ver docs/Informe_sub_agentes_04112026.md §V-P20).
   app:
     build: .
     container_name: economia-ve-app
-    ports:
-      - "8000:8000"
+    command: python main.py
     environment:
-      - DATABASE_URL=postgresql://postgres:password@db:5432/economia_ve
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-password}@db:5432/economia_ve
       - REDIS_URL=redis://redis:6379
     volumes:
       - ./src:/app/src
       - ./data:/app/data
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - economia-network
+    restart: unless-stopped
 
-  # Dashboard Streamlit
+  # Runner HTTP: n8n lo invoca para ejecutar los CLIs (allowlist + token).
+  # Publicado solo en loopback; n8n lo alcanza por host.docker.internal:8090.
+  runner:
+    build: .
+    container_name: economia-ve-runner
+    command: uvicorn src.api.runner:app --host 0.0.0.0 --port 8090
+    ports:
+      - "127.0.0.1:8090:8090"
+    environment:
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-password}@db:5432/economia_ve
+      - REDIS_URL=redis://redis:6379
+      - RUNNER_TOKEN=${RUNNER_TOKEN:-}
+    volumes:
+      - ./src:/app/src
+      - ./data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - economia-network
+    restart: unless-stopped
+
+  # Dashboard Streamlit (solo loopback: se accede por túnel/SSH)
   dashboard:
     build: .
     container_name: economia-ve-dashboard
-    command: streamlit run src/dashboard/app.py --server.port=8501
+    command: streamlit run src/dashboard/app.py --server.port=8501 --server.address=127.0.0.1
     ports:
-      - "8501:8501"
+      - "127.0.0.1:8501:8501"
     environment:
-      - DATABASE_URL=postgresql://postgres:password@db:5432/economia_ve
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-password}@db:5432/economia_ve
       - REDIS_URL=redis://redis:6379
     volumes:
       - ./src:/app/src
       - ./data:/app/data
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - economia-network
+    restart: unless-stopped
 
   # PostgreSQL + TimescaleDB
   db:
@@ -45,45 +73,57 @@ services:
     environment:
       POSTGRES_DB: economia_ve
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d economia_ve"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - economia-network
+    restart: unless-stopped
 
   # Redis Cache
   redis:
     image: redis:alpine
     container_name: economia-ve-redis
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6380:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - economia-network
+    restart: unless-stopped
 
-  # Prometheus (Monitoring)
+  # Prometheus (monitoring). Requiere ./config/prometheus.yml, aún ausente.
   prometheus:
     image: prom/prometheus
     container_name: economia-ve-prometheus
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     volumes:
       - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
     networks:
       - economia-network
 
-  # Grafana (Metrics Visualization)
+  # Grafana (metrics visualization)
   grafana:
     image: grafana/grafana
     container_name: economia-ve-grafana
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
     volumes:
       - grafana_data:/var/lib/grafana
     networks:

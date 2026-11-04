@@ -11,6 +11,8 @@ El "Índice de Nerviosismo Monetario" de Venezuela
 se calcula usando GARCH sobre el dólar paralelo.
 """
 
+import logging
+
 import pandas as pd
 import numpy as np
 from typing import Dict, Optional, Tuple
@@ -19,6 +21,8 @@ from arch import arch_model
 import warnings
 
 warnings.filterwarnings('ignore')
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -172,7 +176,10 @@ class GARCHVolatilityAnalyzer:
         try:
             egarch_result = self.fit_garch(log_returns, p=1, q=1, vol_model='EGARCH')
             has_leverage = egarch_result.model_params.get('gamma[1]', 0) < 0
-        except:
+        except Exception as exc:  # noqa: BLE001 - EGARCH es opcional
+            logger.warning(
+                "EGARCH no disponible; se omite el efecto apalancamiento: %s", exc
+            )
             egarch_result = None
             has_leverage = False
         

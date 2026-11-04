@@ -14,6 +14,13 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
+from src.analyzers import reference_values
+from src.analyzers.reference_values import (
+    EXTERNAL_DEBT_SHARE,
+    LONG_TERM_DEBT_SHARE,
+    MEDIUM_TERM_DEBT_SHARE,
+    SHORT_TERM_DEBT_SHARE,
+)
 from src.config import settings
 
 logger = logging.getLogger(__name__)
@@ -510,32 +517,56 @@ def _collect_macro_analytics() -> Dict:
         _debt = total_debt_usd()
         _deficit = fiscal_deficit_pct()
         _oil_rev = _oil_prod * _oil_price * 365 * 1e6  # USD/año
-    except Exception:
-        # Fallback a estimaciones si macro_data falla
-        _oil_price, _oil_prod = 70.0, 1.08
-        _reserves, _imports = 5.5e9, 2.0e9
-        _gdp, _debt, _deficit = 94e9, 150e9, 5.8
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "Datos macro de macro_data no disponibles (%s); se usan valores de "
+            "referencia declarados en la sección de proveniencia", exc,
+        )
+        _oil_price = reference_values.fallback(
+            "oil_price_usd", context="informe", reason="macro_data no disponible")
+        _oil_prod = reference_values.fallback(
+            "oil_production_mbd", context="informe", reason="macro_data no disponible")
+        _reserves = reference_values.fallback(
+            "reserves_usd", context="informe", reason="macro_data no disponible")
+        _imports = reference_values.fallback(
+            "imports_monthly_usd", context="informe", reason="macro_data no disponible")
+        _gdp = reference_values.fallback(
+            "gdp_usd", context="informe", reason="macro_data no disponible")
+        _debt = reference_values.fallback(
+            "total_debt_usd", context="informe", reason="macro_data no disponible")
+        _deficit = reference_values.fallback(
+            "fiscal_deficit_pct", context="informe", reason="macro_data no disponible")
         _oil_rev = _oil_prod * _oil_price * 365 * 1e6
 
     # Cargar datos de mercado para brecha cambiaria real
-    _brecha = 30.0  # Default
+    _brecha: Optional[float] = None
     try:
         from src.dashboard.market_data import dashboard_metrics
         metrics = dashboard_metrics()
         if metrics.get("oficial") and metrics.get("paralelo") and metrics["oficial"].rate > 0:
             _brecha = (metrics["paralelo"].rate / metrics["oficial"].rate - 1) * 100
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Brecha cambiaria no disponible: %s", exc)
+    if _brecha is None:
+        _brecha = reference_values.fallback(
+            "exchange_gap_pct", context="informe:brecha",
+            reason="sin tasas oficial/paralela",
+        )
 
     # Cargar inflación actual
-    _inflation = 10.0  # Default mensual
+    _inflation: Optional[float] = None
     try:
         from src.dashboard.market_data import dashboard_metrics
         metrics = dashboard_metrics()
         if metrics.get("inflacion") and metrics["inflacion"].monthly_rate:
             _inflation = metrics["inflacion"].monthly_rate
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Inflación mensual no disponible: %s", exc)
+    if _inflation is None:
+        _inflation = reference_values.fallback(
+            "monthly_inflation_pct", context="informe:inflacion",
+            reason="sin serie de inflación",
+        )
 
     result = {}
 
@@ -557,8 +588,10 @@ def _collect_macro_analytics() -> Dict:
                     limit=200,
                 )
                 _volatility = SovereignRiskIndex.compute_volatility_from_rates(_rates)
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "Volatilidad cambiaria no disponible; el riesgo la asume 0: %s", exc
+            )
 
         # Calcular incertidumbre
         _sent_vol, _survey_disp, _forecast_err = 0.0, 0.0, 0.0
@@ -569,8 +602,10 @@ def _collect_macro_analytics() -> Dict:
                 sentiment_mean=_soc.get("sentiment_mean", 0),
                 sentiment_count=_soc.get("total_posts", 0),
             )
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "Incertidumbre (sentimiento/encuestas) no disponible: %s", exc
+            )
 
         risk_result = risk.calculate(
             spread_pct=_brecha,
@@ -624,13 +659,13 @@ def _collect_macro_analytics() -> Dict:
         debt_result = debt_analyzer.analyze(
             total_debt_usd=_debt,
             gdp_usd=_gdp,
-            external_debt_usd=_debt * 0.75,
+            external_debt_usd=_debt * EXTERNAL_DEBT_SHARE,
             fiscal_deficit_pct=_deficit,
             oil_revenues_usd=_oil_rev,
             oil_price=_oil_price,
-            short_term_debt=_debt * 0.25,
-            medium_term_debt=_debt * 0.42,
-            long_term_debt=_debt * 0.33,
+            short_term_debt=_debt * SHORT_TERM_DEBT_SHARE,
+            medium_term_debt=_debt * MEDIUM_TERM_DEBT_SHARE,
+            long_term_debt=_debt * LONG_TERM_DEBT_SHARE,
             pdvsa_debt=40e9,
         )
         result["debt"] = {
@@ -780,6 +815,7 @@ def _collect_macro_analytics() -> Dict:
     except Exception as exc:
         logger.debug("Outlook petrolero no disponible: %s", exc)
 
+    result["_degraded"] = reference_values.degraded_report()
     return result
 
 
@@ -814,6 +850,7 @@ def collect_snapshot(
     from src.db.session import get_session
 
     now = datetime.now(timezone.utc)
+    reference_values.reset_degraded()
 
     if since and until:
         days = (until - since).days
@@ -853,6 +890,7 @@ def collect_snapshot(
         "nowcasting": macro_snapshot.get("nowcasting", {}),
         "regional": macro_snapshot.get("regional", {}),
         "oil_outlook": macro_snapshot.get("oil_outlook", {}),
+        "_degraded": macro_snapshot.get("_degraded") or [],
         "bancos": _collect_bancos(),
         "ibc_index": _collect_ibc_index(session, since, until),
         "ibc_stocks": _collect_ibc_stocks(session, since, until),
@@ -1205,6 +1243,33 @@ def oil_outlook_block(oil_data: Dict) -> List[str]:
     return lines
 
 
+def provenance_block(degraded: List[Dict]) -> List[str]:
+    """Sección de proveniencia: qué cifras del informe no fueron observadas."""
+    lines = ["## 🧾 Proveniencia y Calidad de los Datos", ""]
+    if not degraded:
+        lines += [
+            "_Todas las cifras de este informe provienen de fuentes observadas._",
+            "",
+        ]
+        return lines
+    lines += [
+        "**⚠️ Este informe contiene cifras de referencia (no observadas).** "
+        "No deben interpretarse como mediciones.",
+        "",
+        "| Cifra | Valor usado | Dónde se usó | Motivo |",
+        "|---|---|---|---|",
+    ]
+    for item in degraded:
+        contexts = ", ".join(item.get("contexts") or []) or "—"
+        reason = item.get("reason") or "fuente no disponible"
+        lines.append(
+            f"| {item.get('key', '?')} | {item.get('value', 0):g} | "
+            f"{contexts} | {reason} |"
+        )
+    lines.append("")
+    return lines
+
+
 def build_markdown(snapshot: Dict) -> str:
     """Construye el informe en Markdown a partir del snapshot."""
     from src.analyzers.reports.weekly import (
@@ -1244,6 +1309,7 @@ def build_markdown(snapshot: Dict) -> str:
     lines += nowcasting_block(snapshot.get("nowcasting") or {})
     lines += oil_outlook_block(snapshot.get("oil_outlook") or {})
     lines += regional_block(snapshot.get("regional") or {})
+    lines += provenance_block(snapshot.get("_degraded") or [])
     base = "\n".join(lines)
 
     resumen = snapshot.get("resumen") or ""

@@ -1,23 +1,19 @@
 FROM python:3.10-slim
 
-# Set working directory
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# .dockerignore excluye .env, .git y data/ (montada como volumen)
 COPY . .
 
-# Expose ports
-EXPOSE 8000 8501
+EXPOSE 8090 8501
 
-# Default command
+# Scheduler legado; el servicio runner lo sobreescribe con uvicorn.
 CMD ["python", "main.py"]

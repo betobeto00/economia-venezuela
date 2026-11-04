@@ -121,7 +121,11 @@ class Settings(BaseSettings):
     
     # Dashboard
     DASHBOARD_PORT: int = 8501
-    API_PORT: int = 8000
+    API_PORT: int = 8000  # deprecado: no hay servidor HTTP en este puerto
+
+    # Runner HTTP (orquestado por n8n). Token vacío = sin autenticación.
+    RUNNER_PORT: int = 8090
+    RUNNER_TOKEN: Optional[str] = None
     
     # Logging
     LOG_LEVEL: str = "INFO"

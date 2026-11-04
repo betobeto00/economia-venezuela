@@ -668,6 +668,38 @@ def _proyeccion(story, snapshot: Dict) -> None:
     ))
 
 
+def _proveniencia(story, snapshot: Dict) -> None:
+    """Sección de proveniencia: cifras de referencia usadas en el informe."""
+    degraded = snapshot.get("_degraded") or []
+    _section(story, "Proveniencia y Calidad de los Datos")
+    if not degraded:
+        story.append(_p(
+            "_Todas las cifras provienen de fuentes observadas._",
+            styles["Body"],
+        ))
+        return
+    story.append(_p(
+        "⚠️ Este informe contiene cifras de referencia (no observadas). "
+        "No deben interpretarse como mediciones.",
+        styles["Body"],
+    ))
+    rows = [
+        [
+            str(item.get("key", "?")),
+            f"{item.get('value', 0):g}",
+            ", ".join(item.get("contexts") or []) or "—",
+            item.get("reason") or "fuente no disponible",
+        ]
+        for item in degraded
+    ]
+    table = _data_table(
+        ["Cifra", "Valor", "Dónde se usó", "Motivo"], rows,
+        widths=[4 * cm, 2.5 * cm, 4 * cm, 6.5 * cm],
+    )
+    if table:
+        story.append(table)
+
+
 def _footer(canvas, doc) -> None:
     canvas.saveState()
     canvas.setFont(_BODY_FONT, 7.5)
@@ -703,6 +735,7 @@ def render_pdf(snapshot: Dict, output_path: str) -> str:
     _noticias(story, snapshot)
     _marco_fiscal(story, snapshot)
     _macro(story, snapshot)
+    _proveniencia(story, snapshot)
 
     doc = SimpleDocTemplate(
         output_path,

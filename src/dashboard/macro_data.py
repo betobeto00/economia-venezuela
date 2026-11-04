@@ -13,6 +13,8 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
+from src.analyzers import reference_values
+
 logger = logging.getLogger(__name__)
 
 CACHE_MAX_AGE_HOURS = 24  # Re-fetch después de 24 horas
@@ -71,8 +73,8 @@ def _get_cached(indicator: str) -> Optional[dict]:
             if isinstance(file_data.get("fetched_at"), str):
                 file_data["fetched_at"] = datetime.fromisoformat(file_data["fetched_at"])
             return file_data
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("Cache archivo macro no disponible: %s", exc)
 
     # 2. Intentar cache en DB
     cache = _load_macro_cache()
@@ -86,8 +88,8 @@ def _get_cached(indicator: str) -> Optional[dict]:
             try:
                 from src.cache.manager import cache_api_response
                 cache_api_response(f"macro_{indicator}", result, ttl_hours=24)
-            except Exception:
-                pass
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("No se pudo poblar cache archivo macro: %s", exc)
             return result
 
     return None
@@ -152,8 +154,8 @@ def pib_latest() -> Optional[dict]:
             }
             _save_cached("cepal", "pib", latest.value, latest.period, latest.unit)
             return result
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("CEPAL no disponible para PIB: %s", exc)
 
     # 3. Intentar World Bank
     try:
@@ -169,8 +171,8 @@ def pib_latest() -> Optional[dict]:
             }
             _save_cached("world_bank", "pib", latest.value, str(latest.year))
             return result
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("Banco Mundial no disponible para PIB: %s", exc)
 
     return None
 
@@ -195,8 +197,8 @@ def pib_crecimiento() -> Optional[dict]:
             }
             _save_cached("imf", "pib_crecimiento", latest.value, latest.period, latest.unit)
             return result
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("FMI no disponible para crecimiento del PIB: %s", exc)
 
     # Intentar World Bank
     try:
@@ -212,8 +214,8 @@ def pib_crecimiento() -> Optional[dict]:
             }
             _save_cached("world_bank", "pib_crecimiento", latest.value, str(latest.year))
             return result
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("Banco Mundial no disponible para crecimiento del PIB: %s", exc)
 
     return None
 
@@ -238,8 +240,8 @@ def inflacion_internacional() -> Optional[dict]:
             }
             _save_cached("imf", "inflacion", latest.value, latest.period, latest.unit)
             return result
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("FMI no disponible para inflación: %s", exc)
 
     # World Bank
     try:
@@ -255,8 +257,8 @@ def inflacion_internacional() -> Optional[dict]:
             }
             _save_cached("world_bank", "inflacion", latest.value, str(latest.year))
             return result
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("Banco Mundial no disponible para inflación: %s", exc)
 
     return None
 
@@ -280,8 +282,8 @@ def produccion_petrolera() -> Optional[dict]:
             }
             _save_cached("opec", "petroleo", point.value, point.period, point.unit)
             return result
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("OPEP no disponible para producción: %s", exc)
 
     return None
 
@@ -305,8 +307,8 @@ def gasto_onu() -> Optional[dict]:
             }
             _save_cached("unsceb", "gasto_onu", latest.value, latest.period, latest.unit)
             return result
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("UNSCEB no disponible para gasto ONU: %s", exc)
 
     return None
 
@@ -387,10 +389,14 @@ def oil_price_current() -> float:
         point = OPECCollector().fetch_basket_price()
         if point and point.value > 0:
             return point.value
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("OPEP no disponible para precio del crudo: %s", exc)
 
-    return 70.0  # Fallback razonable
+    return reference_values.fallback(
+        "oil_price_usd",
+        context="oil_price_current",
+        reason="CSV Brent y OPEP no disponibles",
+    )
 
 
 def oil_production_ve() -> float:
@@ -404,9 +410,10 @@ def oil_production_ve() -> float:
     if cached:
         return cached["value"]
 
-    # Fallback: estimación basada en datos públicos recientes
-    # Venezuela: ~1.08 mbd (2025-2026, estimación OPEP)
-    return 1.08
+    # Estimación de referencia: ~1.08 mbd (OPEP 2025-2026)
+    return reference_values.fallback(
+        "oil_production_mbd", context="oil_production_ve"
+    )
 
 
 def reserves_usd() -> float:
@@ -419,9 +426,10 @@ def reserves_usd() -> float:
     if cached:
         return cached["value"]
 
-    # Estimación basada en datos públicos recientes
-    # BCV reporta ~$5-6B en reservas (oro + divisas)
-    return 5.5e9  # ~5,500 millones USD
+    # Serie oficial BCV (BCV+FEM), cierre 3T / fin oct-2026:
+    # 25-sep: 12.731 | 30-oct: 12.665 | 2-nov: 13.087 (US$ M)
+    # Fuente: bcv.org.ve/estadisticas/reservas-internacionales (2_1_1.xlsx, 2_2_1.xlsx)
+    return reference_values.fallback("reserves_usd", context="reserves_usd")
 
 
 def imports_monthly() -> float:
@@ -435,7 +443,9 @@ def imports_monthly() -> float:
         return cached["value"]
 
     # Estimación: ~$2B/mes según CEPAL/FMI
-    return 2.0e9
+    return reference_values.fallback(
+        "imports_monthly_usd", context="imports_monthly"
+    )
 
 
 def fiscal_deficit_pct() -> float:
@@ -449,7 +459,9 @@ def fiscal_deficit_pct() -> float:
         return cached["value"]
 
     # Estimación FMI: ~5.8% del PIB
-    return 5.8
+    return reference_values.fallback(
+        "fiscal_deficit_pct", context="fiscal_deficit_pct"
+    )
 
 
 def gdp_usd() -> float:
@@ -468,7 +480,7 @@ def gdp_usd() -> float:
         return val
 
     # Estimación FMI: ~$94B (2025-2026)
-    return 94e9
+    return reference_values.fallback("gdp_usd", context="gdp_usd")
 
 
 def total_debt_usd() -> float:
@@ -482,4 +494,4 @@ def total_debt_usd() -> float:
         return cached["value"]
 
     # Estimación: ~$150B deuda total reportada
-    return 150e9
+    return reference_values.fallback("total_debt_usd", context="total_debt_usd")

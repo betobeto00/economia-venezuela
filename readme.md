@@ -151,7 +151,7 @@ Google Forms y el service account, y configurar los IDs en `.env`.*
 ### Core
 - **Lenguaje Principal**: Python 3.10+
 - **Motor de Análisis IA**: Cadena de 8+ LLMs con fallback (LLM1..LLM8 configurable)
-- **Base de Datos**: PostgreSQL (Railway)
+- **Base de Datos**: PostgreSQL + TimescaleDB (local, Docker Compose)
 - **Cache**: Redis (opcional)
 
 ### Econometrics
@@ -193,8 +193,11 @@ pip install -r requirements.txt
 cp .env.example .env
 # Editar .env con tus API keys
 
-# Ejecutar el scheduler (recolección + informes automáticos)
+# Scheduler legado (APScheduler). En migración a n8n: ver n8n/README.md
 python main.py
+
+# Runner HTTP que invoca n8n (recolección + informes por allowlist)
+uvicorn src.api.runner:app --host 127.0.0.1 --port 8090
 
 # O solo el dashboard
 streamlit run src/dashboard/app.py

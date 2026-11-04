@@ -15,6 +15,7 @@ Dashboard Principal - Economía Venezuela
 Sidebar: filtros globales, panel de recolectores con time range.
 """
 
+import logging
 import sys
 from pathlib import Path
 
@@ -28,6 +29,8 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 from src.dashboard import theme
 from src.dashboard.components.news_section import render_news_section
@@ -1054,8 +1057,8 @@ with tab_macro:
         try:
             from src.dashboard.bvc_capitalization import get_capitalization_summary
             cap_for_risk = get_capitalization_summary()
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Capitalización BVC no disponible para el riesgo: %s", exc)
         # Calcular volatilidad desde historial de tipos de cambio
         _volatility = 0.0
         try:
@@ -1069,8 +1072,10 @@ with tab_macro:
                     limit=200,
                 )
                 _volatility = SovereignRiskIndex.compute_volatility_from_rates(_rates)
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "Volatilidad cambiaria no disponible; el riesgo la asume 0: %s", exc
+            )
 
         # Calcular incertidumbre desde sentimiento y encuestas
         _sent_vol, _survey_disp, _forecast_err = 0.0, 0.0, 0.0
@@ -1082,8 +1087,10 @@ with tab_macro:
                 sentiment_count=_soc.get("total_posts", 0),
                 survey_responses=1,  # Placeholder
             )
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "Incertidumbre (sentimiento/encuestas) no disponible: %s", exc
+            )
 
         risk_result = risk.calculate(
             spread_pct=brecha if brecha else 0,
@@ -1185,6 +1192,10 @@ with tab_macro:
             fiscal_deficit_pct as get_deficit, oil_price_current as get_oil_price,
             oil_production_ve as get_oil_prod,
         )
+        from src.analyzers.reference_values import (
+            EXTERNAL_DEBT_SHARE, LONG_TERM_DEBT_SHARE,
+            MEDIUM_TERM_DEBT_SHARE, SHORT_TERM_DEBT_SHARE,
+        )
         _gdp = get_gdp_usd()
         _debt = get_total_debt()
         _oil_price = get_oil_price()
@@ -1194,13 +1205,13 @@ with tab_macro:
         debt_result = debt.analyze(
             total_debt_usd=_debt,
             gdp_usd=_gdp,
-            external_debt_usd=_debt * 0.75,  # ~75% externa
+            external_debt_usd=_debt * EXTERNAL_DEBT_SHARE,
             fiscal_deficit_pct=_deficit,
             oil_revenues_usd=_oil_rev,
             oil_price=_oil_price,
-            short_term_debt=_debt * 0.25,
-            medium_term_debt=_debt * 0.42,
-            long_term_debt=_debt * 0.33,
+            short_term_debt=_debt * SHORT_TERM_DEBT_SHARE,
+            medium_term_debt=_debt * MEDIUM_TERM_DEBT_SHARE,
+            long_term_debt=_debt * LONG_TERM_DEBT_SHARE,
             pdvsa_debt=40e9,
         )
 
