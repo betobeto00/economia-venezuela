@@ -115,7 +115,8 @@ class TestSummarize:
     def test_resume_con_cadena(self, monkeypatch):
         fake = FakePost([FakeResponse(content="resumen")])
         monkeypatch.setattr("httpx.post", fake)
-        out = summarize("rol", "texto")
+        # Providers explícitos: el test no debe depender del .env del host
+        out = summarize("rol", "texto", providers=_providers(["p1"]))
         assert out == "resumen"
         body = fake.calls[0][1]["json"]
         assert body["messages"][0]["role"] == "system"
@@ -176,6 +177,15 @@ class TestSurveyReportUsaCadena:
 
         fake = FakePost([FakeResponse(content="Resumen IA semanal")])
         monkeypatch.setattr("httpx.post", fake)
+
+        # Cadena con un único proveedor inyectado (sin depender del .env)
+        for i in range(1, 9):
+            for attr in ("API_KEY", "BASE_URL", "MODEL"):
+                monkeypatch.setattr(settings, f"LLM{i}_{attr}", None)
+        monkeypatch.setattr(settings, "DEEPSEEK_API_KEY", None)
+        monkeypatch.setattr(settings, "LLM1_API_KEY", "k1")
+        monkeypatch.setattr(settings, "LLM1_BASE_URL", "https://k1.test/v1")
+        monkeypatch.setattr(settings, "LLM1_MODEL", "m-k1")
 
         kpis = {}
         report = SurveyReport(ai_enabled=True)

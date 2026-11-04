@@ -602,6 +602,16 @@ token; y tres jobs reales por HTTP contra el runner en Docker:
 `verify_data` (1.9 s), `collect_market` (15.2 s) y `generate_report` diario
 MD + PDF (52.7 s), los tres con `exit_code=0` y sin errores de import.
 
+El pre-flight (`pytest` vía runner) también corre en el contenedor: **354
+passed** en 3m29s. Eso destapó dos tests (`test_llm.py`) que dependían del `.env`
+del host para tener una cadena de LLMs; con la imagen no hay claves y fallaban.
+Ahora inyectan sus providers explícitamente (`providers=` y `monkeypatch` de
+`settings.LLM1_*`), así que pasan igual con o sin `.env`.
+
 Limitación conocida: el OCR de gacetas (`pdfplumber`, `pymupdf`) se importa de
 forma perezosa y no está en la imagen; si se programan jobs de OCR fiscales hay
 que añadirlos a `requirements-runtime.txt`.
+
+Nota: `requirements.txt` conserva los pines viejos de desarrollo (incluido el
+`pydolarvenezuela==0.2.0` inexistente). Para levantar el entorno en Python 3.12+
+basta `requirements-runtime.txt`; unificar ambos ficheros queda pendiente.
