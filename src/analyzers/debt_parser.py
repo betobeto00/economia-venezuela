@@ -17,10 +17,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from src.utils.paths import latest_year_dir
+
 logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-OCR_DIR = PROJECT_ROOT / "data" / "ocr" / "bvc" / "2026"
+OCR_ROOT = PROJECT_ROOT / "data" / "ocr" / "bvc"
+
+
+def ocr_dir() -> Path:
+    """Carpeta OCR del año más reciente (nunca un año fijo)."""
+    return latest_year_dir(OCR_ROOT)
 
 
 @dataclass
@@ -252,7 +259,7 @@ def load_all_debt_data() -> Dict[str, DebtSummary]:
     results = {}
 
     # Parse DPN
-    dpn_path = OCR_DIR / "dpn.md"
+    dpn_path = ocr_dir() / "dpn.md"
     if dpn_path.exists():
         text = dpn_path.read_text(encoding="utf-8")
         # Remove frontmatter
@@ -261,7 +268,7 @@ def load_all_debt_data() -> Dict[str, DebtSummary]:
         results["dpn"] = parse_dpn_ocr(text)
 
     # Parse Bills
-    bills_path = OCR_DIR / "bills.md"
+    bills_path = ocr_dir() / "bills.md"
     if bills_path.exists():
         text = bills_path.read_text(encoding="utf-8")
         if "---" in text:
@@ -270,7 +277,7 @@ def load_all_debt_data() -> Dict[str, DebtSummary]:
 
     # Parse other debt documents
     for doc_name in ["bcv", "pdvsa", "goverment", "export", "dpn-ticc"]:
-        doc_path = OCR_DIR / f"{doc_name}.md"
+        doc_path = ocr_dir() / f"{doc_name}.md"
         if doc_path.exists():
             text = doc_path.read_text(encoding="utf-8")
             if "---" in text:
@@ -290,7 +297,7 @@ def load_all_debt_data() -> Dict[str, DebtSummary]:
             results[doc_name] = summary
 
     # Parse renta fija
-    rf_path = OCR_DIR / "INSTRUMENTOS-DE-RENTA-FIJA.md"
+    rf_path = ocr_dir() / "INSTRUMENTOS-DE-RENTA-FIJA.md"
     if rf_path.exists():
         text = rf_path.read_text(encoding="utf-8")
         if "---" in text:

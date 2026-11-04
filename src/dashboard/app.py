@@ -1598,12 +1598,14 @@ with tab_macro:
             st.info("*Módulo regional disponible pero sin datos aún.*")
 
     # ── Footer ─────────────────────────────────────────────────────────────────
+from src.utils.clock import local_now  # noqa: E402 - import tardío deliberado
+
 st.markdown("---")
 st.markdown(
     """
     <div style='text-align: center; color: #888;'>
         <p>Economía Venezuela v0.1.0 | Actualizado: {}</p>
     </div>
-    """.format(datetime.now().strftime("%Y-%m-%d %H:%M")),
+    """.format(local_now().strftime("%Y-%m-%d %H:%M")),
     unsafe_allow_html=True
 )

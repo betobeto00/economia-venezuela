@@ -497,3 +497,76 @@ Pendiente / decisiones que requieren tu criterio
 3. Añadir `RUNNER_TOKEN` al compose de n8n (mismo valor que `.env`) y `GENERIC_TIMEZONE=America/Caracas`. **No** fijar `N8N_ENCRYPTION_KEY` a ciegas en una instancia existente: invalidaría las credenciales guardadas; primero hay que exportar la del volumen.
 4. Redis se publica en 6380 porque Windows bloquea el 6379 (rango reservado); dentro de la red Docker sigue siendo `redis:6379`.
 5. Prometheus sigue sin `config/prometheus.yml`, así que ese servicio no arranca.
+
+---
+
+VII) SEGUNDA TANDA (04-11-2026, tarde)
+
+**Datos: Railway se dio de baja.** El proyecto en Railway fue eliminado, así que
+no existe dump que restaurar: no hay recuperación posible de ese histórico. En
+lugar de un `pg_dump` se reconstruyó la base local desde las fuentes con los
+colectores, y se añadió `src/scripts/verify_data.py` para auditar qué hay
+tras cada corrida (filas, rango de fechas, registros de los últimos N días;
+`--fail-on-empty` sale con 1 si falta una tabla esencial).
+
+Estado real de la base local tras la reconstrucción:
+
+| Tabla | Filas | Cobertura |
+|---|---|---|
+| `exchange_rates` | 8 | 2026-11-04 (BCV, Binance y bancos del día) |
+| `venezuelan_tickers` | 1220 | 2026-09-05 → 2026-11-04 (backfill IBC 61 días) |
+| `ibc_index` | 2 | 2026-11-04 |
+| `news_articles` | 8 | 2026-11-04 (RSS) |
+| `social_posts` | 6 | 2026-11-04 (Reddit) |
+| `sentiment_scores` | 7 | 2026-11-04 |
+| `inflation_points` | 1 | 2026-11 |
+| `macro_indicators` | 0 | — |
+| `survey_responses` | 0 | — (sin IDs de Google Forms) |
+| `ibc_components` | 0 | — |
+
+Las series históricas quedan cortas porque las fuentes gratuitas solo publican
+el dato del día (el dataset de usdt.com.ve devolvió 0 promedios). Para tener
+histórico real hay que programar backfills por fuente, no basta con recolectar.
+
+**Scheduler retirado (P20).** `main.py` ya no importa APScheduler: hace
+bootstrap del esquema, comprueba la base y sale con 0/1. Se eliminó el servicio
+`app` de `docker-compose.yml` y `docker-compose.dev.yml`. `src/scheduler/jobs.py`
+se conserva como referencia de las cadencias hasta validar dos semanas de n8n.
+
+**n8n activo.** Los 7 workflows se importaron y publicaron (`publish:workflow`;
+en 2.39 `update:workflow --all --active=true` ya no publica y no existe comando
+de borrado). Como el contenedor de n8n no tiene `RUNNER_TOKEN` en su entorno, la
+autenticación pasó de `{{ $env.RUNNER_TOKEN }}` a una credencial **HTTP Header
+Auth** con id `eco-runner-token`, importada al contenedor. Quedan activos:
+mercado (30 min), noticias (1 h), refresco (dom 03:00), informes (6 cron),
+watchdog (15 min) y pre-flight (lun 06:00). Encuestas queda **inactivo** a
+propósito: sin `SURVEY_*_FORM_ID`/`SHEET_ID` el job no recolecta nada.
+
+Prueba real del ciclo: `collect_market` y el watchdog ejecutados por n8n a las
+14:30 del 04-11 con estado `success`; el runner respondió 200 desde dentro del
+contenedor y 401 sin token; `generate_report` (diario, MD + PDF) se generó por
+el runner en 147 s con la sección de Proveniencia ya incluida.
+
+**Sesgos de la Fase 1 corregidos.**
+
+| Sesgo | Antes | Ahora |
+|---|---|---|
+| Zona horaria | `datetime.now()` y etiqueta "UTC" mezcladas | `src/utils/clock.py` (`America/Caracas`, fallback UTC-4) en informes, PDF, encuestas y dashboard |
+| Años fijos | OCR `bvc/2026`, ONAPRE 2026, Banco Mundial 2025, query "2024 2025" | `src/utils/paths.latest_year_dir` + año actual en ONAPRE/regional/noticias |
+| Calidad de encuestas | `SURVEY_QUALITY_THRESHOLD` con 0 usos | `SurveyIndicators._usable` filtra respuestas bajo el umbral antes de agregar |
+| Mínimo de respuestas | 1 / 3 / 5 según el módulo | `SURVEY_MIN_RESPONSES=5` en serie, tarjetas y dashboard |
+| Pesos | fijos en el código | `IAE_WEIGHTS` y `SOVEREIGN_RISK_WEIGHTS` (JSON) con validación y caída a defaults |
+
+Verificación final: **354 tests passed** (5m39s), incluidos dos nuevos
+(`test_calidad_baja_no_entra_a_kpis`, `test_compute_series_min_responses_por_defecto`).
+
+Pendiente de esta tanda
+1. El runner quedó como proceso de host para la prueba; para que sobreviva a un
+   reinicio hay que levantarlo con `docker compose up -d runner` (implica build
+   de la imagen) o como servicio de Windows.
+2. Histórico: programar backfills por fuente (tasas, IPC, IBC) en lugar de
+   depender del dato diario.
+3. `macro_indicators` sigue vacío: `refresh_macro` escribe en caché de series,
+   no en esa tabla.
+4. Restaurar `eco-runner-token` si se recrea la base de n8n (ver `n8n/README.md`).
+5. Respaldo de la SQLite de n8n en `data/tmp/n8n-db-backup/` (ignorado por git).

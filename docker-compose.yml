@@ -1,24 +1,6 @@
 services:
-  # Scheduler legado (APScheduler). Se retira cuando n8n tome el control
-  # de los jobs (ver docs/Informe_sub_agentes_04112026.md §V-P20).
-  app:
-    build: .
-    container_name: economia-ve-app
-    command: python main.py
-    environment:
-      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-password}@db:5432/economia_ve
-      - REDIS_URL=redis://redis:6379
-    volumes:
-      - ./src:/app/src
-      - ./data:/app/data
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - economia-network
-    restart: unless-stopped
+  # Scheduler: ya no hay proceso APScheduler. Los jobs los dispara n8n
+  # (ver n8n/README.md); `python main.py` solo hace bootstrap del esquema.
 
   # Runner HTTP: n8n lo invoca para ejecutar los CLIs (allowlist + token).
   # Publicado solo en loopback; n8n lo alcanza por host.docker.internal:8090.

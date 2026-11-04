@@ -39,15 +39,21 @@ class IAEResult:
 class IAEIndex:
     """Índice de Actividad Económica en tiempo real."""
 
-    def __init__(self):
-        # Pesos para el índice compuesto
-        self.weights = {
+    def __init__(self, weights=None):
+        from src.config import settings
+        from src.utils.weights import parse_weights
+
+        # Pesos por defecto, sobrescribibles con IAE_WEIGHTS (JSON)
+        defaults = {
             "exchange_rate": 0.30,  # Tipo de cambio
             "oil_production": 0.25,  # Producción petrolera
             "sentiment": 0.20,  # Sentimiento
             "news_frequency": 0.15,  # Frecuencia de noticias
             "inflation": 0.10,  # Inflación (inverso)
         }
+        self.weights = weights or parse_weights(
+            settings.IAE_WEIGHTS, defaults, "IAE"
+        )
 
     def normalize(self, value: float, min_val: float, max_val: float) -> float:
         """Normaliza un valor al rango 0-100."""

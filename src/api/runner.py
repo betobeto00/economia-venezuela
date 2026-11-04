@@ -55,6 +55,7 @@ TIMEOUTS: Dict[str, int] = {
     "backfill_rates": 900,
     "backfill_ibc": 900,
     "generate_report": 1800,
+    "verify_data": 300,
     "pytest": 900,
 }
 
@@ -70,6 +71,7 @@ _ALLOWED_FIELDS: Dict[str, Set[str]] = {
     "backfill_rates": {"days", "no_save"},
     "backfill_ibc": {"days"},
     "generate_report": {"cadence", "format", "no_ai"},
+    "verify_data": set(),
     "pytest": set(),
 }
 

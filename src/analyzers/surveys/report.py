@@ -53,7 +53,9 @@ def build_markdown_report(
         Markdown listo para el dashboard o exportación.
     """
     segment = "Persona Común" if survey_type == "persona_comun" else "Comerciante"
-    period_label = period or datetime.now().strftime("%Y-%m-%d")
+    from src.utils.clock import local_now
+
+    period_label = period or local_now().strftime("%Y-%m-%d")
 
     report = [
         f"# Informe Ejecutivo de Encuestas — {segment}",

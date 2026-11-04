@@ -1,10 +1,19 @@
 """
 Economía Venezuela - Punto de Entrada Principal
+================================================
+
+Desde el corte a n8n este módulo **no programa tareas**: solo prepara el
+esquema y verifica la configuración. El calendario de jobs vive en los
+workflows de ``n8n/workflows/``, que invocan al runner HTTP
+(``src/api/runner.py``).
+
+Uso:
+    python main.py           # bootstrap: logging + esquema + resumen de estado
+    python main.py --check   # solo comprueba DB y sale con 0/1 (para CI/Docker)
 """
 
-import sys
-import time
 import logging
+import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -12,7 +21,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from src.config import settings
-from src import __version__
 
 
 def setup_logging():
@@ -44,70 +52,54 @@ def setup_logging():
 def init_database():
     """Crea el esquema de base de datos si no existe."""
     from src.db.session import init_db
+
     init_db()
 
 
-def start_scheduler():
-    """Arranca el scheduler de tareas periódicas (mercado, encuestas, noticias, informe)."""
-    from apscheduler.schedulers.background import BackgroundScheduler
-    from src.scheduler.jobs import (
-        register_market_job,
-        register_news_job,
-        register_periodic_report_jobs,
-        register_survey_job,
-        register_weekly_report_job,
-    )
+def database_ok() -> bool:
+    """Devuelve ``True`` si la base de datos configurada responde."""
+    try:
+        from sqlalchemy import text
 
-    scheduler = BackgroundScheduler()
-    register_market_job(scheduler)
-    register_survey_job(scheduler)
-    register_news_job(scheduler)
-    register_weekly_report_job(scheduler)
-    register_periodic_report_jobs(scheduler)
-    scheduler.start()
-    logging.getLogger(__name__).info(
-        "Scheduler iniciado (mercado cada %d min, encuestas cada %d min, "
-        "noticias cada %d h, informe semanal %s %02d:00, informes periódicos "
-        "diario→anual)",
-        settings.MARKET_COLLECT_INTERVAL_MINUTES,
-        settings.SURVEY_COLLECT_INTERVAL_MINUTES,
-        settings.NEWS_COLLECT_INTERVAL_HOURS,
-        settings.WEEKLY_REPORT_DAY,
-        settings.WEEKLY_REPORT_HOUR,
-    )
-    return scheduler
+        from src.db.session import get_engine
+
+        with get_engine().connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return True
+    except Exception as exc:  # noqa: BLE001 - el bootstrap debe explicar el fallo
+        logging.getLogger(__name__).error("Base de datos no disponible: %s", exc)
+        return False
 
 
-def main():
-    """Función principal de la aplicación"""
+def main(argv=None) -> int:
+    """Bootstrap del sistema (sin scheduler).
+
+    Returns:
+        Código de salida: 0 si la base responde, 1 si no.
+    """
+    argv = sys.argv[1:] if argv is None else argv
     logger = setup_logging()
-    
-    logger.info(f"Iniciando {settings.APP_NAME} v{settings.APP_VERSION}")
-    logger.info(f"Entorno: {settings.ENVIRONMENT}")
-    logger.info(f"Modo debug: {settings.DEBUG}")
-    
-    # 1. Conectar a base de datos
+
+    logger.info("Iniciando %s v%s", settings.APP_NAME, settings.APP_VERSION)
+    logger.info("Entorno: %s | Zona horaria: %s", settings.ENVIRONMENT, settings.TIMEZONE)
+
     try:
         init_database()
         logger.info("Base de datos lista")
-    except Exception as exc:
-        logger.warning("No se pudo inicializar la base de datos: %s", exc)
+    except Exception as exc:  # noqa: BLE001 - se reporta abajo como fallo
+        logger.error("No se pudo inicializar la base de datos: %s", exc)
 
-    # 2. Iniciar scheduler de recolección periódica
-    scheduler = start_scheduler() if settings.ENVIRONMENT != "test" else None
-    
-    logger.info("Sistema inicializado correctamente")
-    logger.info("Presiona Ctrl+C para detener")
-    
-    try:
-        # Mantener el sistema ejecutándose
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        logger.info("Deteniendo sistema...")
-        if scheduler is not None:
-            scheduler.shutdown()
+    ok = database_ok()
+    logger.info(
+        "Scheduler: desactivado (los jobs los programa n8n; ver n8n/README.md)"
+    )
+    logger.info("Runner HTTP: %s:%s", "127.0.0.1", settings.RUNNER_PORT)
+    logger.info("Estado de la base de datos: %s", "ok" if ok else "fallo")
+
+    if "--check" in argv:
+        return 0 if ok else 1
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

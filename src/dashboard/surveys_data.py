@@ -22,6 +22,7 @@ from typing import Dict, List, Optional
 
 import pandas as pd
 
+from src.config import settings
 from src.analyzers.surveys.contrast import contrast_perception_inflation
 from src.analyzers.surveys.indicators import KPIResult, SurveyIndicators
 from src.analyzers.surveys.report import SurveyReport
@@ -31,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_FREQ = "W"
 DEFAULT_DAYS = 90
-MIN_RESPONSES_SERIES = 3
+MIN_RESPONSES_SERIES = settings.SURVEY_MIN_RESPONSES
 
 
 def segment_label(survey_type: str) -> str:

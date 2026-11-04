@@ -193,11 +193,14 @@ pip install -r requirements.txt
 cp .env.example .env
 # Editar .env con tus API keys
 
-# Scheduler legado (APScheduler). En migración a n8n: ver n8n/README.md
-python main.py
+# Bootstrap del esquema (el calendario de jobs vive en n8n: ver n8n/README.md)
+python main.py --check
 
 # Runner HTTP que invoca n8n (recolección + informes por allowlist)
 uvicorn src.api.runner:app --host 127.0.0.1 --port 8090
+
+# Auditoría de lo que hay realmente en la base local
+python -m src.scripts.verify_data
 
 # O solo el dashboard
 streamlit run src/dashboard/app.py
@@ -213,6 +216,7 @@ streamlit run src/dashboard/app.py
 | `backfill_ibc.py` | Backfill histórico del IBC + tickers venezolanos | `python -m src.scripts.backfill_ibc --since 2026-08-01 --until 2026-08-14` |
 | `backfill_rates.py` | Backfill histórico de tasas (dataset usdt.com.ve, CC-BY-4.0) | `python -m src.scripts.backfill_rates` |
 | `generate_report.py` | Genera informes económicos en MD y PDF | `python -m src.scripts.generate_report --cadence semanal --format md,pdf` |
+| `verify_data.py` | Audita filas y frescura por tabla (`--fail-on-empty` sale con 1) | `python -m src.scripts.verify_data` |
 
 ## 📁 Estructura del Proyecto
 
@@ -336,7 +340,7 @@ economia-venezuela/
 | Informe semestral | 1° de ene/jul 11:00 | cron `report_semestral` |
 | Informe anual | 1° de enero 12:00 | cron `report_anual` |
 
-> El scheduler (APScheduler en `main.py`) registra 11 jobs: mercado, encuestas, noticias, informe semanal e informes periódicos (6 cadencias: diario a anual).
+> El calendario ya no vive en `main.py`: los jobs están en `n8n/workflows/` (7 workflows) y llaman al runner HTTP con token. `python main.py` solo prepara el esquema y comprueba la base; la tabla anterior describe las cadencias publicadas en n8n. Ver `n8n/README.md`.
 
 ## 📈 Métricas del Dashboard
 

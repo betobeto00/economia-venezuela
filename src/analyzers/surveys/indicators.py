@@ -22,6 +22,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+from src.config import settings
 from src.models.survey import SurveyResponse
 from src.collectors.surveys.utils import (
     ALTA_BAJA_MAP,
@@ -117,8 +118,33 @@ class SurveyIndicators:
         question_map: Mapa de preguntas; por defecto usa QUESTION_MAP.
     """
 
-    def __init__(self, question_map: Optional[Dict[str, Dict[str, Any]]] = None):
+    def __init__(
+        self,
+        question_map: Optional[Dict[str, Dict[str, Any]]] = None,
+        min_quality: Optional[float] = None,
+    ):
         self.question_map = question_map or QUESTION_MAP
+        self.min_quality = (
+            settings.SURVEY_QUALITY_THRESHOLD if min_quality is None else min_quality
+        )
+
+    def _usable(self, responses: List[SurveyResponse]) -> List[SurveyResponse]:
+        """Respuestas que superan el umbral de calidad configurado.
+
+        Las respuestas incompletas se guardan íntegras en la base, pero no
+        deben arrastrar los promedios: ``quality_score`` mide la fracción de
+        preguntas respondidas.
+        """
+        usable = []
+        for response in responses:
+            quality = response.quality_score
+            if quality is None or float(quality) >= self.min_quality:
+                usable.append(response)
+        return usable
+
+    def excluded_low_quality(self, responses: List[SurveyResponse]) -> int:
+        """Cuántas respuestas quedan fuera por calidad (para trazabilidad)."""
+        return len(responses) - len(self._usable(responses))
 
     def _find_answer(self, raw_answers: Dict[str, Any], terms: List[str]) -> Optional[str]:
         """Localiza la respuesta de una pregunta por coincidencia de subcadena.
@@ -175,7 +201,7 @@ class SurveyIndicators:
         """
         results: Dict[str, KPIResult] = {}
         per_kpi: Dict[str, List[float]] = {}
-        for response in responses:
+        for response in self._usable(responses):
             for key, score in self.extract_all(response).items():
                 per_kpi.setdefault(key, []).append(score)
 
@@ -193,7 +219,7 @@ class SurveyIndicators:
         self,
         responses: List[SurveyResponse],
         freq: str = "W",
-        min_responses: int = 1,
+        min_responses: int = settings.SURVEY_MIN_RESPONSES,
     ) -> pd.DataFrame:
         """Serie temporal de KPIs agregados por período (media).
 
@@ -207,7 +233,7 @@ class SurveyIndicators:
             DataFrame con columnas ``kpi``, ``date``, ``mean``, ``n``.
         """
         records: List[Dict[str, Any]] = []
-        for response in responses:
+        for response in self._usable(responses):
             if response.submitted_at is None:
                 continue
             for key, score in self.extract_all(response).items():

@@ -45,8 +45,12 @@ class RiskResult:
 class SovereignRiskIndex:
     """Índice de Riesgo Soberano de Venezuela."""
 
-    def __init__(self):
-        # Ponderaciones por defecto (se pueden hacer dinámicas)
+    def __init__(self, weights: Optional[Dict[str, float]] = None):
+        from src.config import settings
+        from src.utils.weights import parse_weights
+
+        # Ponderaciones por defecto, sobrescribibles con
+        # SOVEREIGN_RISK_WEIGHTS (JSON)
         self.default_weights = {
             "spread": 0.18,
             "volatility": 0.10,
@@ -58,7 +62,11 @@ class SovereignRiskIndex:
             "uncertainty": 0.07,
             "market_cap": 0.12,
         }
-        self.weights = dict(self.default_weights)
+        self.weights = weights or parse_weights(
+            settings.SOVEREIGN_RISK_WEIGHTS,
+            self.default_weights,
+            "riesgo soberano",
+        )
         self._previous_score: Optional[float] = None
 
     @staticmethod

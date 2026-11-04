@@ -343,7 +343,9 @@ def build_weekly_report(
     Returns:
         Informe Markdown completo.
     """
-    now = datetime.now(timezone.utc)
+    from src.utils.clock import as_local, tz_label
+
+    now = as_local(datetime.now(timezone.utc))
     period = period or f"Semana del {now.strftime('%Y-%m-%d')}"
     use_ai = settings.llm_providers() if ai_enabled is None else ai_enabled
 
@@ -351,7 +353,7 @@ def build_weekly_report(
         "# Informe Semanal — Economía Venezuela",
         "",
         f"**Período:** {period}  ",
-        f"**Generado:** {now.strftime('%Y-%m-%d %H:%M UTC')}",
+        f"**Generado:** {now.strftime('%Y-%m-%d %H:%M')} {tz_label()}",
         "",
     ]
     lines += market_block(market or [])
@@ -528,7 +530,9 @@ def save_report(markdown: str, output_path: Optional[str] = None) -> str:
     from pathlib import Path
 
     if output_path is None:
-        now = datetime.now()
+        from src.utils.clock import local_now
+
+        now = local_now()
         iso = now.isocalendar()
         name = f"weekly_{now.year}-W{iso.week:02d}.md"
         output_path = str(Path("data", "reports", name))

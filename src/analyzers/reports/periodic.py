@@ -1283,12 +1283,20 @@ def build_markdown(snapshot: Dict) -> str:
         surveys_block,
     )
 
-    now = snapshot.get("generated_at") or datetime.now(timezone.utc)
+    from src.utils.clock import as_local, tz_label
+
+    generated = snapshot.get("generated_at")
+    if isinstance(generated, str):
+        try:
+            generated = datetime.fromisoformat(generated)
+        except ValueError:
+            generated = None
+    now = as_local(generated or datetime.now(timezone.utc))
     lines = [
         f"# {CADENCES[snapshot.get('cadence', 'semanal')]['label']} — Economía Venezuela",
         "",
         f"**Período:** {snapshot.get('period', '')}  ",
-        f"**Generado:** {now:%Y-%m-%d %H:%M UTC}",
+        f"**Generado:** {now:%Y-%m-%d %H:%M} {tz_label()}",
         "",
     ]
     lines += market_block(snapshot.get("market") or [])
@@ -1324,7 +1332,9 @@ def save_report(markdown: str, cadence: str, output_dir: Optional[str] = None,
     """Guarda el Markdown en ``output_dir/<cadence>_<fecha>.md``."""
     from pathlib import Path
 
-    now = generated_at or datetime.now()
+    from src.utils.clock import as_local, local_now
+
+    now = as_local(generated_at) if generated_at else local_now()
     name = f"{cadence}_{now:%Y-%m-%d}.md"
     output_dir = output_dir or str(Path("data", "reports"))
     path = Path(output_dir) / name

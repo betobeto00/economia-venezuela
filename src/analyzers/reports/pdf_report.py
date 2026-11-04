@@ -358,7 +358,10 @@ def _fmt_date(value) -> str:
 def _cover(story, snapshot: Dict) -> None:
     title = CADENCE_LABELS.get(snapshot.get("cadence", ""), "Informe Económico")
     period = snapshot.get("period") or ""
-    now = snapshot.get("generated_at") or datetime.now()
+    from src.utils.clock import as_local
+
+    generated = snapshot.get("generated_at") or datetime.now()
+    now = as_local(generated) if isinstance(generated, datetime) else generated
 
     band = Table(
         [[Paragraph(title, styles["CoverTitle"])]],

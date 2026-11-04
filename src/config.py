@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     APP_VERSION: str = "0.1.0"
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
+    # Zona horaria de las etiquetas visibles (informes, dashboard, logs).
+    # Venezuela es UTC-4 todo el año; la base de datos sigue en UTC.
+    TIMEZONE: str = "America/Caracas"
     
     # Database
     DATABASE_URL: str = "postgresql://postgres:password@localhost:5432/economia_ve"
@@ -78,7 +81,10 @@ class Settings(BaseSettings):
     # Google (Encuestas - Fase B)
     GOOGLE_CREDENTIALS_PATH: Optional[str] = None
     SURVEY_COLLECT_INTERVAL_MINUTES: int = 60
+    # Respuestas con quality_score menor se guardan pero NO entran a los KPIs.
     SURVEY_QUALITY_THRESHOLD: float = 0.5
+    # Mínimo de respuestas para publicar un punto de serie / una tarjeta.
+    SURVEY_MIN_RESPONSES: int = 5
     # IDs de formularios y hojas vinculadas (por segmento)
     SURVEY_PERSONA_COMUN_FORM_ID: Optional[str] = None
     SURVEY_PERSONA_COMUN_SHEET_ID: Optional[str] = None
@@ -126,6 +132,13 @@ class Settings(BaseSettings):
     # Runner HTTP (orquestado por n8n). Token vacío = sin autenticación.
     RUNNER_PORT: int = 8090
     RUNNER_TOKEN: Optional[str] = None
+
+    # Pesos de índices compuestos (JSON). Vacío = defaults del código.
+    # IAE: exchange_rate, oil_production, sentiment, news_frequency, inflation
+    IAE_WEIGHTS: Optional[str] = None
+    # Riesgo soberano: spread, volatility, inflation, reserves, debt, oil,
+    # political, uncertainty, market_cap
+    SOVEREIGN_RISK_WEIGHTS: Optional[str] = None
     
     # Logging
     LOG_LEVEL: str = "INFO"

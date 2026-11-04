@@ -15,6 +15,8 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import List, Optional
 
+from src.utils.paths import latest_year_dir
+
 logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -88,7 +90,7 @@ def recent_leyes(limit: int = 10) -> List[dict]:
 
 def load_ocr_gacetas() -> List[dict]:
     """Carga gacetas procesadas con OCR desde .md files."""
-    gacetas_dir = OCR_DIR / "gacetas" / "2026"
+    gacetas_dir = latest_year_dir(OCR_DIR / "gacetas")
     if not gacetas_dir.exists():
         return []
 
@@ -145,7 +147,7 @@ def load_ocr_gacetas() -> List[dict]:
 
 def load_ocr_bvc() -> List[dict]:
     """Carga documentos BVC procesados con OCR desde .md files."""
-    bvc_dir = OCR_DIR / "bvc" / "2026"
+    bvc_dir = latest_year_dir(OCR_DIR / "bvc")
     if not bvc_dir.exists():
         return []
 

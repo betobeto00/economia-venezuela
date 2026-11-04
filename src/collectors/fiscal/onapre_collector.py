@@ -105,7 +105,9 @@ class ONAPRECollector:
 
     def collect(self, year: Optional[int] = None) -> List[BudgetExecution]:
         """Descarga el primer XLS de ejecución y lo parsea."""
-        year = year or 2026
+        from src.utils.clock import local_today
+
+        year = year or local_today().year
         links = self.fetch_report_links()
         xls_links = [url for url in links if url.lower().endswith((".xls", ".xlsx"))]
         if not xls_links:

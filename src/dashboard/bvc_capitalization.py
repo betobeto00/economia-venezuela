@@ -13,10 +13,25 @@ import re
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from src.utils.clock import local_today
+from src.utils.paths import latest_year_dir
+
 logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-OCR_DIR = PROJECT_ROOT / "data" / "ocr" / "bvc" / "2026"
+OCR_ROOT = PROJECT_ROOT / "data" / "ocr" / "bvc"
+
+#: Mes abreviado/ completo en español → número de mes.
+MONTHS_ES = {
+    "ENERO": 1, "FEBRERO": 2, "MARZO": 3, "ABRIL": 4,
+    "MAYO": 5, "JUNIO": 6, "JULIO": 7, "AGOSTO": 8,
+    "SEPTIEMBRE": 9, "OCTUBRE": 10, "NOVIEMBRE": 11, "DICIEMBRE": 12,
+}
+
+
+def ocr_dir() -> Path:
+    """Carpeta OCR del año más reciente (nunca un año fijo)."""
+    return latest_year_dir(OCR_ROOT)
 
 
 def _parse_bs_number(text: str) -> float:
@@ -148,29 +163,21 @@ def load_capitalization_history() -> List[Dict]:
     Returns:
         Lista de dicts ordenados por fecha, cada uno con month, total, sectors.
     """
-    if not OCR_DIR.exists():
+    root = ocr_dir()
+    if not root.exists():
         return []
 
-    cap_files = sorted(OCR_DIR.glob("CAPITALIZACION*.md"))
+    cap_files = sorted(root.glob("CAPITALIZACION*.md"))
 
     history = []
     for f in cap_files:
-        # Extract month from filename
+        # Año del directorio OCR (no fijo) y mes por nombre de archivo
         name = f.stem.upper()
-        if "ENERO" in name:
-            month = "2026-01"
-        elif "FEBRERO" in name:
-            month = "2026-02"
-        elif "MARZO" in name:
-            month = "2026-03"
-        elif "ABRIL" in name:
-            month = "2026-04"
-        elif "MAYO" in name:
-            month = "2026-05"
-        elif "JUNIO" in name:
-            month = "2026-06"
-        else:
-            month = name
+        year = int(root.name) if root.name.isdigit() else local_today().year
+        month = next(
+            (f"{year}-{num:02d}" for key, num in MONTHS_ES.items() if key in name),
+            name,
+        )
 
         # Skip duplicate files (same month)
         if any(h["month"] == month for h in history):

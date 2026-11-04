@@ -23,6 +23,7 @@ from bs4 import BeautifulSoup
 
 from src.config import settings
 from src.analyzers.llm import chat_completion, LLMError
+from src.utils.clock import local_today
 from src.models.news import NewsArticle
 
 logger = logging.getLogger(__name__)
@@ -44,9 +45,10 @@ GOOGLE_NEWS_RSS = [
 DDG_SEARCH_URL = "https://html.duckduckgo.com/html/"
 DDG_NEWS_URL = "https://duckduckgo.com/html/"
 
-# Keywords para búsqueda web
+# Keywords para búsqueda web (los años se calculan al vuelo)
+_YEAR = local_today().year
 WEB_SEARCH_QUERIES = [
-    "Venezuela economia 2024 2025 noticias",
+    f"Venezuela economia {_YEAR - 1} {_YEAR} noticias",
     "Venezuela inflacion dolar paralelo hoy",
     "Venezuela reservas internacionales BCV",
     "Venezuela produccion petrolera PDVSA",

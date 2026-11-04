@@ -129,7 +129,7 @@ class RegionalAnalyzer:
     def compare(
         self,
         indicator_code: str,
-        year: int = 2025,
+        year: Optional[int] = None,
     ) -> Optional[RegionalComparison]:
         """Compara un indicador de Venezuela con la región.
 
@@ -140,6 +140,9 @@ class RegionalAnalyzer:
         Returns:
             RegionalComparison o None si no hay datos.
         """
+        from src.utils.clock import local_today
+
+        year = year or local_today().year
         df = self.fetch_indicator(indicator_code)
         if df.empty:
             return None
@@ -222,8 +225,11 @@ class RegionalAnalyzer:
             interpretation=interpretation,
         )
 
-    def full_comparison(self, year: int = 2025) -> Dict[str, RegionalComparison]:
+    def full_comparison(self, year: Optional[int] = None) -> Dict[str, RegionalComparison]:
         """Comparación completa de todos los indicadores."""
+        from src.utils.clock import local_today
+
+        year = year or local_today().year
         results = {}
         for code, name in INDICATORS.items():
             comparison = self.compare(code, year)

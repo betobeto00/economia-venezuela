@@ -367,7 +367,8 @@ class TestIndicators:
                 _resp("comerciante", base + timedelta(days=day),
                       {"¿Cómo evolucionaron tus ventas este mes?": "Mejor"})
             )
-        series = indicators.compute_series(responses, freq="W")
+        # min_responses=1: este test verifica la agrupación, no el mínimo
+        series = indicators.compute_series(responses, freq="W", min_responses=1)
         assert not series.empty
         assert "kpi" in series.columns and "mean" in series.columns
         clima = series[series["kpi"] == "clima_negocios"]
@@ -377,6 +378,34 @@ class TestIndicators:
     def test_compute_series_vacia(self):
         series = SurveyIndicators().compute_series([], freq="W")
         assert series.empty
+
+    def test_compute_series_min_responses_por_defecto(self):
+        """Por defecto no publica puntos con menos de SURVEY_MIN_RESPONSES."""
+        from src.config import settings
+
+        indicators = SurveyIndicators()
+        base = datetime(2026, 8, 3)
+        responses = [
+            _resp("comerciante", base + timedelta(days=day),
+                  {"¿Cómo evolucionaron tus ventas este mes?": "Mejor"})
+            for day in range(settings.SURVEY_MIN_RESPONSES - 1)
+        ]
+        assert indicators.compute_series(responses, freq="W").empty
+
+    def test_calidad_baja_no_entra_a_kpis(self):
+        """Respuestas bajo SURVEY_QUALITY_THRESHOLD no arrastran el KPI."""
+        indicators = SurveyIndicators()
+        good = _resp("persona_comun", datetime(2026, 8, 19),
+                     {"¿En el último mes los precios subieron?": "Mucho"})
+        good.quality_score = 1.0
+        partial = _resp("persona_comun", datetime(2026, 8, 20),
+                        {"¿En el último mes los precios subieron?": "Nada"})
+        partial.quality_score = 0.2
+
+        result = indicators.compute_all([good, partial])
+        assert result["percepcion_inflacion"].n_responses == 1
+        assert result["percepcion_inflacion"].mean == 100.0
+        assert indicators.excluded_low_quality([good, partial]) == 1
 
 
 # ---------------------------------------------------------------------------

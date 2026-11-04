@@ -31,25 +31,8 @@ services:
     networks:
       - economia-network-dev
 
-  app:
-    build: .
-    container_name: economia-ve-app-dev
-    command: python main.py
-    environment:
-      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-password}@db:5432/economia_ve
-      - REDIS_URL=redis://redis:6379
-      - ENVIRONMENT=development
-      - DEBUG=true
-    volumes:
-      - ./src:/app/src
-      - ./data:/app/data
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - economia-network-dev
+  # Sin servicio `app`: el scheduler APScheduler se retiró (los jobs los
+  # dispara n8n). `python main.py` queda como bootstrap del esquema.
 
   runner:
     build: .
