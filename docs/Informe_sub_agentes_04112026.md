@@ -570,3 +570,38 @@ Pendiente de esta tanda
    no en esa tabla.
 4. Restaurar `eco-runner-token` si se recrea la base de n8n (ver `n8n/README.md`).
 5. Respaldo de la SQLite de n8n en `data/tmp/n8n-db-backup/` (ignorado por git).
+
+---
+
+VIII) RUNNER EN DOCKER (04-11-2026)
+
+El runner dejó de ser un proceso de terminal: ahora es un contenedor con
+`restart: unless-stopped`, así que con Docker encendido el stack sube solo.
+`start.bat` hace `docker compose up -d db redis runner` y sale.
+
+**El build nunca había funcionado.** `requirements.txt` fijaba
+`pydolarvenezuela==0.2.0`, versión que no existe en PyPI, y la base era
+`python:3.10-slim` mientras las versiones reales de ese paquete exigen
+Python ≥3.11. Se corrigió con una imagen de runtime propia:
+
+| Cambio | Antes | Ahora |
+|---|---|---|
+| Dependencias | `requirements.txt` completo (torch, transformers, prophet, spacy, selenium) | `requirements-runtime.txt`, escaneado de los imports reales de `src/` |
+| Base | `python:3.10-slim` | `python:3.12-slim` |
+| Tamaño de imagen | no construía | 1.87 GB |
+| Salud | sin healthcheck | `healthcheck` contra `/health` cada 30 s |
+| Zona horaria | sin `TZ` | `TZ`/`TIMEZONE=America/Caracas` en runner y dashboard |
+| Arranque | `python main.py` a mano | `restart: unless-stopped` + `start.bat` |
+
+El dashboard usa la misma imagen recortada (streamlit y plotly sí están
+incluidos; torch y compañía no se importan en ningún módulo del proyecto).
+
+Verificación dentro del contenedor: `docker compose ps` → `economia-ve-runner
+(healthy)`; `/health` 200 desde el host y desde el contenedor de n8n; 401 sin
+token; y tres jobs reales por HTTP contra el runner en Docker:
+`verify_data` (1.9 s), `collect_market` (15.2 s) y `generate_report` diario
+MD + PDF (52.7 s), los tres con `exit_code=0` y sin errores de import.
+
+Limitación conocida: el OCR de gacetas (`pdfplumber`, `pymupdf`) se importa de
+forma perezosa y no está en la imagen; si se programan jobs de OCR fiscales hay
+que añadirlos a `requirements-runtime.txt`.

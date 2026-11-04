@@ -1,0 +1,60 @@
+# Dependencias de RUNTIME para la imagen Docker (runner + dashboard).
+#
+# Subconjunto verificado de requirements.txt: se obtuvieron escaneando los
+# imports reales de src/ y main.py. Fuera quedan torch, transformers, prophet,
+# spacy y selenium, que ningún módulo importa (solo inflaban la imagen en GB).
+# requirements.txt sigue siendo la referencia de desarrollo.
+#
+# Versiones: las que funcionan en el host con este código. La imagen usa
+# Python 3.12 porque pyDolarVenezuela (>=1.0) exige 3.11+; el pin 0.2.0 de
+# requirements.txt no existe en PyPI y por eso el build nunca completaba.
+
+# API / runner
+fastapi==0.141.1
+uvicorn==0.49.0
+pydantic==2.13.4
+pydantic-settings==2.14.2
+
+# Base de datos
+SQLAlchemy==2.0.52
+psycopg2-binary==2.9.9
+
+# Cómputo
+pandas==2.3.3
+numpy==2.4.6
+scipy==1.18.0
+statsmodels==0.14.6
+arch==8.0.0
+scikit-learn==1.9.0
+
+# Recolección
+httpx==0.28.1
+requests==2.34.2
+tenacity==9.1.4
+beautifulsoup4==4.15.0
+lxml==6.1.1
+feedparser==6.0.14
+yfinance==1.5.2
+wbgapi==1.0.1
+pyDolarVenezuela==2.0.3
+openpyxl==3.1.5
+gspread==6.2.1
+google-auth==2.56.3
+praw==8.0.3
+playwright==1.62.0
+pdf2image==1.17.0
+pytesseract==0.3.13
+
+# Informes y dashboard
+matplotlib==3.11.1
+reportlab==5.0.0
+Pillow==12.3.0
+plotly==6.9.0
+streamlit==1.62.0
+
+# Utilidades
+python-dotenv==1.2.2
+
+# Pre-flight (workflow semanal de pytest en el contenedor)
+pytest==9.1.1
+APScheduler==3.11.3

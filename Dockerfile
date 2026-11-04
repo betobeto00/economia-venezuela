@@ -1,19 +1,20 @@
-FROM python:3.10-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Solo las dependencias de runtime (ver requirements-runtime.txt). Las de
+# desarrollo/experimentos (torch, transformers, prophet, spacy...) no se usan
+# en el proyecto y multiplicaban el tamaño de la imagen.
+COPY requirements-runtime.txt .
+RUN pip install --no-cache-dir -r requirements-runtime.txt
 
 # .dockerignore excluye .env, .git y data/ (montada como volumen)
 COPY . .
 
+ENV PYTHONUNBUFFERED=1 \
+    TZ=America/Caracas
+
 EXPOSE 8090 8501
 
-# Scheduler legado; el servicio runner lo sobreescribe con uvicorn.
+# Bootstrap del esquema. Los servicios runner y dashboard sobreescriben el CMD.
 CMD ["python", "main.py"]

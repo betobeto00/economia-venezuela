@@ -46,6 +46,14 @@ services:
       - ENVIRONMENT=development
       - DEBUG=true
       - RUNNER_TOKEN=${RUNNER_TOKEN:-}
+      - TZ=America/Caracas
+      - TIMEZONE=America/Caracas
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=5).status == 200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     volumes:
       - ./src:/app/src
       - ./data:/app/data

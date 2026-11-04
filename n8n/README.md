@@ -9,14 +9,19 @@ solo prepara el esquema y verifica la base. El calendario vive aquí.
 
 ## Requisitos
 
-1. Runner levantado y accesible desde el contenedor de n8n:
+1. Runner levantado y accesible desde el contenedor de n8n. Ya corre como
+   contenedor con `restart: unless-stopped`: con Docker encendido sube solo.
 
-   ```bash
-   docker compose up -d db redis runner   # desde economia-venezuela/
-   curl -s http://127.0.0.1:8090/health
+   ```bat
+   start.bat          :: o: docker compose up -d db redis runner
    ```
 
-   Sin Docker para el runner también sirve `python -m src.api.runner`.
+   Verificación: `docker compose ps` debe mostrar `economia-ve-runner
+   (healthy)` y `curl -s http://127.0.0.1:8090/health` devolver `"status":"ok"`.
+   El healthcheck del contenedor pega a `/health` cada 30 s (503 si la base
+   no responde).
+
+   Para desarrollo sin Docker: `python -m src.api.runner`.
 
 2. n8n con acceso al host. En Docker Desktop, `host.docker.internal` resuelve al
    host; las URLs de los workflows ya lo usan.

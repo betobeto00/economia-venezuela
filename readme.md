@@ -149,7 +149,7 @@ Google Forms y el service account, y configurar los IDs en `.env`.*
 ## 🔧 Stack Tecnológico
 
 ### Core
-- **Lenguaje Principal**: Python 3.10+
+- **Lenguaje Principal**: Python 3.10+ (la imagen Docker usa 3.12: `pyDolarVenezuela` exige 3.11+)
 - **Motor de Análisis IA**: Cadena de 8+ LLMs con fallback (LLM1..LLM8 configurable)
 - **Base de Datos**: PostgreSQL + TimescaleDB (local, Docker Compose)
 - **Cache**: Redis (opcional)
@@ -201,6 +201,10 @@ uvicorn src.api.runner:app --host 127.0.0.1 --port 8090
 
 # Auditoría de lo que hay realmente en la base local
 python -m src.scripts.verify_data
+
+# Stack en Docker: base, cache y runner HTTP (equivale a start.bat)
+# Queda arriba solo; al encender Docker vuelve a subir por restart: unless-stopped
+docker compose up -d db redis runner
 
 # O solo el dashboard
 streamlit run src/dashboard/app.py
