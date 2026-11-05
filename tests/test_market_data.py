@@ -62,11 +62,13 @@ class TestMarketRepository:
         assert latest.rate == 9.63
         assert latest.date.day == 19
 
-    def test_save_inflation_idempotente(self, session):
+    def test_save_inflation_upsert(self, session):
+        """Re-guardar el mismo período corrige las tasas en lugar de ignorarlo."""
         repo = MarketRepository(session)
-        assert repo.save_inflation([_point()]) == 1
-        assert repo.save_inflation([_point()]) == 0
+        assert repo.save_inflation([_point(monthly=105.5)]) == 1
+        assert repo.save_inflation([_point(monthly=26.0)]) == 1
         assert len(repo.list_inflation()) == 1
+        assert repo.list_inflation()[0].monthly_rate == 26.0
 
     def test_latest_inflation(self, session):
         repo = MarketRepository(session)
@@ -115,7 +117,10 @@ class TestRunMarketPipeline:
         run_market_pipeline(session, FakeBcv(), FakeOvf(), FakeBinance())
         summary = run_market_pipeline(session, FakeBcv(), FakeOvf(), FakeBinance())
         assert summary["bcv_rate"]["saved"] == 0
-        assert summary["bcv_ipc"]["saved"] == 0
+        # El IPC es upsert: re-guardar el mismo período corrige las tasas en
+        # lugar de duplicar (antes un punto mal parseado quedaba congelado).
+        assert summary["bcv_ipc"]["saved"] == 1
+        assert len(MarketRepository(session).list_inflation()) == 2
 
     def test_pipeline_fuente_rota_no_falla(self, session):
         class Broken:

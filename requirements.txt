@@ -1,83 +1,13 @@
-# Core
-fastapi==0.109.0
-uvicorn==0.25.0
-pydantic==2.5.3
-pydantic-settings==2.1.0
+# Entorno de desarrollo / CI.
+#
+# Los pines reales (los que usa la imagen Docker) viven en
+# requirements-runtime.txt. Aquí solo se añade tooling de desarrollo, para que
+# el entorno local y el contenedor no diverjan: antes este fichero fijaba
+# torch/transformers/prophet/spacy (que ningún módulo importa) y un
+# pydolarvenezuela==0.2.0 inexistente que rompía el build.
 
-# Data Collection - Venezuela
-pydolarvenezuela==0.2.0
-pyvenezuela==0.1.0
-bcv-exchange==0.1.0
-
-# Data Collection - International
-wbgapi==1.0.1          # Banco Mundial API
-yfinance==0.2.31       # Yahoo Finance (BVC)
-pandas-datareader==0.10.0
-
-# Data Collection - General
-httpx==0.26.0
-beautifulsoup4==4.12.2
-playwright==1.41.0
-feedparser==6.0.11
-requests==2.31.0
-selenium==4.17.0
-
-# Social Media
-tweepy==4.14.0
-praw==7.7.1
-
-# Encuestas Google (Fase B)
-gspread==6.1.0            # Google Sheets API
-google-auth==2.27.0       # Autenticación service account
-google-auth-oauthlib==1.2.0
-
-# Processing
-pandas==2.1.4
-numpy==1.26.2
-scikit-learn==1.3.2
-openpyxl==3.1.2        # Para archivos Excel BCV/INE
-
-# Econometrics
-statsmodels==0.14.1
-arch==6.3.0
-linearmodels==5.3
-scipy==1.12.0
-
-# AI/ML
-openai==1.10.0
-transformers==4.36.2
-torch==2.1.2
-prophet==1.1.5
-
-# NLP
-spacy==3.7.2
-vaderSentiment==3.3.2
-
-# Visualization
-streamlit==1.30.0
-plotly==5.18.0
-matplotlib==3.11.1      # Gráficos para informes PDF
-
-# Reportes PDF
-reportlab==5.0.0        # Generación de informes en PDF
-pytesseract==0.3.13    # OCR para PDFs escaneados (Gaceta Oficial)
-Pillow==11.1.0         # Manipulación de imágenes para OCR
-pdf2image==1.17.0      # Conversión PDF → imágenes para OCR
-
-# Database
-sqlalchemy==2.0.23
-asyncpg==0.29.0
-psycopg2-binary==2.9.9      # Driver PostgreSQL (SQLAlchemy síncrono)
-redis==5.0.1
-
-# Scheduler
-apscheduler==3.10.4
-
-# Utilities
-python-dotenv==1.0.0
-tenacity==8.2.3
+-r requirements-runtime.txt
 
 # Development
-pytest==7.4.4
 black==23.12.1
 flake8==7.0.0

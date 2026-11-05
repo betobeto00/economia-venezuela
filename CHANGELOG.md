@@ -8,6 +8,11 @@ y este proyecto adhiere al [Semantic Versioning](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Changed
+- Dependencias unificadas: `requirements.txt` pasa a `-r requirements-runtime.txt` + black/flake8 (antes fijaba torch/prophet/spacy y un paquete inexistente)
+- `save_inflation` hace upsert por `(source, period)`: re-colectar corrige un punto mal parseado en lugar de descartarlo
+- Parser OVF: exige "inflación mensual" (ya no confunde la acumulada) y deduce el período del título con la fecha de publicación
+- `iniciar.bat` sustituye al antiguo arranque y ahora levanta también el dashboard; `start.bat` queda como alias y `detener.bat` lo apaga
+- Streamlit escucha en `0.0.0.0` dentro del contenedor: el 8501 era inalcanzable desde el host
 - Documentación completa actualizada: readme.md, Arquitectura.md, roadmap.md, knowledge.md, docs/review.md, docs/fuentes_fiscales.md
 - 24 collectors documentados correctamente en todos los archivos
 - 299 tests reflejados en toda la documentación
@@ -15,6 +20,9 @@ y este proyecto adhiere al [Semantic Versioning](https://semver.org/lang/es/).
 - Scheduler documentado con 11 jobs
 
 ### Added
+- `backfill_inflation.py` (serie IPC desde el archivo del OVF) y `collect_fiscal.py` (gacetas + OCR)
+- Workflow `wf-eco-collect-fiscal.json` (diario 05:30) y nodo Backfill IPC en el refresco semanal
+- `iniciar.bat` / `detener.bat`; `pdfplumber`, `pymupdf`, `tesseract-ocr(-spa)` y `poppler-utils` en la imagen
 - LICENSE (MIT)
 - CONTRIBUTING.md
 - CHANGELOG.md

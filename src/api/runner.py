@@ -54,6 +54,8 @@ TIMEOUTS: Dict[str, int] = {
     "refresh_macro": 900,
     "backfill_rates": 900,
     "backfill_ibc": 900,
+    "backfill_inflation": 900,
+    "collect_fiscal": 1800,
     "generate_report": 1800,
     "verify_data": 300,
     "pytest": 900,
@@ -70,6 +72,8 @@ _ALLOWED_FIELDS: Dict[str, Set[str]] = {
     "refresh_macro": {"force"},
     "backfill_rates": {"days", "no_save"},
     "backfill_ibc": {"days"},
+    "backfill_inflation": {"pages"},
+    "collect_fiscal": {"days", "limit", "force"},
     "generate_report": {"cadence", "format", "no_ai"},
     "verify_data": set(),
     "pytest": set(),
@@ -85,6 +89,8 @@ class RunRequest(BaseModel):
 
     period: Optional[str] = Field(default=None, description="YYYY-MM (collect_market)")
     days: Optional[int] = Field(default=None, ge=1, le=3650)
+    limit: Optional[int] = Field(default=None, ge=1, le=50, description="collect_fiscal")
+    pages: Optional[int] = Field(default=None, ge=1, le=20, description="backfill_inflation")
     segment: Optional[str] = None
     cadence: Optional[str] = None
     format: Optional[str] = None
@@ -177,6 +183,15 @@ def build_command(job: str, request: RunRequest) -> List[str]:
             cmd += ["--no-save"]
     elif job == "backfill_ibc" and request.days:
         cmd += ["--days", str(request.days)]
+    elif job == "backfill_inflation" and request.pages:
+        cmd += ["--pages", str(request.pages)]
+    elif job == "collect_fiscal":
+        if request.days:
+            cmd += ["--days", str(request.days)]
+        if request.limit:
+            cmd += ["--limit", str(request.limit)]
+        if request.force:
+            cmd += ["--force"]
     elif job == "generate_report":
         cmd += ["--cadence", request.cadence or "diario"]
         cmd += ["--format", request.format or "md,pdf"]

@@ -1,0 +1,52 @@
+{
+  "name": "Economía VE - Watchdog del runner",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "6a000006-0000-4000-8000-000000000001",
+      "name": "Cada 15 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-80, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://host.docker.internal:8090/health",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "6a000006-0000-4000-8000-000000000002",
+      "name": "Health del runner",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [200, 0],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 30000,
+      "onError": "stopWorkflow"
+    }
+  ],
+  "connections": {
+    "Cada 15 min": {
+      "main": [[{"node": "Health del runner", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Caracas"
+  },
+  "active": false,
+  "pinData": {},
+  "tags": []
+}

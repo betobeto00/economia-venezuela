@@ -608,10 +608,123 @@ del host para tener una cadena de LLMs; con la imagen no hay claves y fallaban.
 Ahora inyectan sus providers explícitamente (`providers=` y `monkeypatch` de
 `settings.LLM1_*`), así que pasan igual con o sin `.env`.
 
-Limitación conocida: el OCR de gacetas (`pdfplumber`, `pymupdf`) se importa de
-forma perezosa y no está en la imagen; si se programan jobs de OCR fiscales hay
-que añadirlos a `requirements-runtime.txt`.
+~~Limitación conocida: el OCR de gacetas (`pdfplumber`, `pymupdf`) se importa de
+forma perezosa y no está en la imagen.~~ **Resuelto en la sección IX**: ambas
+librerías y los binarios `tesseract-ocr`/`poppler-utils` están en la imagen.
 
-Nota: `requirements.txt` conserva los pines viejos de desarrollo (incluido el
-`pydolarvenezuela==0.2.0` inexistente). Para levantar el entorno en Python 3.12+
-basta `requirements-runtime.txt`; unificar ambos ficheros queda pendiente.
+~~Nota: `requirements.txt` conserva los pines viejos de desarrollo.~~
+**Resuelto en la sección IX**: `requirements.txt` ahora es
+`-r requirements-runtime.txt` + black/flake8.
+---
+
+IX) BACKFILLS POR FUENTE, DEPS UNIFICADAS Y OCR FISCAL (05-11-2026)
+
+Cierra los tres pendientes de la sección VII y responde a "¿cuándo está activo
+el dashboard?".
+
+IX.1 Un juego de dependencias
+
+`requirements.txt` era una copia desfasada de los pines de runtime: mantenía
+torch/transformers/prophet/spacy (que ningún módulo importa) y el
+`pydolarvenezuela==0.2.0` inexistente. Ahora:
+
+| Fichero | Contenido |
+|---|---|
+| `requirements-runtime.txt` | pines reales de la imagen (Python 3.12) |
+| `requirements.txt` | `-r requirements-runtime.txt` + black/flake8 |
+
+Lo que instala el entorno local y lo que instala la imagen ya no puede divergir.
+
+IX.2 Backfill por fuente
+
+| Fuente | Comando | Resultado real (05-11) |
+|---|---|---|
+| Tasas | `backfill_rates --days 180` (`--all`) | 183 días, 2026-01-17 → 2026-03-18 (201 filas en `exchange_rates`) |
+| IPC | `backfill_inflation --pages 5` | 138 posts → 28 aceptados / 37 rechazados / 72 sin período; serie 2020-09 → 2025-05 |
+| IBC | `backfill_ibc --days 30` | ya funcionaba; encadenado en el refresco semanal |
+
+El dataset de usdt.com.ve está congelado desde marzo: pedir una ventana reciente
+devolvía 0 filas sin explicar por qué. Ahora `backfill_rates` avisa y cae al
+dataset completo (o `--all`).
+
+Bugs de datos encontrados al backfillear (y corregidos):
+
+1. **`save_inflation` descartaba duplicados.** Un punto mal parseado quedaba
+   congelado para siempre. Ahora es upsert por `(source, period)`: re-colectar
+   corrige las tasas.
+2. **El regex de OVF tomaba la acumulada como mensual.** El boletín de mayo-2025
+   dice "inflación mensual 26% … acumulada 105,5% … anualizada 229%"; el regex
+   se quedaba con 105,5%. Ahora exige "inflación mensual" y acepta
+   "interanual|anualizada|anual" para la interanual.
+3. **`fetch_ipc` etiquetaba el boletín con el mes en curso.** Ese punto entró
+   como `2026-11`. El período ahora se deduce del título con la fecha de
+   publicación del post (`article:published_time`): 2025-05.
+4. `period_from_title` estaba duplicado (script y collector); ahora vive solo en
+   `ovf_collector` y el backfill lo importa.
+
+Verificación: `fetch_posts` + `build_points` sobre el archivo real → 28 puntos,
+mayo-2025 = 26,0 % / 229 %. En Postgres: 28 puntos guardados y la fila espuria
+`2026-11` eliminada.
+
+IX.3 OCR fiscal en la imagen y en n8n
+
+- Imagen: `pdfplumber` y `pymupdf` (runtime) + `tesseract-ocr`,
+  `tesseract-ocr-spa` y `poppler-utils` (apt). Antes el OCR era perezoso y no
+  existía en el contenedor.
+- `collect_fiscal.py`: `fetch_recientes(days)` → `download_pdf` →
+  `process_and_save_ocr`; respeta `--limit` y sale con 1 si no encontró nada
+  (un día sin publicaciones no es un éxito).
+- Runner: `collect_fiscal` (`days`, `limit`, `force`) y `backfill_inflation`
+  (`pages`) en la allowlist, con sus timeouts.
+- n8n: nodo **Backfill IPC** en el refresco semanal y workflow nuevo
+  `wf-eco-collect-fiscal.json` (diario 05:30, `{"days":2,"limit":5}`).
+
+Estado de la Gaceta: el sitio solo responde por HTTP
+(`http://www.gacetaoficial.gob.ve`; HTTPS da 000) y `/gacetas/dia` devuelve `[]`
+para 2026-11-03 — no hay publicaciones recientes. El archivo sí tiene 40 `.md`
+de 2026 y 64 entradas en `data/ocr/index.json`.
+
+IX.4 ¿Cuándo está activo el dashboard?
+
+El dashboard es un **contenedor aparte** (`economia-ve-dashboard`, Streamlit en
+`127.0.0.1:8501`), no un proceso de `main.py`. Hasta ahora `start.bat` solo
+levantaba `db redis runner`: el dashboard únicamente aparecía si alguien hacía
+`docker compose up -d dashboard` o si ya estaba corriendo cuando se encendió
+Docker (`restart: unless-stopped` lo revive, pero no lo crea).
+
+Lanzadores, alineados con el resto de los proyectos:
+
+| Script | Qué hace |
+|---|---|
+| `iniciar.bat` | Espera/abre Docker Desktop, `docker compose up -d db redis runner dashboard`, sondea `/health` (8090) y el 8501, abre Chrome en el dashboard |
+| `start.bat` | alias de `iniciar.bat` (evita dos arranques desfasados) |
+| `detener.bat` | `docker compose stop` de los cuatro servicios (volúmenes intactos) |
+
+Corregido además el bind de Streamlit: dentro del contenedor debe escuchar
+`0.0.0.0`; con `--server.address=127.0.0.1` el `publish` de Docker no llegaba y
+el 8501 quedaba inaccesible desde el host (el puerto publicado sigue en
+loopback).
+
+IX.5 Verificación (05-11-2026)
+
+- `python -m pytest -q` → **375 passed** en 5m26s (host).
+- Imagen reconstruida (`docker compose build` OK). Dentro del runner:
+  `tesseract 5.5.0`, `pdftoppm 25.03.0` e `import pdfplumber, pymupdf` correctos.
+- Runner en contenedor `healthy` y tres jobs reales por HTTP con token:
+  - `backfill_inflation {"pages":5}` → 28 guardados por upsert en 9,1 s.
+  - `backfill_rates {"days":90}` → 0 nuevos en 2,5 s (dataset congelado: todo
+    duplicado, sin error).
+  - `collect_fiscal {"days":7,"limit":5}` → 0 gacetas, exit 1 (no hay
+    publicaciones recientes; el job no finge éxito).
+- Dashboard: `curl 127.0.0.1:8501` → **200** (antes 000 por el bind a 127.0.0.1).
+- n8n: 8 workflows, 7 activos. El refresco exporta el nodo "Backfill IPC" y
+  `Economía VE - Gacetas y OCR fiscal` quedó publicado como `ecoFiscal0000001`.
+  Encuestas sigue inactiva a propósito.
+- `verify_data` en el contenedor: `exchange_rates` 211, `inflation_points` 28,
+  `news_articles` 30, `social_posts` 9, `sentiment_scores` 15,
+  `venezuelan_tickers` 1220, `ibc_index` 2, `surveys` 2. `macro_indicators`
+  sigue en 0 (pendiente conocido).
+
+Nota de n8n: esta versión exige `id` en el JSON de import, así que el workflow
+nuevo se importó con `id: ecoFiscal0000001`; los ficheros del repo siguen sin
+`id`, igual que los demás.

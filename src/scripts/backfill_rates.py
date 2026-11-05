@@ -131,6 +131,19 @@ def backfill_rates(
     logger.info("Descargando dataset desde %s", csv_url)
     csv_text = download_csv(csv_url)
     rates = aggregate_daily(csv_text, since=since)
+
+    # El dataset puede estar congelado (dejó de actualizarse en marzo 2026).
+    # Si la ventana pedida no trae nada, se carga lo disponible en lugar de
+    # devolver 0 en silencio: un backfill debe llenar lo que la fuente tenga.
+    if not rates:
+        available = aggregate_daily(csv_text)
+        if available:
+            logger.warning(
+                "Sin datos en los últimos %d días (el dataset llega hasta %s); "
+                "se cargan los %d días disponibles",
+                days, available[-1].date.date(), len({r.date for r in available}),
+            )
+            rates = available
     logger.info("Promedios diarios calculados: %d", len(rates))
 
     if not persist:
@@ -147,6 +160,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         description="Backfill de tasas históricas desde usdt.com.ve"
     )
+    parser.add_argument("--all", action="store_true",
+                        help="Cargar todo el dataset sin ventana de días")
     parser.add_argument("--days", type=int, default=DEFAULT_DAYS,
                         help="Ventana en días (default: 180 ≈ 6 meses)")
     parser.add_argument("--csv", default=DEFAULT_CSV_URL,
@@ -160,7 +175,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     from src.db.session import session_scope
 
     with session_scope() as session:
-        result = backfill_rates(session, days=args.days, csv_url=args.csv,
+        days = 36500 if args.all else args.days
+        result = backfill_rates(session, days=days, csv_url=args.csv,
                                 persist=not args.no_save)
         logger.info("Resultado: %s", result)
     return 0

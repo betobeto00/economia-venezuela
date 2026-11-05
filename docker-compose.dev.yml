@@ -68,7 +68,8 @@ services:
   dashboard:
     build: .
     container_name: economia-ve-dashboard-dev
-    command: streamlit run src/dashboard/app.py --server.port=8501 --server.address=127.0.0.1 --server.runOnSave=true
+    # 0.0.0.0 dentro del contenedor; el puerto se publica solo en loopback.
+    command: streamlit run src/dashboard/app.py --server.port=8501 --server.address=0.0.0.0 --server.runOnSave=true
     environment:
       - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-password}@db:5432/economia_ve
       - REDIS_URL=redis://redis:6379

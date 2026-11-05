@@ -1,0 +1,157 @@
+{
+  "name": "Economía VE - Gacetas y OCR fiscal",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 5 * * *"
+            }
+          ]
+        }
+      },
+      "id": "5a000006-0000-4000-8000-000000000001",
+      "name": "Diario 05:30",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8090/run/collect_fiscal",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"days\": 2,\n  \"limit\": 5\n}\n",
+        "options": {
+          "timeout": 1800000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "5a000006-0000-4000-8000-000000000002",
+      "name": "Gacetas + OCR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        160,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 300000,
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eco-runner-token",
+          "name": "Economía VE - Runner token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5a000006-0000-4000-8000-0000000000a1",
+              "leftValue": "={{ $json.http_status }}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "5a000006-0000-4000-8000-000000000003",
+      "name": "¿Ejecutado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        420,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5a000006-0000-4000-8000-0000000000b1",
+              "name": "resumen",
+              "value": "={{ $json.body.stdout }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5a000006-0000-4000-8000-000000000004",
+      "name": "Resumen OCR",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        680,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Diario 05:30": {
+      "main": [
+        [
+          {
+            "node": "Gacetas + OCR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gacetas + OCR": {
+      "main": [
+        [
+          {
+            "node": "¿Ejecutado?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "¿Ejecutado?": {
+      "main": [
+        [
+          {
+            "node": "Resumen OCR",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Caracas"
+  },
+  "active": true,
+  "pinData": {},
+  "tags": []
+}

@@ -333,19 +333,32 @@ class MarketRepository:
     # --- Inflation ---
 
     def save_inflation(self, points: List[InflationPoint]) -> int:
-        """Inserta puntos de inflación de forma idempotente (única por source/period)."""
+        """Upsert de puntos de inflación (único por source/period).
+
+        Antes un duplicado se descartaba, así que una cifra mal parseada (la
+        inflación acumulada tomada como mensual) quedaba congelada para siempre.
+        Al re-colectar el mismo período ahora se corrigen las tasas.
+        """
         saved = 0
         for point in points:
-            self.session.add(_inflation_to_orm(point))
-            try:
-                self.session.commit()
-                saved += 1
-            except IntegrityError:
-                self.session.rollback()
+            orm = self.session.scalars(
+                select(InflationPointORM).where(
+                    InflationPointORM.source == point.source,
+                    InflationPointORM.period == point.period,
+                )
+            ).first()
+            if orm is None:
+                self.session.add(_inflation_to_orm(point))
+            else:
                 logger.info(
-                    "Punto de inflación duplicado omitido (%s/%s)",
+                    "Punto de inflación actualizado (%s/%s)",
                     point.source, point.period,
                 )
+                orm.monthly_rate = point.monthly_rate
+                orm.annual_rate = point.annual_rate
+                orm.index = point.index
+            self.session.commit()
+            saved += 1
         return saved
 
     def list_inflation(

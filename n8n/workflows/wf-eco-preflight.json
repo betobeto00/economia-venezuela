@@ -1,0 +1,75 @@
+{
+  "name": "Economía VE - Pre-flight (pytest)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "7a000007-0000-4000-8000-000000000001",
+      "name": "Lunes 06:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -80,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8090/run/pytest",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={}",
+        "options": {
+          "timeout": 900000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "7a000007-0000-4000-8000-000000000002",
+      "name": "Runner: pytest",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        200,
+        0
+      ],
+      "retryOnFail": false,
+      "onError": "stopWorkflow",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eco-runner-token",
+          "name": "Economía VE - Runner token"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Lunes 06:00": {
+      "main": [
+        [
+          {
+            "node": "Runner: pytest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Caracas"
+  },
+  "active": true,
+  "pinData": {},
+  "tags": []
+}

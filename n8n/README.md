@@ -13,7 +13,7 @@ solo prepara el esquema y verifica la base. El calendario vive aquí.
    contenedor con `restart: unless-stopped`: con Docker encendido sube solo.
 
    ```bat
-   start.bat          :: o: docker compose up -d db redis runner
+   iniciar.bat        :: db + redis + runner + dashboard (start.bat es alias)
    ```
 
    Verificación: `docker compose ps` debe mostrar `economia-ve-runner
@@ -79,7 +79,8 @@ Notas de n8n 2.39:
 | `wf-eco-collect-market.json` | cada 30 min | `collect_market` | activo |
 | `wf-eco-collect-news.json` | cada hora | `collect_news` | activo |
 | `wf-eco-reports.json` | 6 cron (diario→anual) | `generate_report` | activo |
-| `wf-eco-refresh.json` | domingo 03:00 | `backfill_rates` → `refresh_macro` → `backfill_ibc` | activo |
+| `wf-eco-refresh.json` | domingo 03:00 | `backfill_rates` → `backfill_inflation` → `refresh_macro` → `backfill_ibc` | activo |
+| `wf-eco-collect-fiscal.json` | diario 05:30 | `collect_fiscal` (gacetas + OCR) | activo |
 | `wf-eco-watchdog.json` | cada 15 min | `GET /health` | activo |
 | `wf-eco-preflight.json` | lunes 06:00 | `pytest` | activo |
 | `wf-eco-collect-surveys.json` | cada 60 min | `collect_surveys` | **inactivo**: sin `SURVEY_*_FORM_ID`/`SHEET_ID` no recolecta nada |

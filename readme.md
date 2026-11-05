@@ -202,9 +202,12 @@ uvicorn src.api.runner:app --host 127.0.0.1 --port 8090
 # Auditoría de lo que hay realmente en la base local
 python -m src.scripts.verify_data
 
-# Stack en Docker: base, cache y runner HTTP (equivale a start.bat)
+# Stack en Docker: base, cache, runner HTTP y dashboard (equivale a iniciar.bat)
 # Queda arriba solo; al encender Docker vuelve a subir por restart: unless-stopped
-docker compose up -d db redis runner
+docker compose up -d db redis runner dashboard
+
+# En Windows: doble clic en iniciar.bat (abre el dashboard en Chrome) y
+# detener.bat para apagarlo. start.bat es un alias de iniciar.bat.
 
 # O solo el dashboard
 streamlit run src/dashboard/app.py
@@ -218,7 +221,9 @@ streamlit run src/dashboard/app.py
 | `collect_news.py` | Recolecta noticias RSS + Reddit y analiza sentimiento | `python -m src.scripts.collect_news` |
 | `collect_surveys.py` | Ingesta de encuestas Google Forms → Sheets | `python -m src.scripts.collect_surveys` |
 | `backfill_ibc.py` | Backfill histórico del IBC + tickers venezolanos | `python -m src.scripts.backfill_ibc --since 2026-08-01 --until 2026-08-14` |
-| `backfill_rates.py` | Backfill histórico de tasas (dataset usdt.com.ve, CC-BY-4.0) | `python -m src.scripts.backfill_rates` |
+| `backfill_rates.py` | Backfill histórico de tasas (dataset usdt.com.ve, CC-BY-4.0); si la ventana no trae datos carga el dataset completo | `python -m src.scripts.backfill_rates --all` |
+| `backfill_inflation.py` | Reconstruye la serie de IPC desde el archivo del OVF (WP REST); valida cada punto y descarta lo dudoso | `python -m src.scripts.backfill_inflation --pages 5` |
+| `collect_fiscal.py` | Gacetas recientes → PDF + OCR (tesseract) → `data/ocr/` | `python -m src.scripts.collect_fiscal --days 7 --limit 5` |
 | `generate_report.py` | Genera informes económicos en MD y PDF | `python -m src.scripts.generate_report --cadence semanal --format md,pdf` |
 | `verify_data.py` | Audita filas y frescura por tabla (`--fail-on-empty` sale con 1) | `python -m src.scripts.verify_data` |
 
@@ -310,6 +315,9 @@ economia-venezuela/
 │   │   ├── collect_surveys.py  #   Ingesta de encuestas
 │   │   ├── backfill_rates.py   #   Backfill histórico (usdt.com.ve CSV)
 │   │   ├── backfill_ibc.py     #   Backfill IBC + tickers venezolanos → DB
+│   │   ├── backfill_inflation.py #  Serie IPC desde el archivo del OVF
+│   │   ├── collect_fiscal.py   #   Gacetas → PDF + OCR → data/ocr
+│   │   ├── verify_data.py      #   Auditoría de filas y frescura por tabla
 │   │   └── generate_report.py  #   Informes periódicos MD/PDF (--cadence, --since/--until)
 │   ├── alerts/                 # Sistema de alertas
 │   │   └── manager.py          #   AlertManager: umbrales automáticos (TC, inflación, IBC)
@@ -344,7 +352,7 @@ economia-venezuela/
 | Informe semestral | 1° de ene/jul 11:00 | cron `report_semestral` |
 | Informe anual | 1° de enero 12:00 | cron `report_anual` |
 
-> El calendario ya no vive en `main.py`: los jobs están en `n8n/workflows/` (7 workflows) y llaman al runner HTTP con token. `python main.py` solo prepara el esquema y comprueba la base; la tabla anterior describe las cadencias publicadas en n8n. Ver `n8n/README.md`.
+> El calendario ya no vive en `main.py`: los jobs están en `n8n/workflows/` (8 workflows) y llaman al runner HTTP con token. `python main.py` solo prepara el esquema y comprueba la base; la tabla anterior describe las cadencias publicadas en n8n. Ver `n8n/README.md`.
 
 ## 📈 Métricas del Dashboard
 

@@ -1,0 +1,77 @@
+{
+  "name": "Economía VE - Recolectar encuestas",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 60
+            }
+          ]
+        }
+      },
+      "id": "3a000003-0000-4000-8000-000000000001",
+      "name": "Cada 60 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -80,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8090/run/collect_surveys",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={}",
+        "options": {
+          "timeout": 900000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "3a000003-0000-4000-8000-000000000002",
+      "name": "Runner: collect_surveys",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        200,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 60000,
+      "onError": "stopWorkflow",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eco-runner-token",
+          "name": "Economía VE - Runner token"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Cada 60 min": {
+      "main": [
+        [
+          {
+            "node": "Runner: collect_surveys",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Caracas"
+  },
+  "active": true,
+  "pinData": {},
+  "tags": []
+}

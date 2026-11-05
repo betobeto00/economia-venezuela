@@ -44,6 +44,10 @@ praw==8.0.3
 playwright==1.62.0
 pdf2image==1.17.0
 pytesseract==0.3.13
+# OCR fiscal: extracción directa de PDF de gacetas (con tesseract de respaldo,
+# instalado en la imagen junto a poppler-utils)
+pdfplumber==0.11.4
+pymupdf==1.28.2
 
 # Informes y dashboard
 matplotlib==3.11.1

@@ -39,7 +39,10 @@ services:
   dashboard:
     build: .
     container_name: economia-ve-dashboard
-    command: streamlit run src/dashboard/app.py --server.port=8501 --server.address=127.0.0.1
+    # Dentro del contenedor debe escuchar 0.0.0.0: si se ata a 127.0.0.1 el
+    # publish de Docker no llega y el dashboard queda inaccesible desde el host.
+    # El puerto publicado sigue en loopback.
+    command: streamlit run src/dashboard/app.py --server.port=8501 --server.address=0.0.0.0
     ports:
       - "127.0.0.1:8501:8501"
     environment:

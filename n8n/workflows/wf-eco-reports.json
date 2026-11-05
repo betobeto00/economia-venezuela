@@ -1,0 +1,380 @@
+{
+  "name": "Economía VE - Informes periódicos",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * *"
+            }
+          ]
+        }
+      },
+      "id": "4a000004-0000-4000-8000-000000000001",
+      "name": "Diario 07:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -120,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "4a000004-0000-4000-8000-000000000002",
+      "name": "Semanal lunes 08:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -120,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 1 * *"
+            }
+          ]
+        }
+      },
+      "id": "4a000004-0000-4000-8000-000000000003",
+      "name": "Mensual día 1 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -120,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 10 1 1,4,7,10 *"
+            }
+          ]
+        }
+      },
+      "id": "4a000004-0000-4000-8000-000000000004",
+      "name": "Trimestral 10:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -120,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 11 1 1,7 *"
+            }
+          ]
+        }
+      },
+      "id": "4a000004-0000-4000-8000-000000000005",
+      "name": "Semestral 11:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -120,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 12 1 1 *"
+            }
+          ]
+        }
+      },
+      "id": "4a000004-0000-4000-8000-000000000006",
+      "name": "Anual 12:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -120,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8090/run/generate_report",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"cadence\": \"diario\",\n  \"format\": \"md,pdf\"\n}",
+        "options": {
+          "timeout": 1800000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "4a000004-0000-4000-8000-000000000011",
+      "name": "Informe diario",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        180,
+        -420
+      ],
+      "retryOnFail": false,
+      "onError": "stopWorkflow",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eco-runner-token",
+          "name": "Economía VE - Runner token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8090/run/generate_report",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"cadence\": \"semanal\",\n  \"format\": \"md,pdf\"\n}",
+        "options": {
+          "timeout": 1800000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "4a000004-0000-4000-8000-000000000012",
+      "name": "Informe semanal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        180,
+        -300
+      ],
+      "retryOnFail": false,
+      "onError": "stopWorkflow",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eco-runner-token",
+          "name": "Economía VE - Runner token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8090/run/generate_report",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"cadence\": \"mensual\",\n  \"format\": \"md,pdf\"\n}",
+        "options": {
+          "timeout": 1800000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "4a000004-0000-4000-8000-000000000013",
+      "name": "Informe mensual",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        180,
+        -180
+      ],
+      "retryOnFail": false,
+      "onError": "stopWorkflow",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eco-runner-token",
+          "name": "Economía VE - Runner token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8090/run/generate_report",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"cadence\": \"trimestral\",\n  \"format\": \"md,pdf\"\n}",
+        "options": {
+          "timeout": 1800000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "4a000004-0000-4000-8000-000000000014",
+      "name": "Informe trimestral",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        180,
+        -60
+      ],
+      "retryOnFail": false,
+      "onError": "stopWorkflow",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eco-runner-token",
+          "name": "Economía VE - Runner token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8090/run/generate_report",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"cadence\": \"semestral\",\n  \"format\": \"md,pdf\"\n}",
+        "options": {
+          "timeout": 1800000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "4a000004-0000-4000-8000-000000000015",
+      "name": "Informe semestral",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        180,
+        60
+      ],
+      "retryOnFail": false,
+      "onError": "stopWorkflow",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eco-runner-token",
+          "name": "Economía VE - Runner token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8090/run/generate_report",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"cadence\": \"anual\",\n  \"format\": \"md,pdf\"\n}",
+        "options": {
+          "timeout": 1800000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "4a000004-0000-4000-8000-000000000016",
+      "name": "Informe anual",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        180,
+        180
+      ],
+      "retryOnFail": false,
+      "onError": "stopWorkflow",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eco-runner-token",
+          "name": "Economía VE - Runner token"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Diario 07:00": {
+      "main": [
+        [
+          {
+            "node": "Informe diario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Semanal lunes 08:00": {
+      "main": [
+        [
+          {
+            "node": "Informe semanal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensual día 1 09:00": {
+      "main": [
+        [
+          {
+            "node": "Informe mensual",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trimestral 10:00": {
+      "main": [
+        [
+          {
+            "node": "Informe trimestral",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Semestral 11:00": {
+      "main": [
+        [
+          {
+            "node": "Informe semestral",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anual 12:00": {
+      "main": [
+        [
+          {
+            "node": "Informe anual",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Caracas"
+  },
+  "active": true,
+  "pinData": {},
+  "tags": []
+}

@@ -1,0 +1,206 @@
+{
+  "name": "Economía VE - Refresco semanal de series",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 3 * * 0"
+            }
+          ]
+        }
+      },
+      "id": "5a000005-0000-4000-8000-000000000001",
+      "name": "Domingo 03:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8090/run/backfill_rates",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"days\": 180\n}\n",
+        "options": {
+          "timeout": 900000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "5a000005-0000-4000-8000-000000000002",
+      "name": "Backfill tasas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        160,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 60000,
+      "onError": "stopWorkflow",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eco-runner-token",
+          "name": "Economía VE - Runner token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8090/run/backfill_inflation",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"pages\": 5\n}\n",
+        "options": {
+          "timeout": 900000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "5a000005-0000-4000-8000-000000000005",
+      "name": "Backfill IPC",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        290,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 60000,
+      "onError": "stopWorkflow",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eco-runner-token",
+          "name": "Economía VE - Runner token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8090/run/refresh_macro",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"force\": true\n}\n",
+        "options": {
+          "timeout": 900000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "5a000005-0000-4000-8000-000000000003",
+      "name": "Refrescar macro",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        420,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 60000,
+      "onError": "stopWorkflow",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eco-runner-token",
+          "name": "Economía VE - Runner token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8090/run/backfill_ibc",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"days\": 30\n}\n",
+        "options": {
+          "timeout": 900000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "5a000005-0000-4000-8000-000000000004",
+      "name": "Backfill IBC",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 60000,
+      "onError": "stopWorkflow",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eco-runner-token",
+          "name": "Economía VE - Runner token"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Domingo 03:00": {
+      "main": [
+        [
+          {
+            "node": "Backfill tasas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Backfill tasas": {
+      "main": [
+        [
+          {
+            "node": "Backfill IPC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Backfill IPC": {
+      "main": [
+        [
+          {
+            "node": "Refrescar macro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Refrescar macro": {
+      "main": [
+        [
+          {
+            "node": "Backfill IBC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Caracas"
+  },
+  "active": true,
+  "pinData": {},
+  "tags": []
+}
