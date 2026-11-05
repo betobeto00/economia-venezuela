@@ -240,7 +240,7 @@ with tab_inicio:
     has_macro = any(macro.values())
     if has_macro:
         st.subheader("🏛️ Indicadores Macroeconómicos")
-        mc1, mc2, mc3, mc4, mc5 = st.columns(5)
+        mc1, mc2, mc3, mc4, mc5, mc6 = st.columns(6)
 
         with mc1:
             pib = macro.get("pib")
@@ -296,6 +296,20 @@ with tab_inicio:
                 )
             else:
                 st.metric(label="🇺🇳 Gasto ONU", value="—")
+
+        with mc6:
+            reservas = macro.get("reservas")
+            if reservas:
+                st.metric(
+                    label=f"🏦 Reservas ({reservas['source']})",
+                    value=f"${reservas['value'] / 1e9:,.2f} B",
+                    help=(
+                        f"Período: {reservas['period']} | BCV + FEM | "
+                        "fuente: libro 2_1_1.xlsx"
+                    ),
+                )
+            else:
+                st.metric(label="🏦 Reservas BCV", value="—")
 
     # ── Gráfico histórico (6 meses) ──
     st.subheader("📈 Evolución del Dólar (6 meses)")
@@ -1039,7 +1053,7 @@ with tab_macro:
     from src.analyzers.nowcasting import InflationNowcaster
     from src.analyzers.iae import IAEIndex
     from src.alerts.manager import AlertManager
-    from src.dashboard.macro_data import macro_summary
+    from src.dashboard.macro_data import macro_summary, reserves_history
 
     st.subheader("🔬 Análisis Macro Avanzado")
 
@@ -1050,6 +1064,42 @@ with tab_macro:
 
     # ── Sub-tab 1: Riesgo & Sostenibilidad ──
     with macro_tab1:
+        reservas_hist = reserves_history()
+        if reservas_hist:
+            st.markdown("### 🏦 Reservas internacionales del BCV")
+            df_reservas = pd.DataFrame(reservas_hist)
+            df_reservas["fecha"] = pd.to_datetime(df_reservas["date"])
+            df_reservas["miles_millones"] = df_reservas["total_usd"] / 1e9
+            fig_reservas = go.Figure()
+            fig_reservas.add_trace(go.Scatter(
+                x=df_reservas["fecha"],
+                y=df_reservas["miles_millones"],
+                mode="lines",
+                name="Reservas (BCV + FEM)",
+                line=dict(color="#2E86C1", width=2),
+                fill="tozeroy",
+                fillcolor="rgba(46, 134, 193, 0.15)",
+            ))
+            fig_reservas.update_layout(
+                height=340,
+                margin=dict(l=10, r=10, t=30, b=10),
+                yaxis_title="Miles de millones de USD",
+                hovermode="x unified",
+                showlegend=False,
+            )
+            st.plotly_chart(fig_reservas, use_container_width=True)
+            ultimo = reservas_hist[-1]
+            st.caption(
+                f"Fuente: BCV (2_1_1.xlsx). {len(reservas_hist)} días desde "
+                f"{reservas_hist[0]['date']}; último ({ultimo['date']}): "
+                f"${ultimo['total_usd']:,.0f}."
+            )
+        else:
+            st.info(
+                "Sin serie histórica de reservas. Ejecuta "
+                "`python -m src.scripts.backfill_reserves`."
+            )
+
         st.markdown("### 🚨 Índice de Riesgo Soberano")
         risk = SovereignRiskIndex()
         inflation_rate = (metrics["inflacion"].annual_rate or 0) if metrics.get("inflacion") else 0

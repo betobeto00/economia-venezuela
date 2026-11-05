@@ -29,6 +29,7 @@ y este proyecto adhiere al [Semantic Versioning](https://semver.org/lang/es/).
 - `backfill_inflation.py` (serie IPC desde el archivo del OVF) y `collect_fiscal.py` (gacetas + OCR)
 - Workflow `wf-eco-collect-fiscal.json` (diario 05:30) y nodo Backfill IPC en el refresco semanal
 - `bcv_reserves_collector.py`: reservas internacionales del BCV desde `2_1_1.xlsx` (dato oficial diario)
+- `reserves_history` + `backfill_reserves.py`: serie diaria de reservas 2020→hoy (1.645 días) para el gráfico del tab Macro, y tarjeta "Reservas" en el tab Inicio
 - Nodo "Dominical 04:00" en el workflow fiscal: el OCR histórico corre los domingos además del `backfill_fiscal_ocr` manual
 - `backfill_fiscal_ocr.py`: OCR del archivo de PDFs sin `.md`, como job del runner y nodo del workflow fiscal
 - `iniciar.bat` / `detener.bat`; `pdfplumber`, `pymupdf`, `tesseract-ocr(-spa)` y `poppler-utils` en la imagen

@@ -319,6 +319,7 @@ economia-venezuela/
 │   │   ├── backfill_inflation.py #  Serie IPC desde el archivo del OVF
 │   │   ├── collect_fiscal.py   #   Gacetas → PDF + OCR → data/ocr
 │   │   ├── backfill_fiscal_ocr.py # OCR del archivo de PDFs sin .md
+│   │   ├── backfill_reserves.py #  Serie histórica de reservas BCV → DB
 │   │   ├── verify_data.py      #   Auditoría de filas y frescura por tabla
 │   │   └── generate_report.py  #   Informes periódicos MD/PDF (--cadence, --since/--until)
 │   ├── alerts/                 # Sistema de alertas
@@ -368,6 +369,7 @@ economia-venezuela/
 | **Dólar Bybit** | Precio USDT/VES Bybit P2P | Bybit | ✅ En vivo |
 | **Inflación Mensual** | IPC (BCV, fallback OVF) | BCV/OVF | ✅ En vivo |
 | **Brecha Cambiaria** | Diferencia oficial-paralelo % | Cálculo | ✅ En vivo |
+| **Reservas Internacionales** | Reservas BCV + FEM en USD | BCV (`2_1_1.xlsx`) | ✅ En vivo |
 | **Gráfico 6 meses** | Evolución BCV + Binance + Bybit | DB | ✅ Plotly |
 
 ### Tab "📰 Noticias"
@@ -402,7 +404,7 @@ economia-venezuela/
 ### Tab "🔬 Macro" (5 sub-tabs)
 | Sub-tab | Contenido | Estado |
 |---------|-----------|--------|
-| **🚨 Riesgo & Sostenibilidad** | Score riesgo soberano 0-100, BOP desglosada, deuda con estrés, ciclo petrolero | ✅ |
+| **🚨 Riesgo & Sostenibilidad** | Serie histórica de reservas BCV (2020→hoy), score riesgo soberano 0-100, BOP desglosada, deuda con estrés, ciclo petrolero | ✅ |
 | **🔮 Pronóstico Integral** | Escenarios optimista/central/pesimista con sensibilidad | ✅ |
 | **📡 Nowcasting & IAE** | Predicción ML inflación/PIB + Índice Actividad Económica | ✅ |
 | **🔔 Alertas** | Sistema de umbrales automáticos (TC, inflación, IBC) | ✅ |
@@ -410,7 +412,7 @@ economia-venezuela/
 
 ## 🗄️ Base de Datos
 
-El proyecto usa **PostgreSQL** con 9 tablas principales. El esquema completo está documentado en [Arquitectura.md](Arquitectura.md#esquemas-sql-orms-sqlalchemy).
+El proyecto usa **PostgreSQL** con 12 tablas principales (incluye `reserves_history`, la serie diaria de reservas del BCV que alimenta el gráfico del tab Macro). El esquema completo está documentado en [Arquitectura.md](Arquitectura.md#esquemas-sql-orms-sqlalchemy).
 
 | Tabla | Descripción |
 |-------|-------------|

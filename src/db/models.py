@@ -205,6 +205,28 @@ class MacroIndicatorORM(Base):
 # IBC Index & Components (Investing.com)
 # ---------------------------------------------------------------------------
 
+class ReservesHistoryORM(Base):
+    """Serie diaria de reservas internacionales del BCV (montos en USD).
+
+    ``date`` es única: el libro del BCV se re-publica con correcciones, así que
+    la ingesta es idempotente por fecha.
+    """
+
+    __tablename__ = "reserves_history"
+    __table_args__ = (
+        UniqueConstraint("date", name="uq_reserves_history_date"),
+    )
+
+    id: Mapped[int] = mapped_column(BIGINT_ID, primary_key=True)
+    date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    bcv_usd: Mapped[Optional[float]] = mapped_column(Numeric(18, 2))
+    fem_usd: Mapped[Optional[float]] = mapped_column(Numeric(18, 2))
+    total_usd: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
+    fetched_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
+    )
+
+
 class IBCIndexORM(Base):
     """Punto diario del índice IBC (Bolsa de Valores de Caracas)."""
 

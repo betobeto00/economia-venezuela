@@ -13,14 +13,16 @@ El libro trae una hoja por año (``2026``, ``2025``, ...) y una hoja de apoyo
     FECHA | BCV | FEM (1) | TOTAL | ...
     (Millones de USD)
 
-Se toma la fila más reciente de la primera hoja con datos y se devuelve el
-TOTAL (BCV + FEM) convertido a USD. Es dato oficial publicado, sin estimaciones.
+``fetch_reserves`` devuelve el último día publicado y ``fetch_history`` la
+serie completa desde ``start_year`` (para el gráfico del tab Macro). Los
+valores se convierten a USD: es dato oficial, sin estimaciones.
 """
 
 import io
 import logging
+from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Optional
+from typing import Iterator, List, Optional
 
 import httpx
 import openpyxl
@@ -34,6 +36,16 @@ logger = logging.getLogger(__name__)
 
 MILLONES = 1_000_000
 INDICATOR = "reservas_internacionales"
+
+
+@dataclass(frozen=True)
+class ReservesDay:
+    """Un día de la serie de reservas (montos en USD)."""
+
+    date: str                    # YYYY-MM-DD
+    total_usd: float
+    bcv_usd: Optional[float] = None
+    fem_usd: Optional[float] = None
 
 
 def _download(url: str) -> bytes:
@@ -77,8 +89,16 @@ def _to_date(raw) -> Optional[date]:
     return None
 
 
-def parse_reserves(xlsx_bytes: bytes, source: str = "bcv") -> IndicatorPoint:
-    """Última reserva total (USD) del libro del BCV."""
+def _numeric(raw) -> Optional[float]:
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return None
+    return value if value > 0 else None
+
+
+def _iter_days(xlsx_bytes: bytes) -> Iterator[ReservesDay]:
+    """Recorre todas las hojas y emite cada día con dato de reservas."""
     try:
         workbook = openpyxl.load_workbook(
             io.BytesIO(xlsx_bytes), data_only=True, read_only=True
@@ -86,37 +106,62 @@ def parse_reserves(xlsx_bytes: bytes, source: str = "bcv") -> IndicatorPoint:
     except Exception as exc:  # noqa: BLE001 - archivo corrupto o no-xlsx
         raise CollectorSourceError(f"BCV: xlsx de reservas ilegible ({exc})") from exc
 
-    latest: Optional[tuple] = None
-    for sheet in workbook.worksheets:
-        for row in sheet.iter_rows(values_only=True):
-            if not row or len(row) < 4:
-                continue
-            fecha = _to_date(row[0])
-            if fecha is None:
-                continue
-            try:
-                total = float(row[3])
-            except (TypeError, ValueError):
-                continue
-            if total <= 0:
-                continue
-            if latest is None or fecha > latest[0]:
-                latest = (fecha, total)
-        if latest is not None:
-            break  # la primera hoja con datos es el año en curso
+    try:
+        for sheet in workbook.worksheets:
+            for row in sheet.iter_rows(values_only=True):
+                if not row or len(row) < 4:
+                    continue
+                fecha = _to_date(row[0])
+                if fecha is None:
+                    continue
+                total = _numeric(row[3])
+                if total is None:
+                    continue
+                bcv = _numeric(row[1])
+                fem = _numeric(row[2])
+                yield ReservesDay(
+                    date=fecha.isoformat(),
+                    total_usd=total * MILLONES,
+                    bcv_usd=bcv * MILLONES if bcv is not None else None,
+                    fem_usd=fem * MILLONES if fem is not None else None,
+                )
+    finally:
+        workbook.close()
 
-    workbook.close()
+
+def parse_reserves(xlsx_bytes: bytes, source: str = "bcv") -> IndicatorPoint:
+    """Último día de reservas del libro del BCV (USD)."""
+    latest: Optional[ReservesDay] = None
+    for day in _iter_days(xlsx_bytes):
+        if latest is None or day.date > latest.date:
+            latest = day
+
     if latest is None:
         raise CollectorSourceError("BCV: el libro de reservas no trae filas con dato")
 
-    fecha, total_millones = latest
     return IndicatorPoint(
         source=source,
         indicator=INDICATOR,
-        value=total_millones * MILLONES,
-        period=fecha.isoformat(),
+        value=latest.total_usd,
+        period=latest.date,
         unit="USD",
     )
+
+
+def parse_history(xlsx_bytes: bytes, start_year: int = 2020,
+                  source: str = "bcv") -> List[ReservesDay]:
+    """Serie completa desde ``start_year`` (una entrada por fecha, ordenada)."""
+    days = {}
+    for day in _iter_days(xlsx_bytes):
+        if int(day.date[:4]) < start_year:
+            continue
+        days[day.date] = day
+
+    if not days:
+        raise CollectorSourceError(
+            f"BCV: el libro de reservas no trae datos desde {start_year}"
+        )
+    return sorted(days.values(), key=lambda d: d.date)
 
 
 class BCVReservesCollector:
@@ -128,3 +173,7 @@ class BCVReservesCollector:
     def fetch_reserves(self) -> IndicatorPoint:
         """Último dato publicado de reservas internacionales (USD)."""
         return parse_reserves(_download(self.url))
+
+    def fetch_history(self, start_year: int = 2020) -> List[ReservesDay]:
+        """Serie histórica de reservas desde ``start_year``."""
+        return parse_history(_download(self.url), start_year=start_year)

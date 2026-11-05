@@ -11,7 +11,7 @@ FastAPI, scripts o tests (SQLite), y garantizan ingesta idempotente.
 """
 
 import logging
-from datetime import datetime
+from datetime import date as date_type, datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy import func, select
@@ -25,6 +25,7 @@ from src.db.models import (
     InflationPointORM,
     MacroIndicatorORM,
     NewsArticleORM,
+    ReservesHistoryORM,
     SentimentScoreORM,
     SocialPostORM,
     SurveyORM,
@@ -36,6 +37,16 @@ from src.models.news import NewsArticle, SentimentScore, SocialPost
 from src.models.survey import Survey, SurveyResponse
 
 logger = logging.getLogger(__name__)
+
+
+def _as_utc(value) -> datetime:
+    """Normaliza fecha/datetime/ISO a ``datetime`` con zona UTC."""
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if isinstance(value, date_type):
+        return datetime(value.year, value.month, value.day, tzinfo=timezone.utc)
+    parsed = datetime.fromisoformat(str(value))
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
 def _survey_to_orm(survey: Survey) -> SurveyORM:
@@ -812,3 +823,64 @@ class MacroRepository:
             return True
         age = datetime.now(timezone.utc) - orm.fetched_at
         return age.total_seconds() > max_age_hours * 3600
+
+
+class ReservesRepository:
+    """Serie histórica de reservas internacionales del BCV."""
+
+    def __init__(self, session: Session):
+        self.session = session
+
+    def save_history(self, days: List[dict]) -> int:
+        """Guarda la serie por fecha (idempotente).
+
+        Args:
+            days: Lista de ``{"date", "total_usd", "bcv_usd", "fem_usd"}``.
+
+        Returns:
+            Cuántas fechas nuevas se insertaron (las existentes se actualizan).
+        """
+        insertados = 0
+        for day in days:
+            fecha = _as_utc(day["date"])
+            orm = self.session.execute(
+                select(ReservesHistoryORM).where(ReservesHistoryORM.date == fecha)
+            ).scalar_one_or_none()
+            if orm is None:
+                self.session.add(ReservesHistoryORM(
+                    date=fecha,
+                    bcv_usd=day.get("bcv_usd"),
+                    fem_usd=day.get("fem_usd"),
+                    total_usd=day["total_usd"],
+                ))
+                insertados += 1
+            else:
+                orm.total_usd = day["total_usd"]
+                if day.get("bcv_usd") is not None:
+                    orm.bcv_usd = day["bcv_usd"]
+                if day.get("fem_usd") is not None:
+                    orm.fem_usd = day["fem_usd"]
+                orm.fetched_at = datetime.now(timezone.utc)
+        self.session.flush()
+        return insertados
+
+    def get_history(self, since=None) -> List[dict]:
+        """Serie ordenada por fecha (ascendente), opcionalmente desde ``since``."""
+        stmt = select(ReservesHistoryORM).order_by(ReservesHistoryORM.date)
+        if since is not None:
+            stmt = stmt.where(ReservesHistoryORM.date >= _as_utc(since))
+        return [
+            {
+                "date": orm.date.date().isoformat(),
+                "total_usd": float(orm.total_usd),
+                "bcv_usd": float(orm.bcv_usd) if orm.bcv_usd is not None else None,
+                "fem_usd": float(orm.fem_usd) if orm.fem_usd is not None else None,
+            }
+            for orm in self.session.scalars(stmt)
+        ]
+
+    def count(self) -> int:
+        """Número de días guardados."""
+        return self.session.scalar(
+            select(func.count()).select_from(ReservesHistoryORM)
+        ) or 0

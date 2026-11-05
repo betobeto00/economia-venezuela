@@ -10,8 +10,8 @@ Los datos se refrescan cuando tienen más de 24 horas de antigüedad.
 """
 
 import logging
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import datetime, timedelta, timezone
+from typing import List, Optional
 
 from src.analyzers import reference_values
 
@@ -485,11 +485,49 @@ def reservas_internacionales() -> Optional[dict]:
                 "source": "BCV",
             }
             _save_cached("bcv", "reservas", point.value, point.period, point.unit)
+            _save_reserves_day(point.period, point.value)
             return result
     except Exception as exc:  # noqa: BLE001
         logger.debug("BCV no disponible para reservas: %s", exc)
 
     return None
+
+
+def _save_reserves_day(period: str, total_usd: float) -> None:
+    """Añade/actualiza el último día en la serie histórica de reservas."""
+    try:
+        from src.db.repositories import ReservesRepository
+        from src.db.session import session_scope
+
+        with session_scope() as session:
+            ReservesRepository(session).save_history(
+                [{"date": period, "total_usd": total_usd}]
+            )
+    except Exception as exc:  # noqa: BLE001 - el histórico es opcional
+        logger.debug("No se pudo guardar el día en el histórico de reservas: %s", exc)
+
+
+def reserves_history(days: Optional[int] = None) -> List[dict]:
+    """Serie histórica de reservas del BCV guardada en la DB.
+
+    Args:
+        days: Ventana en días (None = toda la serie).
+
+    Returns:
+        Lista de ``{"date", "total_usd", "bcv_usd", "fem_usd"}`` ordenada.
+    """
+    try:
+        from src.db.repositories import ReservesRepository
+        from src.db.session import session_scope
+
+        since = None
+        if days:
+            since = datetime.now(timezone.utc) - timedelta(days=days)
+        with session_scope() as session:
+            return ReservesRepository(session).get_history(since=since)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("Histórico de reservas no disponible: %s", exc)
+        return []
 
 
 def reserves_usd() -> float:
