@@ -317,6 +317,7 @@ economia-venezuela/
 │   │   ├── backfill_ibc.py     #   Backfill IBC + tickers venezolanos → DB
 │   │   ├── backfill_inflation.py #  Serie IPC desde el archivo del OVF
 │   │   ├── collect_fiscal.py   #   Gacetas → PDF + OCR → data/ocr
+│   │   ├── backfill_fiscal_ocr.py # OCR del archivo de PDFs sin .md
 │   │   ├── verify_data.py      #   Auditoría de filas y frescura por tabla
 │   │   └── generate_report.py  #   Informes periódicos MD/PDF (--cadence, --since/--until)
 │   ├── alerts/                 # Sistema de alertas

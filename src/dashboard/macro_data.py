@@ -243,20 +243,23 @@ def inflacion_internacional() -> Optional[dict]:
     except Exception as exc:  # noqa: BLE001
         logger.debug("FMI no disponible para inflación: %s", exc)
 
-    # World Bank
+    # World Bank (InflationPoint no tiene ``value``: la tasa anual va en
+    # ``annual_rate``)
     try:
         from src.collectors.international.worldbank_collector import WorldBankCollector
         points = WorldBankCollector().fetch_inflation()
         if points:
-            latest = max(points, key=lambda p: p.year)
-            result = {
-                "value": latest.value,
-                "period": str(latest.year),
-                "unit": "%",
-                "source": "Banco Mundial",
-            }
-            _save_cached("world_bank", "inflacion", latest.value, str(latest.year))
-            return result
+            latest = max(points, key=lambda p: p.period)
+            value = latest.annual_rate if latest.annual_rate is not None else latest.monthly_rate
+            if value is not None:
+                result = {
+                    "value": value,
+                    "period": latest.period,
+                    "unit": "%",
+                    "source": "Banco Mundial",
+                }
+                _save_cached("world_bank", "inflacion", value, latest.period, "%")
+                return result
     except Exception as exc:  # noqa: BLE001
         logger.debug("Banco Mundial no disponible para inflación: %s", exc)
 
@@ -264,26 +267,46 @@ def inflacion_internacional() -> Optional[dict]:
 
 
 def produccion_petrolera() -> Optional[dict]:
-    """Última producción petrolera de Venezuela (OPEP)."""
+    """Precio de referencia del crudo (OPEP → cesta venezolana → Brent local)."""
     cached = _get_cached("petroleo")
     if cached:
         return cached
 
-    try:
-        from src.collectors.international.opec_collector import OPECCollector
-        point = OPECCollector().fetch_basket_price()
-        if point:
-            result = {
-                "value": point.value,
-                "period": point.period,
-                "unit": point.unit or "USD/barril",
-                "source": "OPEP",
-                "indicator": point.indicator,
-            }
-            _save_cached("opec", "petroleo", point.value, point.period, point.unit)
-            return result
-    except Exception as exc:  # noqa: BLE001
-        logger.debug("OPEP no disponible para producción: %s", exc)
+    fuentes = (
+        ("OPEP", "opec", "OPECCollector", "fetch_basket_price"),
+        ("PDVSA", "pdvsa", "PDVSACollector", "fetch_basket_price"),
+    )
+    for nombre, slug, clase, metodo in fuentes:
+        try:
+            modulo = __import__(
+                f"src.collectors.international.{slug}_collector", fromlist=[clase]
+            )
+            point = getattr(getattr(modulo, clase)(), metodo)()
+            if point and point.value > 0:
+                result = {
+                    "value": point.value,
+                    "period": point.period,
+                    "unit": point.unit or "USD/barril",
+                    "source": nombre,
+                    "indicator": point.indicator,
+                }
+                _save_cached(slug, "petroleo", point.value, point.period, point.unit)
+                return result
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("%s no disponible para crudo: %s", nombre, exc)
+
+    # 3. Brent del CSV local (dato real del proyecto, sin estimaciones)
+    price = _brent_from_csv()
+    if price is not None:
+        period = datetime.now(timezone.utc).strftime("%Y-%m")
+        result = {
+            "value": price,
+            "period": period,
+            "unit": "USD/barril",
+            "source": "Brent (CSV local)",
+        }
+        _save_cached("brent_csv", "petroleo", price, period, "USD/barril")
+        return result
 
     return None
 
@@ -353,35 +376,42 @@ def refresh_macro_cache() -> dict:
 
 # ─── Datos para Balanza de Pagos ────────────────────────────────────────────
 
+def _brent_from_csv() -> Optional[float]:
+    """Último precio del Brent en el CSV histórico local (o ``None``)."""
+    import csv
+    from pathlib import Path
+
+    csv_path = Path(__file__).resolve().parent.parent.parent / "data" / "cvs.xls" / "Datos históricos Petróleo Brent.csv"
+    if not csv_path.exists():
+        return None
+    try:
+        with open(csv_path, encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f, delimiter=",")
+            for row in reader:
+                # Primera fila = más reciente
+                raw = row.get("Último", "") or row.get("ltimo", "") or row.get("\u00daltimo", "")
+                if not raw:
+                    vals = list(row.values())
+                    if len(vals) > 1:
+                        raw = vals[1]
+                if raw:
+                    price = float(raw.replace(".", "").replace(",", "."))
+                    if price > 0:
+                        return price
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("CSV petróleo Brent no disponible: %s", exc)
+    return None
+
+
 def oil_price_current() -> float:
     """Precio actual del petróleo Brent desde el CSV local o fallback.
 
     Returns:
         Precio en USD/barril.
     """
-    import csv
-    from pathlib import Path
-
-    csv_path = Path(__file__).resolve().parent.parent.parent / "data" / "cvs.xls" / "Datos históricos Petróleo Brent.csv"
-    if csv_path.exists():
-        try:
-            with open(csv_path, encoding="utf-8-sig") as f:
-                reader = csv.DictReader(f, delimiter=",")
-                for row in reader:
-                    # Primera fila = más reciente
-                    # Try multiple header encodings for the price column
-                    raw = row.get("Último", "") or row.get("ltimo", "") or row.get("\u00daltimo", "")
-                    if not raw:
-                        # Fallback: use second column (price)
-                        vals = list(row.values())
-                        if len(vals) > 1:
-                            raw = vals[1]
-                    if raw:
-                        price = float(raw.replace(".", "").replace(",", "."))
-                        if price > 0:
-                            return price
-        except Exception as exc:
-            logger.debug("CSV petróleo Brent no disponible: %s", exc)
+    price = _brent_from_csv()
+    if price is not None:
+        return price
 
     # Fallback: intentar OPEP collector
     try:

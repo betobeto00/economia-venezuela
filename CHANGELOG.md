@@ -13,6 +13,9 @@ y este proyecto adhiere al [Semantic Versioning](https://semver.org/lang/es/).
 - Parser OVF: exige "inflación mensual" (ya no confunde la acumulada) y deduce el período del título con la fecha de publicación
 - `iniciar.bat` sustituye al antiguo arranque y ahora levanta también el dashboard; `start.bat` queda como alias y `detener.bat` lo apaga
 - Streamlit escucha en `0.0.0.0` dentro del contenedor: el 8501 era inalcanzable desde el host
+- `collect_fiscal` ya no sale con error cuando la Gaceta responde y no hay publicaciones: solo falla si el índice no se pudo consultar
+- `inflacion_internacional` leía `InflationPoint.value`/`.year` (campos inexistentes), así que el indicador nunca se guardaba; ahora usa `annual_rate` y `period`
+- Crudo con cadena OPEP → cesta PDVSA → Brent del CSV local (la OPEP responde 403)
 - Documentación completa actualizada: readme.md, Arquitectura.md, roadmap.md, knowledge.md, docs/review.md, docs/fuentes_fiscales.md
 - 24 collectors documentados correctamente en todos los archivos
 - 299 tests reflejados en toda la documentación
@@ -22,6 +25,7 @@ y este proyecto adhiere al [Semantic Versioning](https://semver.org/lang/es/).
 ### Added
 - `backfill_inflation.py` (serie IPC desde el archivo del OVF) y `collect_fiscal.py` (gacetas + OCR)
 - Workflow `wf-eco-collect-fiscal.json` (diario 05:30) y nodo Backfill IPC en el refresco semanal
+- `backfill_fiscal_ocr.py`: OCR del archivo de PDFs sin `.md`, como job del runner y nodo del workflow fiscal
 - `iniciar.bat` / `detener.bat`; `pdfplumber`, `pymupdf`, `tesseract-ocr(-spa)` y `poppler-utils` en la imagen
 - LICENSE (MIT)
 - CONTRIBUTING.md

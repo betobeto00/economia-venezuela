@@ -24,6 +24,38 @@
     {
       "parameters": {
         "method": "POST",
+        "url": "http://host.docker.internal:8090/run/backfill_fiscal_ocr",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"limit\": 20\n}\n",
+        "options": {
+          "timeout": 1800000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "5a000006-0000-4000-8000-000000000005",
+      "name": "Backfill OCR histórico",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        120,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 300000,
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eco-runner-token",
+          "name": "Economía VE - Runner token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
         "url": "http://host.docker.internal:8090/run/collect_fiscal",
         "sendBody": true,
         "specifyBody": "json",
@@ -39,7 +71,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        160,
+        340,
         0
       ],
       "retryOnFail": true,
@@ -82,7 +114,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        420,
+        560,
         0
       ]
     },
@@ -105,13 +137,24 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        680,
+        800,
         0
       ]
     }
   ],
   "connections": {
     "Diario 05:30": {
+      "main": [
+        [
+          {
+            "node": "Backfill OCR histórico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Backfill OCR histórico": {
       "main": [
         [
           {

@@ -69,7 +69,7 @@ class TestCollectFiscal:
 
         summary = job.collect_fiscal(days=7, limit=5, collector=FakeCollector([_doc()]))
         assert summary == {"found": 1, "downloaded": 1, "processed": 1,
-                           "skipped": 0, "failed": 0}
+                           "skipped": 0, "failed": 0, "error": False}
         assert calls == {"download": 1, "ocr": 1}
 
     def test_respeta_limit(self, monkeypatch):
@@ -93,9 +93,17 @@ class TestCollectFiscal:
         assert summary["found"] == 0
         assert summary["processed"] == 0
 
-    def test_sin_gacetas_sale_con_error(self, monkeypatch):
-        """Un día sin publicaciones no debe reportarse como éxito."""
+    def test_sin_gacetas_sale_limpio(self, monkeypatch):
+        """Sin publicaciones la fuente respondió: no es un fallo del job."""
         monkeypatch.setattr(job, "collect_fiscal", lambda **k: {
-            "found": 0, "downloaded": 0, "processed": 0, "skipped": 0, "failed": 0})
+            "found": 0, "downloaded": 0, "processed": 0, "skipped": 0,
+            "failed": 0, "error": False})
+        monkeypatch.setattr("builtins.print", lambda *a, **k: None)
+        assert job.main(["--days", "1"]) == 0
+
+    def test_fuente_caida_sale_con_error(self, monkeypatch):
+        monkeypatch.setattr(job, "collect_fiscal", lambda **k: {
+            "found": 0, "downloaded": 0, "processed": 0, "skipped": 0,
+            "failed": 0, "error": True})
         monkeypatch.setattr("builtins.print", lambda *a, **k: None)
         assert job.main(["--days", "1"]) == 1

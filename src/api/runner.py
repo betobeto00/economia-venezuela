@@ -56,6 +56,7 @@ TIMEOUTS: Dict[str, int] = {
     "backfill_ibc": 900,
     "backfill_inflation": 900,
     "collect_fiscal": 1800,
+    "backfill_fiscal_ocr": 1800,
     "generate_report": 1800,
     "verify_data": 300,
     "pytest": 900,
@@ -74,6 +75,7 @@ _ALLOWED_FIELDS: Dict[str, Set[str]] = {
     "backfill_ibc": {"days"},
     "backfill_inflation": {"pages"},
     "collect_fiscal": {"days", "limit", "force"},
+    "backfill_fiscal_ocr": {"limit", "force"},
     "generate_report": {"cadence", "format", "no_ai"},
     "verify_data": set(),
     "pytest": set(),
@@ -188,6 +190,11 @@ def build_command(job: str, request: RunRequest) -> List[str]:
     elif job == "collect_fiscal":
         if request.days:
             cmd += ["--days", str(request.days)]
+        if request.limit:
+            cmd += ["--limit", str(request.limit)]
+        if request.force:
+            cmd += ["--force"]
+    elif job == "backfill_fiscal_ocr":
         if request.limit:
             cmd += ["--limit", str(request.limit)]
         if request.force:

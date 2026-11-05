@@ -16,6 +16,10 @@ Qué hace, por cada gaceta publicada en los últimos ``days`` días:
 
 Uso:
     python -m src.scripts.collect_fiscal [--days 7] [--limit 10] [--force] [--json]
+
+Salida: ``0`` si la fuente respondió (aunque no hubiera gacetas publicadas),
+``1`` solo si el índice no se pudo consultar. Un fin de semana largo o un
+parón de publicaciones no es un fallo del job.
 """
 
 from __future__ import annotations
@@ -65,19 +69,23 @@ def collect_fiscal(
         collector: Collector inyectable (tests).
 
     Returns:
-        Resumen con ``found``, ``downloaded``, ``processed``, ``skipped`` y
-        ``failed``.
+        Resumen con ``found``, ``downloaded``, ``processed``, ``skipped``,
+        ``failed`` y ``error`` (True si el índice no respondió).
     """
     from src.cache.manager import download_pdf, process_and_save_ocr
     from src.collectors.fiscal.gaceta_collector import GacetaOficialCollector
 
     collector = collector or GacetaOficialCollector()
-    summary = {"found": 0, "downloaded": 0, "processed": 0, "skipped": 0, "failed": 0}
+    summary = {
+        "found": 0, "downloaded": 0, "processed": 0, "skipped": 0,
+        "failed": 0, "error": False,
+    }
 
     try:
         docs = collector.fetch_recientes(days=days)
     except Exception as exc:  # noqa: BLE001 - fuente externa caída
         logger.error("Gaceta: no se pudo consultar el índice: %s", exc)
+        summary["error"] = True
         return summary
 
     summary["found"] = len(docs)
@@ -112,6 +120,10 @@ def collect_fiscal(
             logger.warning("Gaceta %s falló: %s", filename, exc)
             summary["failed"] += 1
 
+    if summary["found"] == 0:
+        logger.info(
+            "Gacetas: el índice respondió pero no hay publicaciones en %d días", days
+        )
     logger.info(
         "Gacetas: %d encontradas, %d descargadas, %d procesadas, %d sin cambios, %d fallidas",
         summary["found"], summary["downloaded"], summary["processed"],
@@ -138,8 +150,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(json.dumps(summary, ensure_ascii=False))
     else:
         print(f"Ingesta fiscal completada: {summary}")
-    # Un fallo total (nada encontrado) no debe parecer éxito
-    return 0 if summary["found"] > 0 else 1
+    # Sin publicaciones no es un fallo; solo lo es que la fuente no responda
+    return 1 if summary.get("error") else 0
 
 
 if __name__ == "__main__":

@@ -728,3 +728,35 @@ IX.5 Verificación (05-11-2026)
 Nota de n8n: esta versión exige `id` en el JSON de import, así que el workflow
 nuevo se importó con `id: ecoFiscal0000001`; los ficheros del repo siguen sin
 `id`, igual que los demás.
+
+IX.6 Cierre de los tres huecos (05-11-2026)
+
+**Gacetas: es la fuente, no el collector.** `/gacetas/dia` responde 200 con
+datos hasta el 2026-10-14 (extraordinaria 7078) y `[]` desde entonces; el
+barrido día por día 16-sep → 05-nov confirmó que no hay publicaciones
+posteriores. `collect_fiscal` ya no lo cuenta como fallo: devuelve 0 cuando el
+índice respondió aunque `found == 0`, y solo 1 si no se pudo consultar (nuevo
+`summary["error"]`). Verificado en el contenedor: `found: 0, error: false` →
+exit 0.
+
+**OCR histórico.** `backfill_fiscal_ocr` recorre `data/pdfs/gacetas/<año>/`,
+empareja por número de gaceta (conviven `<número>.md` y
+`<número>-<fecha>-<TIPO>.md`) y procesa los que falten sin descargar nada.
+Corrida en el contenedor: 40 PDFs, 0 pendientes, 40 ya procesados → el archivo
+está completo; el job queda para futuros huecos y como primer nodo del workflow
+fiscal diario.
+
+**Macro.** La tabla no estaba vacía por falta de job, sino porque nunca se
+había ejecutado `refresh_macro`, y encima `inflacion_internacional()` leía
+`InflationPoint.value` y `.year`, campos que no existen (la tasa anual está en
+`annual_rate` y el período en `period`): fallaba siempre y el error se perdía en
+`logger.debug`. Corregido. El crudo pasa a cadena OPEP → cesta PDVSA → Brent
+del CSV local, porque la OPEP responde 403 incluso con User-Agent de navegador.
+Tras el refresh en el contenedor, `macro_indicators` tiene 5 filas: `pib`
+(CEPAL), `pib_crecimiento` e `inflacion` (Banco Mundial), `gasto_onu` (UNSCEB)
+y `petroleo` (Brent local).
+
+**Runner/n8n.** Job `backfill_fiscal_ocr` (1800 s, `limit`/`force`) en la
+allowlist y nodo "Backfill OCR histórico" antes de `Gacetas + OCR` en el
+workflow diario de las 05:30. Documentado en readme.md, n8n/README.md y
+CHANGELOG.md.
