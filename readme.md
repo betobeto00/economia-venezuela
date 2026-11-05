@@ -120,7 +120,8 @@ vecm_result = vecm.fit_vecm(official_rate, parallel_rate)
 | Cendas-FVM | Web scraping | Periódica | Canastas alimentarias regionales |
 | INE | Web scraping | Periódica | Empleo, demografía |
 | PDVSA | Web scraping | Periódica | Cesta venezolana, documentos |
-| FMI (IFS/SDMX) | API REST | Mensual | PIB, inflación, indicadores |
+| FMI (WEO vía DBnomics) | API REST | Anual | Crecimiento del PIB e inflación media (incluye estimaciones/proyecciones del Fondo) |
+| BCV — Reservas internacionales | XLSX (`2_1_1.xlsx`) | Diaria (se refresca los domingos) | Reservas BCV + FEM en USD |
 | CEPAL | API (CEPALSTAT) | Anual | PIB, crecimiento |
 | UNSCEB | CSV | Anual | Gasto del sistema ONU en Venezuela |
 | Banco Mundial | API REST | Anual | PIB, indicadores de desarrollo |
@@ -242,13 +243,13 @@ economia-venezuela/
 ├── src/
 │   ├── __init__.py
 │   ├── config.py               # Configuración (pydantic-settings, .env)
-│   ├── collectors/             # Módulos de recolección (28 collectors)
+│   ├── collectors/             # Módulos de recolección (29 collectors)
 │   │   ├── http.py             #   Cliente HTTP compartido (GET/POST, retries)
 │   │   ├── errors.py           #   Excepciones del dominio
 │   │   ├── market/             #   bcv, ovf, bvc, binance, ibc_components, ibc_stocks, ibc_collector, ibc_history, dolar_paralelo, consumo
 │   │   ├── fiscal/             #   onapre, cgr, seniat, mppef, gaceta, an, cendas + documents.py, gaceta_ocr
-│   │   ├── official/           #   ine
-│   │   ├── international/      #   worldbank, opec, imf, cepal, pdvsa, unsceb
+│   │   ├── official/           #   ine, bcv_reserves (reservas internacionales)
+│   │   ├── international/      #   worldbank, opec, imf (WEO vía DBnomics), cepal, pdvsa, unsceb
 │   │   ├── news/               #   rss
 │   │   ├── social/             #   reddit (RSS/JSON público + Zernio fallback)
 │   │   └── surveys/            #   Encuestas Google (Forms→Sheets): survey_collector, form_registry, utils
@@ -295,7 +296,7 @@ economia-venezuela/
 │   │       ├── diagnostics.py  #   Residuos
 │   │       └── regression.py   #   Newey-West OLS
 │   ├── dashboard/              # Visualización (Streamlit)
-│   │   ├── app.py              #   Dashboard principal (6 tabs + 5 sub-tabs Macro)
+│   │   ├── app.py              #   Dashboard principal (9 tabs)
 │   │   ├── theme.py            #   Tema visual
 │   │   ├── market_data.py      #   Métricas de mercado desde DB
 │   │   ├── macro_data.py       #   Datos macro cacheados (DB + APIs)
@@ -331,7 +332,7 @@ economia-venezuela/
 │   ├── raw/                    # Datos crudos
 │   ├── processed/              # Datos procesados
 │   └── reports/                # Informes generados
-├── tests/                      # 341 tests (pytest)
+├── tests/                      # 404 tests (pytest)
 └── docs/                       # Documentación
     ├── fuentes_fiscales.md     # Fuentes fiscales gubernamentales
     └── review.md               # Revisión técnica del proyecto
@@ -345,6 +346,8 @@ economia-venezuela/
 | IBC + Tickers (backfill) | Diaria | `python -m src.scripts.backfill_ibc` |
 | Encuestas (Google Forms → Sheets) | Cada 60 min | `SURVEY_COLLECT_INTERVAL_MINUTES` |
 | Noticias RSS + sentimiento | Cada 6 h | `NEWS_COLLECT_INTERVAL_HOURS` |
+| Indicadores macro + reservas BCV | Domingos 03:00 | job `refresh_macro` (workflow de refresco) |
+| OCR del archivo histórico de gacetas | Domingos 04:00 | job `backfill_fiscal_ocr` |
 | Informe semanal (con IA) | Cada domingo 08:00 | `WEEKLY_REPORT_DAY`/`WEEKLY_REPORT_HOUR` |
 | Informe diario | 07:00 Lunes-Viernes | cron `report_diario` |
 | Informe semanal (PDF) | Lunes 08:00 | cron `report_semanal` |

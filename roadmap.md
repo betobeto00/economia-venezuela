@@ -525,4 +525,4 @@ pdf_url: http://www.gacetaoficial.gob.ve/storage/2026/43432-2026-08-07-ORDINARIA
 
 **Roadmap actualizado: Agosto 2026**
 **Versión: 10.0**
-**Incluye: 28 collectors + Dashboard 8 tabs + 341 tests + 8 modelos macro + 130 tareas pendientes + Fase 8 (Infraestructura de Datos)**
+**Incluye: 29 collectors + Dashboard 9 tabs + 404 tests + 8 modelos macro + 130 tareas pendientes + Fase 8 (Infraestructura de Datos)**

@@ -17,7 +17,7 @@ from src.collectors.international.cepal_collector import (
     parse_data,
     parse_dimensions,
 )
-from src.collectors.international.imf_collector import IMFCollector, parse_imf_series
+from src.collectors.international.imf_collector import IMFCollector, parse_dbnomics_series
 from src.collectors.international.pdvsa_collector import PDVSACollector, parse_basket_price
 from src.collectors.international.unsceb_collector import (
     UNSCEBCollector,
@@ -155,37 +155,37 @@ class TestPDVSA:
 # ---------------------------------------------------------------- FMI
 
 IMF_PAYLOAD = {
-    "CompactData": {
-        "DataSet": {
-            "Series": [{
-                "@INDICATOR": "NGDP_RPCH",
-                "Obs": [
-                    {"@TIME_PERIOD": "2020", "@OBS_VALUE": "-30.0"},
-                    {"@TIME_PERIOD": "2021", "@OBS_VALUE": "1.2"},
-                    {"@TIME_PERIOD": "2022", "@OBS_VALUE": "n/a"},
-                ],
-            }]
-        }
+    "series": {
+        "docs": [{
+            "period": ["2020", "2021", "2022", "2023"],
+            "value": ["-30.0", "1.2", "NA", "4.0"],
+        }]
     }
 }
 
 
 class TestIMF:
-    def test_parse_imf_series(self):
-        points = parse_imf_series(IMF_PAYLOAD, "NGDP_RPCH")
-        assert [p.period for p in points] == ["2020", "2021"]
+    def test_parse_dbnomics_series(self):
+        points = parse_dbnomics_series(IMF_PAYLOAD, "NGDP_RPCH")
+        assert [p.period for p in points] == ["2020", "2021", "2023"]
         assert points[0].value == -30.0
         assert points[1].value == 1.2
         assert points[0].source == "imf"
         assert points[0].unit == "%"
 
-    def test_parse_imf_series_filtra_indicador(self):
-        points = parse_imf_series(IMF_PAYLOAD, "PCPIPCH")
-        assert points == []
+    def test_parse_dbnomics_descarta_na(self):
+        points = parse_dbnomics_series(IMF_PAYLOAD, "PCPIPCH")
+        assert "2022" not in [p.period for p in points]
 
-    def test_parse_imf_series_sin_datos(self):
+    @pytest.mark.parametrize("payload", [
+        {"series": {}},
+        {"series": {"docs": []}},
+        {"series": {"docs": [{"period": [], "value": []}]}},
+        {"nope": 1},
+    ])
+    def test_parse_dbnomics_sin_datos(self, payload):
         with pytest.raises(CollectorSourceError):
-            parse_imf_series({"CompactData": {"DataSet": None}}, "NGDP_RPCH")
+            parse_dbnomics_series(payload, "NGDP_RPCH")
 
     def test_fetch_gdp_growth(self, monkeypatch):
         monkeypatch.setattr(
@@ -193,7 +193,7 @@ class TestIMF:
             lambda url, params=None: IMF_PAYLOAD,
         )
         points = IMFCollector().fetch_gdp_growth()
-        assert len(points) == 2
+        assert len(points) == 3
         assert points[0].indicator == "NGDP_RPCH"
 
     def test_fetch_indicator_url(self, monkeypatch):
@@ -201,13 +201,16 @@ class TestIMF:
 
         def fake(url, params=None):
             seen["url"] = url
+            seen["params"] = params
             return IMF_PAYLOAD
 
         monkeypatch.setattr(
             "src.collectors.international.imf_collector.http_get_json", fake
         )
         IMFCollector().fetch_gdp_growth()
-        assert "IFS/A.VE.NGDP_RPCH" in seen["url"]
+        assert "IMF/WEO" in seen["url"]
+        assert seen["url"].endswith("VEN.NGDP_RPCH")
+        assert seen["params"] == {"observations": "1"}
 
 
 # ---------------------------------------------------------------- CEPAL

@@ -106,7 +106,11 @@ class Settings(BaseSettings):
     SENIAT_BASE_URL: str = "https://www.seniat.gob.ve"
     MPPEF_BASE_URL: str = "https://www.mppef.gob.ve"
     PDVSA_BASE_URL: str = "https://pdvsa-adhoc.com"
-    IMF_SDMX_URL: str = "https://dataservices.imf.org/REST/SDMX_JSON.svc"
+    # WEO del FMI vía DBnomics: dataservices.imf.org ya no resuelve y el
+    # DataMapper de www.imf.org responde 403 desde esta red (Akamai).
+    IMF_WEO_API_URL: str = "https://api.db.nomics.world/v22/series/IMF/WEO:latest"
+    # Reservas internacionales del BCV (libro 2_1_1.xlsx, millones de USD)
+    BCV_RESERVES_URL: str = "https://www.bcv.org.ve/sites/default/files/indicadores_sector_externo/2_1_1.xlsx"
     CEPALSTAT_BASE_URL: str = "https://api-cepalstat.cepal.org/cepalstat/api/v1"
     UNSCEB_BASE_URL: str = "https://unsceb.org"
     GACETA_OFICIAL_BASE_URL: str = "http://www.gacetaoficial.gob.ve"

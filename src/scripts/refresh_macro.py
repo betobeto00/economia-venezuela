@@ -31,7 +31,7 @@ def main(argv=None) -> int:
     from src.dashboard.macro_data import refresh_macro_cache
 
     logger.info("Refrescando indicadores macroeconómicos...")
-    results = refresh_macro_cache()
+    results = refresh_macro_cache(force=args.force)
 
     for name, ok in results.items():
         status = "OK" if ok else "FALLÓ"

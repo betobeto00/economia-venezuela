@@ -2,11 +2,12 @@
 Dashboard Principal - Economía Venezuela
 ========================================
 
-8 tabs:
+9 tabs:
 - 🏠 Inicio: métricas de dólar, inflación, brecha, gráfico histórico, macro
 - 💱 Mercado: tasas por fuente, serie histórica, brecha, CSV
 - 📈 IBC: índice, componentes completos, tickers venezolanos, búsqueda
-- 📰 Noticias + Reddit: RSS, sentimiento, posts Reddit con sentimiento
+- 📰 Noticias: RSS, sentimiento, posts Reddit con sentimiento
+- 💬 Social: Reddit y sentimiento ciudadano
 - 📋 Encuestas: KPIs, serie temporal, contraste, informe ejecutivo
 - 🏛️ Fiscal: gacetas OCR, categorías, leyes AN
 - 📊 Informes: generador de informes periódicos (MD + PDF)

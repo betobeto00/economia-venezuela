@@ -106,7 +106,7 @@ echo ========================================
 echo  Stack listo
 echo ========================================
 echo.
-echo  Dashboard:  http://127.0.0.1:8501   (8 tabs)
+echo  Dashboard:  http://127.0.0.1:8501   (9 tabs)
 echo  Runner:     http://127.0.0.1:8090/health
 echo  Postgres:   127.0.0.1:5432
 echo  Redis:      127.0.0.1:6380

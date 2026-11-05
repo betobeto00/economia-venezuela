@@ -80,7 +80,7 @@ Notas de n8n 2.39:
 | `wf-eco-collect-news.json` | cada hora | `collect_news` | activo |
 | `wf-eco-reports.json` | 6 cron (diario→anual) | `generate_report` | activo |
 | `wf-eco-refresh.json` | domingo 03:00 | `backfill_rates` → `backfill_inflation` → `refresh_macro` → `backfill_ibc` | activo |
-| `wf-eco-collect-fiscal.json` | diario 05:30 | `backfill_fiscal_ocr` → `collect_fiscal` (gacetas + OCR) | activo |
+| `wf-eco-collect-fiscal.json` | diario 05:30 y domingo 04:00 | `collect_fiscal` (gacetas + OCR; diario) y `backfill_fiscal_ocr` (archivo histórico; domingo) | activo |
 | `wf-eco-watchdog.json` | cada 15 min | `GET /health` | activo |
 | `wf-eco-preflight.json` | lunes 06:00 | `pytest` | activo |
 | `wf-eco-collect-surveys.json` | cada 60 min | `collect_surveys` | **inactivo**: sin `SURVEY_*_FORM_ID`/`SHEET_ID` no recolecta nada |

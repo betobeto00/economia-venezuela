@@ -23,6 +23,8 @@ CACHE_MAX_AGE_HOURS = 24  # Re-fetch después de 24 horas
 # Cache global para evitar múltiples queries a la DB
 _macro_cache: Optional[dict] = None
 _macro_cache_time: float = 0
+# Un refresh forzado ignora el cache (archivo + DB) y va a las fuentes
+_bypass_cache: bool = False
 
 
 def _load_macro_cache() -> dict:
@@ -44,13 +46,17 @@ def _load_macro_cache() -> dict:
             stmt = select(MacroIndicatorORM).order_by(MacroIndicatorORM.indicator)
             result = {}
             for orm in session.scalars(stmt):
-                result[orm.indicator] = {
+                entry = {
                     "value": float(orm.value),
                     "period": orm.period,
                     "unit": orm.unit,
                     "source": orm.source,
                     "fetched_at": orm.fetched_at,
                 }
+                # Un indicador puede tener fila por fuente: manda la más reciente
+                previo = result.get(orm.indicator)
+                if previo is None or (orm.fetched_at and orm.fetched_at >= previo["fetched_at"]):
+                    result[orm.indicator] = entry
             _macro_cache = result
             _macro_cache_time = time.time()
             return result
@@ -63,6 +69,9 @@ def _load_macro_cache() -> dict:
 
 def _get_cached(indicator: str) -> Optional[dict]:
     """Obtiene un indicador del cache (archivo → DB → None)."""
+    if _bypass_cache:
+        return None
+
     # 1. Intentar cache en archivo (más rápido)
     try:
         from src.cache.manager import get_cached_api
@@ -347,15 +356,24 @@ def macro_summary() -> dict:
         "inflacion_int": inflacion_internacional(),
         "petroleo": produccion_petrolera(),
         "gasto_onu": gasto_onu(),
+        "reservas": reservas_internacionales(),
     }
 
 
-def refresh_macro_cache() -> dict:
-    """Fuerza el refresh de todos los indicadores macro desde las APIs.
+def refresh_macro_cache(force: bool = False) -> dict:
+    """Refresca todos los indicadores macro desde las APIs.
+
+    Args:
+        force: Ignora el cache (archivo y DB) y consulta las fuentes.
 
     Returns:
         Dict con el resultado de cada fetch.
     """
+    global _macro_cache, _macro_cache_time, _bypass_cache
+    if force:
+        _macro_cache = None
+        _macro_cache_time = 0
+        _bypass_cache = True
     results = {}
     fetchers = {
         "pib": pib_latest,
@@ -363,14 +381,18 @@ def refresh_macro_cache() -> dict:
         "inflacion_int": inflacion_internacional,
         "petroleo": produccion_petrolera,
         "gasto_onu": gasto_onu,
+        "reservas": reservas_internacionales,
     }
-    for name, fn in fetchers.items():
-        try:
-            result = fn()
-            results[name] = result is not None
-        except Exception as exc:
-            logger.warning("Refresh %s falló: %s", name, exc)
-            results[name] = False
+    try:
+        for name, fn in fetchers.items():
+            try:
+                result = fn()
+                results[name] = result is not None
+            except Exception as exc:
+                logger.warning("Refresh %s falló: %s", name, exc)
+                results[name] = False
+    finally:
+        _bypass_cache = False
     return results
 
 
@@ -446,19 +468,40 @@ def oil_production_ve() -> float:
     )
 
 
+def reservas_internacionales() -> Optional[dict]:
+    """Último dato de reservas internacionales del BCV (USD)."""
+    cached = _get_cached("reservas")
+    if cached:
+        return cached
+
+    try:
+        from src.collectors.official.bcv_reserves_collector import BCVReservesCollector
+        point = BCVReservesCollector().fetch_reserves()
+        if point and point.value > 0:
+            result = {
+                "value": point.value,
+                "period": point.period,
+                "unit": point.unit or "USD",
+                "source": "BCV",
+            }
+            _save_cached("bcv", "reservas", point.value, point.period, point.unit)
+            return result
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("BCV no disponible para reservas: %s", exc)
+
+    return None
+
+
 def reserves_usd() -> float:
     """Reservas internacionales de Venezuela (USD) desde DB o estimación.
 
     Returns:
         Reservas en USD.
     """
-    cached = _get_cached("reservas")
-    if cached:
-        return cached["value"]
+    data = reservas_internacionales()
+    if data:
+        return data["value"]
 
-    # Serie oficial BCV (BCV+FEM), cierre 3T / fin oct-2026:
-    # 25-sep: 12.731 | 30-oct: 12.665 | 2-nov: 13.087 (US$ M)
-    # Fuente: bcv.org.ve/estadisticas/reservas-internacionales (2_1_1.xlsx, 2_2_1.xlsx)
     return reference_values.fallback("reserves_usd", context="reserves_usd")
 
 

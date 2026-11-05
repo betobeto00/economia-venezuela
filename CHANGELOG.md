@@ -16,6 +16,9 @@ y este proyecto adhiere al [Semantic Versioning](https://semver.org/lang/es/).
 - `collect_fiscal` ya no sale con error cuando la Gaceta responde y no hay publicaciones: solo falla si el índice no se pudo consultar
 - `inflacion_internacional` leía `InflationPoint.value`/`.year` (campos inexistentes), así que el indicador nunca se guardaba; ahora usa `annual_rate` y `period`
 - Crudo con cadena OPEP → cesta PDVSA → Brent del CSV local (la OPEP responde 403)
+- Collector FMI reescrito contra el WEO servido por DBnomics: `dataservices.imf.org` no resuelve y el DataMapper de `www.imf.org` responde 403 (Akamai)
+- `macro_indicators` devuelve una sola fila por indicador (la de `fetched_at` más reciente) cuando hay varias fuentes
+- `refresh_macro --force` ignora de verdad el cache de archivo/DB; antes el flag se parseaba y no se usaba
 - Documentación completa actualizada: readme.md, Arquitectura.md, roadmap.md, knowledge.md, docs/review.md, docs/fuentes_fiscales.md
 - 24 collectors documentados correctamente en todos los archivos
 - 299 tests reflejados en toda la documentación
@@ -25,6 +28,8 @@ y este proyecto adhiere al [Semantic Versioning](https://semver.org/lang/es/).
 ### Added
 - `backfill_inflation.py` (serie IPC desde el archivo del OVF) y `collect_fiscal.py` (gacetas + OCR)
 - Workflow `wf-eco-collect-fiscal.json` (diario 05:30) y nodo Backfill IPC en el refresco semanal
+- `bcv_reserves_collector.py`: reservas internacionales del BCV desde `2_1_1.xlsx` (dato oficial diario)
+- Nodo "Dominical 04:00" en el workflow fiscal: el OCR histórico corre los domingos además del `backfill_fiscal_ocr` manual
 - `backfill_fiscal_ocr.py`: OCR del archivo de PDFs sin `.md`, como job del runner y nodo del workflow fiscal
 - `iniciar.bat` / `detener.bat`; `pdfplumber`, `pymupdf`, `tesseract-ocr(-spa)` y `poppler-utils` en la imagen
 - LICENSE (MIT)

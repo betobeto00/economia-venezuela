@@ -591,7 +591,7 @@ Pipeline:
 - [x] Implementar modelos de datos (9 tablas ORMs)
 - [x] Módulo econométrico
 
-### Fase 2: Recolección (24 collectors implementados)
+### Fase 2: Recolección (25 collectors implementados)
 - [x] Collector BCV (DolarAPI oficial + IPC)
 - [x] Collector BVC (yfinance)
 - [x] Collector OVF (scraping)
@@ -606,7 +606,8 @@ Pipeline:
 - [x] Collector Gaceta Oficial (índice + PDFs)
 - [x] Collector AN (Asamblea Nacional)
 - [x] Collector INE
-- [x] Collector FMI (SDMX-JSON)
+- [x] Collector FMI (WEO vía DBnomics; el SDMX de dataservices.imf.org está muerto)
+- [x] Collector Reservas BCV (libro 2_1_1.xlsx, reservas BCV + FEM)
 - [x] Collector CEPAL (CEPALSTAT)
 - [x] Collector UNSCEB (gasto ONU)
 - [x] Collector PDVSA (cesta venezolana)

@@ -779,17 +779,25 @@ class MacroRepository:
         }
 
     def get_all_indicators(self) -> dict:
-        """Obtiene todos los indicadores cacheados agrupados por indicador."""
+        """Obtiene todos los indicadores cacheados agrupados por indicador.
+
+        Un mismo indicador puede tener fila por fuente (p.ej. ``inflacion`` de
+        ``imf`` y de ``world_bank``); se devuelve la del ``fetched_at`` más
+        reciente, que es la que el dashboard debe mostrar.
+        """
         stmt = select(MacroIndicatorORM).order_by(MacroIndicatorORM.indicator)
         result = {}
         for orm in self.session.scalars(stmt):
-            result[orm.indicator] = {
+            entry = {
                 "value": float(orm.value),
                 "period": orm.period,
                 "unit": orm.unit,
                 "source": orm.source,
                 "fetched_at": orm.fetched_at,
             }
+            previo = result.get(orm.indicator)
+            if previo is None or (orm.fetched_at and orm.fetched_at >= previo["fetched_at"]):
+                result[orm.indicator] = entry
         return result
 
     def is_stale(self, source: str, indicator: str, max_age_hours: int = 24) -> bool:
